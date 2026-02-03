@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/Layout/ProtectedRoute';
+import { TooltipProvider } from './components/ui/tooltip';
 import Login from './pages/Login/Login';
 import Register from './pages/Register/Register';
 import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
@@ -75,7 +76,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <TooltipProvider>
+          <AppRoutes />
+        </TooltipProvider>
       </AuthProvider>
     </Router>
   );
