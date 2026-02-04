@@ -11,6 +11,8 @@ import Recepcao from './pages/Recepcao/Recepcao';
 import Financas from './pages/Financas/Financas';
 import GestaoPessoas from './pages/GestaoPessoas/GestaoPessoas';
 import Configuracoes from './pages/Configuracoes/Configuracoes';
+import Integracao from './pages/Integracao/Integracao';
+import Eventos from './pages/Eventos/Eventos';
 
 // Componente para redirecionar usuários autenticados
 const PublicRoute = ({ children }) => {
@@ -100,6 +102,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Configuracoes />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/integracao"
+        element={
+          <ProtectedRoute>
+            <Integracao />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/eventos"
+        element={
+          <ProtectedRoute>
+            <Eventos />
           </ProtectedRoute>
         }
       />

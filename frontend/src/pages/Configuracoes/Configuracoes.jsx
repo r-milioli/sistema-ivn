@@ -33,6 +33,16 @@ const Configuracoes = () => {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Estados para formulário de Sistema
+  const [sistemaFormData, setSistemaFormData] = useState({
+    email: '',
+    senhaAtual: '',
+    novaSenha: '',
+    confirmarSenha: ''
+  });
+  const [loadingSistema, setLoadingSistema] = useState(false);
+  const [messageSistema, setMessageSistema] = useState({ type: '', text: '' });
   const [fotoPerfil, setFotoPerfil] = useState(null);
   const [fotoPerfilPreview, setFotoPerfilPreview] = useState(user?.fotoPerfil || null);
 
@@ -56,6 +66,12 @@ const Configuracoes = () => {
         estado: user.estado || ''
       });
       setFotoPerfilPreview(user.fotoPerfil || null);
+      setSistemaFormData({
+        email: user.email || '',
+        senhaAtual: '',
+        novaSenha: '',
+        confirmarSenha: ''
+      });
     }
   }, [user]);
 
@@ -90,6 +106,80 @@ const Configuracoes = () => {
     setFotoPerfilPreview(user?.fotoPerfil || null);
     const fileInput = document.getElementById('fotoPerfil');
     if (fileInput) fileInput.value = '';
+  };
+
+  const handleSistemaChange = (e) => {
+    const { name, value } = e.target;
+    setSistemaFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSistemaSubmit = async (e) => {
+    e.preventDefault();
+    setLoadingSistema(true);
+    setMessageSistema({ type: '', text: '' });
+
+    // Validações
+    if (!sistemaFormData.email) {
+      setMessageSistema({ type: 'error', text: 'O email é obrigatório.' });
+      setLoadingSistema(false);
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(sistemaFormData.email)) {
+      setMessageSistema({ type: 'error', text: 'Por favor, insira um email válido.' });
+      setLoadingSistema(false);
+      return;
+    }
+
+    // Se estiver alterando a senha, validar campos de senha
+    if (sistemaFormData.senhaAtual || sistemaFormData.novaSenha || sistemaFormData.confirmarSenha) {
+      if (!sistemaFormData.senhaAtual) {
+        setMessageSistema({ type: 'error', text: 'Por favor, informe a senha atual.' });
+        setLoadingSistema(false);
+        return;
+      }
+
+      if (!sistemaFormData.novaSenha) {
+        setMessageSistema({ type: 'error', text: 'Por favor, informe a nova senha.' });
+        setLoadingSistema(false);
+        return;
+      }
+
+      if (sistemaFormData.novaSenha.length < 6) {
+        setMessageSistema({ type: 'error', text: 'A nova senha deve ter no mínimo 6 caracteres.' });
+        setLoadingSistema(false);
+        return;
+      }
+
+      if (sistemaFormData.novaSenha !== sistemaFormData.confirmarSenha) {
+        setMessageSistema({ type: 'error', text: 'As senhas não coincidem.' });
+        setLoadingSistema(false);
+        return;
+      }
+    }
+
+    try {
+      // Simulação de atualização - TODO: Substituir por chamada real à API
+      setTimeout(() => {
+        setMessageSistema({ type: 'success', text: 'Configurações atualizadas com sucesso!' });
+        setLoadingSistema(false);
+        // Limpar campos de senha após sucesso
+        setSistemaFormData(prev => ({
+          ...prev,
+          senhaAtual: '',
+          novaSenha: '',
+          confirmarSenha: ''
+        }));
+      }, 1000);
+    } catch (error) {
+      setMessageSistema({ type: 'error', text: 'Erro ao atualizar configurações. Tente novamente.' });
+      setLoadingSistema(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -128,6 +218,10 @@ const Configuracoes = () => {
               <TabsTrigger value="perfil" className="configuracoes-tabs-trigger">
                 <User className="tab-icon" />
                 <span>Perfil</span>
+              </TabsTrigger>
+              <TabsTrigger value="sistema" className="configuracoes-tabs-trigger">
+                <Settings className="tab-icon" />
+                <span>Sistema</span>
               </TabsTrigger>
             </TabsList>
             
@@ -444,6 +538,94 @@ const Configuracoes = () => {
                       disabled={loading}
                     >
                       {loading ? 'Salvando...' : 'Salvar Alterações'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="sistema" className="configuracoes-tabs-content">
+              <div className="tab-content-wrapper">
+                <h2>Configurações do Sistema</h2>
+                
+                <form onSubmit={handleSistemaSubmit} className="perfil-form">
+                  {messageSistema.text && (
+                    <div className={`form-message ${messageSistema.type}`}>
+                      {messageSistema.text}
+                    </div>
+                  )}
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <Label htmlFor="sistema-email">Email</Label>
+                      <Input
+                        type="email"
+                        id="sistema-email"
+                        name="email"
+                        value={sistemaFormData.email}
+                        onChange={handleSistemaChange}
+                        placeholder="email@exemplo.com"
+                        required
+                        className="form-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-section-divider">
+                    <h3>Alterar Senha</h3>
+                    <p className="section-description">Deixe em branco se não desejar alterar a senha</p>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <Label htmlFor="senhaAtual">Senha Atual</Label>
+                      <Input
+                        type="password"
+                        id="senhaAtual"
+                        name="senhaAtual"
+                        value={sistemaFormData.senhaAtual}
+                        onChange={handleSistemaChange}
+                        placeholder="Digite sua senha atual"
+                        className="form-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-row form-row-2">
+                    <div className="form-group">
+                      <Label htmlFor="novaSenha">Nova Senha</Label>
+                      <Input
+                        type="password"
+                        id="novaSenha"
+                        name="novaSenha"
+                        value={sistemaFormData.novaSenha}
+                        onChange={handleSistemaChange}
+                        placeholder="Digite a nova senha"
+                        className="form-input"
+                      />
+                      <p className="field-hint">Mínimo de 6 caracteres</p>
+                    </div>
+                    <div className="form-group">
+                      <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
+                      <Input
+                        type="password"
+                        id="confirmarSenha"
+                        name="confirmarSenha"
+                        value={sistemaFormData.confirmarSenha}
+                        onChange={handleSistemaChange}
+                        placeholder="Confirme a nova senha"
+                        className="form-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-actions">
+                    <Button 
+                      type="submit" 
+                      className="submit-button"
+                      disabled={loadingSistema}
+                    >
+                      {loadingSistema ? 'Salvando...' : 'Salvar Alterações'}
                     </Button>
                   </div>
                 </form>

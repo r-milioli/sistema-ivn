@@ -20,7 +20,7 @@ import {
   TooltipProvider,
 } from "./tooltip"
 import { useIsMobile } from "../../hooks/use-mobile"
-import { PanelLeft, X } from "lucide-react"
+import { PanelLeft, X, Menu } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -266,7 +266,7 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <PanelLeft className="h-5 w-5" />
+      <Menu className="h-5 w-5" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
