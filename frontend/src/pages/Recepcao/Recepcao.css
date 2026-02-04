@@ -1,0 +1,80 @@
+/* Estilos específicos da página de Recepção */
+.dashboard-content h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 24px;
+}
+
+.dashboard-content p {
+  color: #666;
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Estilos das Tabs */
+.recepcao-tabs {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.recepcao-tabs-list {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 24px;
+}
+
+.recepcao-tabs-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+  border-radius: 6px;
+}
+
+.recepcao-tabs-trigger:hover {
+  color: #1a1a1a;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.recepcao-tabs-trigger[data-state="active"] {
+  background: white;
+  color: #1a1a1a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.recepcao-tabs-content {
+  padding: 0;
+  margin-top: 0;
+}
+
+.tab-content-wrapper {
+  background: white;
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-content-wrapper h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+}
+
+.tab-content-wrapper p {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+}

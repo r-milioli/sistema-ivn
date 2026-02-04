@@ -20,7 +20,7 @@ import {
   TooltipProvider,
 } from "./tooltip"
 import { useIsMobile } from "../../hooks/use-mobile"
-import { PanelLeft } from "lucide-react"
+import { PanelLeft, X } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -167,65 +167,82 @@ function Sidebar({
     )
   }
 
+  const { setOpen } = useSidebar()
+
   return (
-    <div
-      className="group peer text-gray-900 hidden md:block"
-      data-state={state}
-      data-collapsible={state === "collapsed" ? collapsible : ""}
-      data-variant={variant}
-      data-side={side}
-      data-slot="sidebar"
-    >
-      <div
-        data-slot="sidebar-gap"
-        className={cn(
-          "transition-[width] duration-200 ease-linear relative bg-transparent",
-          collapsible === "offcanvas" && state === "collapsed" && "w-0",
-          collapsible === "offcanvas" && state === "expanded" && `w-[${SIDEBAR_WIDTH}]`,
-          collapsible === "icon" && state === "collapsed" && `w-[${SIDEBAR_WIDTH_ICON}]`,
-          collapsible === "icon" && state === "expanded" && `w-[${SIDEBAR_WIDTH}]`,
-          state === "expanded" && `w-[${SIDEBAR_WIDTH}]`
-        )}
-        style={{
-          width: state === "collapsed" && collapsible === "offcanvas" 
-            ? "0" 
-            : state === "collapsed" && collapsible === "icon"
-            ? SIDEBAR_WIDTH_ICON
-            : SIDEBAR_WIDTH
-        }}
-      />
-      <div
-        data-slot="sidebar-container"
-        data-side={side}
-        data-state={state}
-        className={cn(
-          "fixed inset-y-0 z-10 hidden h-screen transition-all duration-200 ease-linear md:flex",
-          side === "left" && "border-r",
-          side === "right" && "border-l",
-          className
-        )}
-        style={{
-          width: state === "collapsed" && collapsible === "icon" 
-            ? SIDEBAR_WIDTH_ICON 
-            : SIDEBAR_WIDTH,
-          left: side === "left" && state === "collapsed" && collapsible === "offcanvas" 
-            ? `-${SIDEBAR_WIDTH}` 
-            : side === "left" ? "0" : undefined,
-          right: side === "right" && state === "collapsed" && collapsible === "offcanvas" 
-            ? `-${SIDEBAR_WIDTH}` 
-            : side === "right" ? "0" : undefined,
-        }}
-        {...props}
-      >
+    <>
+      {/* Overlay para fechar ao clicar fora */}
+      {state === "expanded" && (
         <div
-          data-sidebar="sidebar"
-          data-slot="sidebar-inner"
-          className="bg-white flex h-full w-full flex-col"
+          data-slot="sidebar-overlay"
+          className="fixed inset-0 z-[9] bg-black/20 backdrop-blur-sm md:hidden"
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <div
+        className="group peer text-gray-900 hidden md:block"
+        data-state={state}
+        data-collapsible={state === "collapsed" ? collapsible : ""}
+        data-variant={variant}
+        data-side={side}
+        data-slot="sidebar"
+      >
+        {/* Overlay para desktop - clicar fora fecha */}
+        {state === "expanded" && collapsible === "offcanvas" && (
+          <div
+            data-slot="sidebar-overlay-desktop"
+            className="fixed inset-0 z-[9] bg-black/10"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+        {state === "expanded" && (
+          <div
+            data-slot="sidebar-gap"
+            className={cn(
+              "transition-[width] duration-200 ease-linear relative bg-transparent",
+              collapsible === "offcanvas" && `w-[${SIDEBAR_WIDTH}]`,
+              collapsible === "icon" && `w-[${SIDEBAR_WIDTH_ICON}]`
+            )}
+            style={{
+              width: collapsible === "icon" ? SIDEBAR_WIDTH_ICON : SIDEBAR_WIDTH
+            }}
+          />
+        )}
+        <div
+          data-slot="sidebar-container"
+          data-side={side}
+          data-state={state}
+          className={cn(
+            "fixed inset-y-0 z-10 hidden h-screen transition-all duration-200 ease-linear md:flex",
+            side === "left" && "border-r",
+            side === "right" && "border-l",
+            className
+          )}
+          style={{
+            width: state === "collapsed" && collapsible === "icon" 
+              ? SIDEBAR_WIDTH_ICON 
+              : SIDEBAR_WIDTH,
+            left: side === "left" && state === "collapsed" && collapsible === "offcanvas" 
+              ? `-${SIDEBAR_WIDTH}` 
+              : side === "left" ? "0" : undefined,
+            right: side === "right" && state === "collapsed" && collapsible === "offcanvas" 
+              ? `-${SIDEBAR_WIDTH}` 
+              : side === "right" ? "0" : undefined,
+          }}
+          {...props}
         >
-          {children}
+          <div
+            data-sidebar="sidebar"
+            data-slot="sidebar-inner"
+            className="bg-white flex h-full w-full flex-col"
+          >
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
