@@ -711,3 +711,309 @@
     font-size: 11px;
   }
 }
+
+/* Estilos do Formulário de Relatório */
+.relatorio-form {
+  margin-top: 24px;
+}
+
+.editor-wrapper {
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rich-text-editor {
+  background: white;
+  font-family: 'Poppins', sans-serif;
+}
+
+.rich-text-editor .ql-container {
+  min-height: 300px;
+  font-size: 14px;
+  color: #1a1a1a;
+  font-family: 'Poppins', sans-serif;
+}
+
+.rich-text-editor .ql-editor {
+  min-height: 300px;
+  padding: 16px;
+  line-height: 1.6;
+}
+
+.rich-text-editor .ql-editor.ql-blank::before {
+  color: #999;
+  font-style: normal;
+  font-family: 'Poppins', sans-serif;
+}
+
+.rich-text-editor .ql-toolbar {
+  border-top: 1px solid #d0d0d0;
+  border-left: 1px solid #d0d0d0;
+  border-right: 1px solid #d0d0d0;
+  border-bottom: none;
+  background: #f9f9f9;
+  padding: 12px;
+  border-radius: 8px 8px 0 0;
+}
+
+.rich-text-editor .ql-toolbar .ql-stroke {
+  stroke: #1a1a1a;
+}
+
+.rich-text-editor .ql-toolbar .ql-fill {
+  fill: #1a1a1a;
+}
+
+.rich-text-editor .ql-toolbar .ql-picker-label {
+  color: #1a1a1a;
+}
+
+.rich-text-editor .ql-toolbar button:hover,
+.rich-text-editor .ql-toolbar button:focus,
+.rich-text-editor .ql-toolbar button.ql-active {
+  color: #1a1a1a;
+}
+
+.rich-text-editor .ql-toolbar button:hover .ql-stroke,
+.rich-text-editor .ql-toolbar button:focus .ql-stroke,
+.rich-text-editor .ql-toolbar button.ql-active .ql-stroke {
+  stroke: #1a1a1a;
+}
+
+.rich-text-editor .ql-toolbar button:hover .ql-fill,
+.rich-text-editor .ql-toolbar button:focus .ql-fill,
+.rich-text-editor .ql-toolbar button.ql-active .ql-fill {
+  fill: #1a1a1a;
+}
+
+.rich-text-editor .ql-container {
+  border-left: 1px solid #d0d0d0;
+  border-right: 1px solid #d0d0d0;
+  border-bottom: 1px solid #d0d0d0;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.rich-text-editor .ql-editor {
+  border: none;
+}
+
+.rich-text-editor .ql-editor:focus {
+  outline: none;
+}
+
+.rich-text-editor .ql-editor h1,
+.rich-text-editor .ql-editor h2,
+.rich-text-editor .ql-editor h3,
+.rich-text-editor .ql-editor h4,
+.rich-text-editor .ql-editor h5,
+.rich-text-editor .ql-editor h6 {
+  color: #1a1a1a;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.rich-text-editor .ql-editor p {
+  color: #333;
+  font-family: 'Poppins', sans-serif;
+}
+
+.rich-text-editor .ql-editor ul,
+.rich-text-editor .ql-editor ol {
+  padding-left: 24px;
+  color: #333;
+}
+
+.rich-text-editor .ql-editor a {
+  color: #1a1a1a;
+  text-decoration: underline;
+}
+
+.rich-text-editor .ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.rich-text-editor .ql-editor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+
+.rich-text-editor .ql-editor table td,
+.rich-text-editor .ql-editor table th {
+  border: 1px solid #d0d0d0;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.rich-text-editor .ql-editor table th {
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+/* Responsive para editor */
+@media (max-width: 768px) {
+  .rich-text-editor .ql-toolbar {
+    padding: 8px;
+  }
+
+  .rich-text-editor .ql-container {
+    min-height: 250px;
+  }
+
+  .rich-text-editor .ql-editor {
+    min-height: 250px;
+    padding: 12px;
+  }
+}
+
+/* Estilos da Seção de Relatórios Gerados */
+.relatorios-section {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.relatorios-gerados-container {
+  width: 100%;
+}
+
+.relatorios-gerados-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 24px;
+}
+
+.relatorios-empty {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 14px;
+}
+
+.relatorios-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.relatorio-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.relatorio-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #d0d0d0;
+}
+
+.relatorio-item-content {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.relatorio-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.relatorio-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.relatorio-item-nome {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.relatorio-item-data {
+  font-size: 13px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.relatorio-item-details {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.relatorio-item-mes {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.relatorio-item-tamanho {
+  font-size: 13px;
+  color: #666;
+}
+
+.relatorio-download-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  border: 1px solid #1a1a1a;
+  color: #1a1a1a;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.relatorio-download-button:hover {
+  background: #1a1a1a;
+  color: white;
+}
+
+.download-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Responsive para relatórios */
+@media (max-width: 768px) {
+  .relatorio-item-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .relatorio-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .relatorio-item-details {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .relatorio-download-button {
+    width: 100%;
+    justify-content: center;
+  }
+}

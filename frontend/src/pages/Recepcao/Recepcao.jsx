@@ -13,8 +13,10 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { useAuth } from '../../context/AuthContext';
-import { UserPlus, List, Search, ChevronLeft, ChevronRight, BarChart3, Calendar, MapPin, Users, TrendingUp } from 'lucide-react';
+import { UserPlus, List, Search, ChevronLeft, ChevronRight, BarChart3, Calendar, MapPin, Users, TrendingUp, FileText, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import './Recepcao.css';
 
 const Recepcao = () => {
@@ -115,6 +117,10 @@ const Recepcao = () => {
               <TabsTrigger value="estatisticas" className="recepcao-tabs-trigger">
                 <BarChart3 className="tab-icon" />
                 <span>Estatísticas</span>
+              </TabsTrigger>
+              <TabsTrigger value="relatorio" className="recepcao-tabs-trigger">
+                <FileText className="tab-icon" />
+                <span>Relatório</span>
               </TabsTrigger>
             </TabsList>
             
@@ -306,6 +312,16 @@ const Recepcao = () => {
               <div className="tab-content-wrapper">
                 <h2>Estatísticas de Visitantes</h2>
                 <EstatisticasVisitantes />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="relatorio" className="recepcao-tabs-content">
+              <div className="tab-content-wrapper">
+                <h2>Relatório</h2>
+                <RelatorioForm />
+                <div className="relatorios-section">
+                  <RelatoriosGerados />
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -872,6 +888,251 @@ const EstatisticasVisitantes = () => {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+};
+
+// Componente de Formulário de Relatório
+const RelatorioForm = () => {
+  const meses = [
+    { value: '01', label: 'Janeiro' },
+    { value: '02', label: 'Fevereiro' },
+    { value: '03', label: 'Março' },
+    { value: '04', label: 'Abril' },
+    { value: '05', label: 'Maio' },
+    { value: '06', label: 'Junho' },
+    { value: '07', label: 'Julho' },
+    { value: '08', label: 'Agosto' },
+    { value: '09', label: 'Setembro' },
+    { value: '10', label: 'Outubro' },
+    { value: '11', label: 'Novembro' },
+    { value: '12', label: 'Dezembro' }
+  ];
+
+  const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
+  const mesAtualLabel = meses.find(m => m.value === mesAtual)?.label || 'Janeiro';
+
+  const [formData, setFormData] = useState({
+    nomeMinisterio: 'Ministério Recepção',
+    mesReferencia: mesAtual,
+    conteudo: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditorChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      conteudo: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // Aqui você fará a chamada à API quando estiver pronta
+      // const response = await api.post('/relatorios', formData);
+      
+      // Simulação de sucesso
+      setTimeout(() => {
+        setMessage({ type: 'success', text: 'Relatório enviado com sucesso!' });
+        setFormData({
+          nomeMinisterio: 'Ministério Recepção',
+          mesReferencia: mesAtual,
+          conteudo: ''
+        });
+        setLoading(false);
+      }, 1000);
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Erro ao enviar relatório. Tente novamente.' });
+      setLoading(false);
+    }
+  };
+
+  // Configuração do editor Quill
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+      [{ 'font': [] }],
+      [{ 'size': [] }],
+      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }, { 'indent': '-1'}, { 'indent': '+1' }],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'align': [] }],
+      ['link', 'image', 'video'],
+      ['table'],
+      ['clean']
+    ],
+  };
+
+  const quillFormats = [
+    'header', 'font', 'size',
+    'bold', 'italic', 'underline', 'strike', 'blockquote',
+    'list', 'bullet', 'indent',
+    'color', 'background',
+    'align',
+    'link', 'image', 'video',
+    'table'
+  ];
+
+  return (
+    <form onSubmit={handleSubmit} className="relatorio-form">
+      {message.text && (
+        <div className={`form-message ${message.type}`}>
+          {message.text}
+        </div>
+      )}
+
+      <div className="form-row form-row-2">
+        <div className="form-group">
+          <Label htmlFor="nomeMinisterio">Nome do Ministério</Label>
+          <Input
+            type="text"
+            id="nomeMinisterio"
+            name="nomeMinisterio"
+            value={formData.nomeMinisterio}
+            onChange={handleChange}
+            required
+            className="form-input"
+          />
+        </div>
+
+        <div className="form-group">
+          <Label htmlFor="mesReferencia">Mês de Referência</Label>
+          <select
+            id="mesReferencia"
+            name="mesReferencia"
+            value={formData.mesReferencia}
+            onChange={handleChange}
+            required
+            className="form-select"
+          >
+            {meses.map((mes) => (
+              <option key={mes.value} value={mes.value}>
+                {mes.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <Label htmlFor="conteudo">Conteúdo do Relatório</Label>
+          <div className="editor-wrapper">
+            <ReactQuill
+              theme="snow"
+              value={formData.conteudo}
+              onChange={handleEditorChange}
+              modules={quillModules}
+              formats={quillFormats}
+              placeholder="Digite o conteúdo do relatório..."
+              className="rich-text-editor"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="form-actions">
+        <Button 
+          type="submit" 
+          className="submit-button"
+          disabled={loading}
+        >
+          {loading ? 'Enviando...' : 'Enviar Relatório'}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+// Componente de Lista de Relatórios Gerados
+const RelatoriosGerados = () => {
+  // Dados mockados de relatórios
+  const relatorios = useMemo(() => {
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const relatoriosList = [];
+    
+    for (let i = 0; i < 12; i++) {
+      const data = new Date();
+      data.setMonth(data.getMonth() - i);
+      const mes = meses[data.getMonth()];
+      const ano = data.getFullYear();
+      
+      relatoriosList.push({
+        id: i + 1,
+        nomeMinisterio: 'Ministério Recepção',
+        mesReferencia: mes,
+        anoReferencia: ano,
+        dataGeracao: data.toLocaleDateString('pt-BR'),
+        tamanho: `${Math.floor(Math.random() * 500) + 100} KB`
+      });
+    }
+    
+    return relatoriosList;
+  }, []);
+
+  const handleDownload = (relatorio) => {
+    // Simulação de download
+    const link = document.createElement('a');
+    link.href = '#'; // Aqui você colocaria a URL real do PDF
+    link.download = `Relatorio_${relatorio.nomeMinisterio}_${relatorio.mesReferencia}_${relatorio.anoReferencia}.pdf`;
+    // link.click(); // Descomente quando tiver a URL real
+    
+    // Por enquanto, apenas um alerta
+    alert(`Download do relatório: ${relatorio.nomeMinisterio} - ${relatorio.mesReferencia}/${relatorio.anoReferencia}`);
+  };
+
+  return (
+    <div className="relatorios-gerados-container">
+      <h3 className="relatorios-gerados-title">Relatórios Gerados</h3>
+      
+      {relatorios.length === 0 ? (
+        <div className="relatorios-empty">
+          <p>Nenhum relatório gerado ainda.</p>
+        </div>
+      ) : (
+        <div className="relatorios-list">
+          {relatorios.map((relatorio) => (
+            <Card key={relatorio.id} className="relatorio-item">
+              <CardContent className="relatorio-item-content">
+                <div className="relatorio-item-info">
+                  <div className="relatorio-item-header">
+                    <h4 className="relatorio-item-nome">{relatorio.nomeMinisterio}</h4>
+                    <span className="relatorio-item-data">{relatorio.dataGeracao}</span>
+                  </div>
+                  <div className="relatorio-item-details">
+                    <span className="relatorio-item-mes">
+                      {relatorio.mesReferencia} / {relatorio.anoReferencia}
+                    </span>
+                    <span className="relatorio-item-tamanho">{relatorio.tamanho}</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownload(relatorio)}
+                  className="relatorio-download-button"
+                >
+                  <Download className="download-icon" />
+                  <span>Download PDF</span>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
