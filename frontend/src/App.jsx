@@ -8,6 +8,7 @@ import Register from './pages/Register/Register';
 import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Recepcao from './pages/Recepcao/Recepcao';
+import Financas from './pages/Financas/Financas';
 
 // Componente para redirecionar usuários autenticados
 const PublicRoute = ({ children }) => {
@@ -73,6 +74,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Recepcao />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/financas"
+        element={
+          <ProtectedRoute>
+            <Financas />
           </ProtectedRoute>
         }
       />

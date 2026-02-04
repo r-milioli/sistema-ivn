@@ -60,9 +60,9 @@ const MainLayout = ({ children }) => {
           <div className="header-content">
             <div className="header-left">
               <SidebarTrigger className="menu-button" />
-              <div className="header-logo">
+              <Link to="/dashboard" className="header-logo">
                 <h1>Sistema IVN</h1>
-              </div>
+              </Link>
             </div>
             
             <div className="header-right">
