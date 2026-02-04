@@ -9,6 +9,8 @@ import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
 import Dashboard from './pages/Dashboard/Dashboard';
 import Recepcao from './pages/Recepcao/Recepcao';
 import Financas from './pages/Financas/Financas';
+import GestaoPessoas from './pages/GestaoPessoas/GestaoPessoas';
+import Configuracoes from './pages/Configuracoes/Configuracoes';
 
 // Componente para redirecionar usuários autenticados
 const PublicRoute = ({ children }) => {
@@ -82,6 +84,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Financas />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/gestao-pessoas"
+        element={
+          <ProtectedRoute>
+            <GestaoPessoas />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/configuracoes"
+        element={
+          <ProtectedRoute>
+            <Configuracoes />
           </ProtectedRoute>
         }
       />

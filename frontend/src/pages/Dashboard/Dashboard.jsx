@@ -34,7 +34,8 @@ import {
   Calendar,
   Drama,
   Mic,
-  HeartPulse
+  HeartPulse,
+  UserCog
 } from 'lucide-react';
 import MainLayout from '../../components/Layout/MainLayout';
 import './Dashboard.css';
@@ -52,6 +53,11 @@ const Dashboard = () => {
       icon: Wallet, 
       label: 'Finanças', 
       path: '/financas'
+    },
+    { 
+      icon: UserCog, 
+      label: 'Gestão de Pessoas', 
+      path: '/gestao-pessoas'
     },
     { 
       icon: Music, 
@@ -74,7 +80,7 @@ const Dashboard = () => {
       path: '/obreiros'
     },
     { 
-      icon: Baby, 
+      icon: Smile, 
       label: 'Adolescentes', 
       path: '/adolescentes'
     },
@@ -109,7 +115,7 @@ const Dashboard = () => {
       path: '/configuracoes'
     },
     { 
-      icon: Smile, 
+      icon: Baby, 
       label: 'Kids', 
       path: '/kids'
     },

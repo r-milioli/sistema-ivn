@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Settings, LogOut, Search, User, Home, Users, DollarSign, Calendar, X } from 'lucide-react';
 import { useSidebar } from '../ui/sidebar';
@@ -45,6 +45,7 @@ const SidebarCloseButton = () => {
 const MainLayout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const menuItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard' },
@@ -82,7 +83,10 @@ const MainLayout = ({ children }) => {
                     <div className="user-email-header">{user?.email || ''}</div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="dropdown-item">
+                  <DropdownMenuItem 
+                    className="dropdown-item"
+                    onClick={() => navigate('/configuracoes')}
+                  >
                     <Settings className="dropdown-icon" />
                     <span>Configurações</span>
                   </DropdownMenuItem>
