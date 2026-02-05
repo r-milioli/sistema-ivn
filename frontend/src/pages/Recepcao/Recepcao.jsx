@@ -13,14 +13,17 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { useAuth } from '../../context/AuthContext';
-import { UserPlus, List, Search, ChevronLeft, ChevronRight, BarChart3, Calendar, MapPin, Users, TrendingUp, FileText, Download } from 'lucide-react';
+import { UserPlus, List, Search, ChevronLeft, ChevronRight, BarChart3, Calendar, MapPin, Users, TrendingUp, FileText, Download, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { useToast } from '../../hooks/use-toast';
+import api from '../../services/api';
 import './Recepcao.css';
 
 const Recepcao = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
 
   // Função para obter data e hora atual no formato datetime-local
   const getCurrentDateTime = () => {
@@ -56,7 +59,6 @@ const Recepcao = () => {
   }, [user]);
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -69,31 +71,35 @@ const Recepcao = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      // Aqui você fará a chamada à API quando estiver pronta
-      // const response = await api.post('/visitantes', formData);
+      const response = await api.post('/visitantes', formData);
       
-      // Simulação de sucesso
-      setTimeout(() => {
-        setMessage({ type: 'success', text: 'Visitante cadastrado com sucesso!' });
-        setFormData({
-          recepcionadoPor: user?.nome || '',
-          diaVisita: getCurrentDateTime(),
-          nomeCompleto: '',
-          dataNascimento: '',
-          whatsapp: '',
-          email: '',
-          bairro: '',
-          cidade: '',
-          comoConheceu: '',
-          pedidoOracao: ''
-        });
-        setLoading(false);
-      }, 1000);
+      toast({
+        title: 'Sucesso!',
+        description: 'Visitante cadastrado com sucesso!',
+      });
+
+      setFormData({
+        recepcionadoPor: user?.nome || '',
+        diaVisita: getCurrentDateTime(),
+        nomeCompleto: '',
+        dataNascimento: '',
+        whatsapp: '',
+        email: '',
+        bairro: '',
+        cidade: '',
+        comoConheceu: '',
+        pedidoOracao: ''
+      });
     } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao cadastrar visitante. Tente novamente.' });
+      const errorMessage = error.response?.data?.message || 'Erro ao cadastrar visitante. Tente novamente.';
+      toast({
+        title: 'Erro',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -129,12 +135,6 @@ const Recepcao = () => {
                 <h2>Cadastrar Visitante</h2>
                 
                 <form onSubmit={handleSubmit} className="visitante-form">
-                  {message.text && (
-                    <div className={`form-message ${message.type}`}>
-                      {message.text}
-                    </div>
-                  )}
-
                   <div className="form-row form-row-2">
                     <div className="form-group">
                       <Label htmlFor="recepcionadoPor">Recepcionado por</Label>
@@ -318,10 +318,7 @@ const Recepcao = () => {
             <TabsContent value="relatorio" className="recepcao-tabs-content">
               <div className="tab-content-wrapper">
                 <h2>Relatório</h2>
-                <RelatorioForm />
-                <div className="relatorios-section">
-                  <RelatoriosGerados />
-                </div>
+                <RelatorioFormWrapper />
               </div>
             </TabsContent>
           </Tabs>
@@ -342,65 +339,54 @@ const getCurrentDate = () => {
 
 // Componente de Tabela de Visitantes
 const VisitantesTable = () => {
+  const { toast } = useToast();
   const [filters, setFilters] = useState({
     search: '',
     dataVisita: getCurrentDate(),
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [visitantes, setVisitantes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 0,
+  });
 
-  // Dados mockados
-  const mockVisitantes = useMemo(() => {
-    const visitantes = [];
-    const nomes = ['João Silva', 'Maria Santos', 'Pedro Oliveira', 'Ana Costa', 'Carlos Souza', 'Juliana Lima', 'Roberto Alves', 'Fernanda Rocha', 'Lucas Pereira', 'Beatriz Ferreira', 'Rafael Martins', 'Camila Rodrigues', 'Gabriel Dias', 'Larissa Gomes', 'Thiago Barbosa'];
-    const bairros = ['Centro', 'Jardim América', 'Vila Nova', 'Bela Vista', 'São José', 'Parque Industrial', 'Alto da Boa Vista'];
-    const cidades = ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Curitiba', 'Porto Alegre'];
-    const comoConheceu = ['Família/Amigo', 'Google', 'Rede Social', 'Passei em frente'];
-    const recepcionistas = ['João Admin', 'Maria Admin', 'Pedro Admin'];
+  // Buscar visitantes da API
+  useEffect(() => {
+    const buscarVisitantes = async () => {
+      setLoading(true);
+      try {
+        const params = {
+          page: currentPage,
+          pageSize: pageSize,
+        };
+        
+        if (filters.search) {
+          params.search = filters.search;
+        }
+        
+        if (filters.dataVisita) {
+          params.dataVisita = filters.dataVisita;
+        }
 
-    for (let i = 1; i <= 50; i++) {
-      const dataVisita = new Date();
-      dataVisita.setDate(dataVisita.getDate() - Math.floor(Math.random() * 30));
-      const hora = String(Math.floor(Math.random() * 24)).padStart(2, '0');
-      const minuto = String(Math.floor(Math.random() * 60)).padStart(2, '0');
-      
-      visitantes.push({
-        id: i,
-        recepcionadoPor: recepcionistas[Math.floor(Math.random() * recepcionistas.length)],
-        diaVisita: `${dataVisita.getFullYear()}-${String(dataVisita.getMonth() + 1).padStart(2, '0')}-${String(dataVisita.getDate()).padStart(2, '0')}T${hora}:${minuto}`,
-        nomeCompleto: nomes[Math.floor(Math.random() * nomes.length)],
-        dataNascimento: `${1980 + Math.floor(Math.random() * 40)}-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
-        whatsapp: `(11) ${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 9000) + 1000}`,
-        email: `visitante${i}@exemplo.com`,
-        bairro: bairros[Math.floor(Math.random() * bairros.length)],
-        cidade: cidades[Math.floor(Math.random() * cidades.length)],
-        comoConheceu: comoConheceu[Math.floor(Math.random() * comoConheceu.length)],
-        pedidoOracao: i % 3 === 0 ? 'Pedido de oração para saúde da família' : i % 3 === 1 ? 'Oração pela paz mundial' : 'Agradecimento pelas bênçãos recebidas',
-      });
-    }
-    return visitantes;
-  }, []);
+        const response = await api.get('/visitantes', { params });
+        setVisitantes(response.data.visitantes);
+        setPagination(response.data.pagination);
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar visitantes. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Filtrar dados
-  const filteredData = useMemo(() => {
-    return mockVisitantes.filter(visitante => {
-      const matchSearch = !filters.search || 
-        visitante.nomeCompleto.toLowerCase().includes(filters.search.toLowerCase()) ||
-        visitante.email.toLowerCase().includes(filters.search.toLowerCase()) ||
-        visitante.whatsapp.includes(filters.search);
-      
-      const visitanteDate = visitante.diaVisita.split('T')[0];
-      const matchDate = !filters.dataVisita || visitanteDate === filters.dataVisita;
-      
-      return matchSearch && matchDate;
-    });
-  }, [mockVisitantes, filters]);
-
-  // Paginação
-  const totalPages = Math.ceil(filteredData.length / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedData = filteredData.slice(startIndex, endIndex);
+    buscarVisitantes();
+  }, [currentPage, pageSize, filters.search, filters.dataVisita, toast]);
 
   const handleFilterChange = (name, value) => {
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -418,6 +404,29 @@ const VisitantesTable = () => {
       minute: '2-digit'
     });
   };
+
+  const formatDateOnly = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const formatComoConheceu = (value) => {
+    const map = {
+      'familia-amigo': 'Família/Amigo',
+      'google': 'Google',
+      'redesocial': 'Rede Social',
+      'passei-frente': 'Passei em frente'
+    };
+    return map[value] || value;
+  };
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + visitantes.length;
 
   return (
     <div className="visitantes-table-container">
@@ -454,55 +463,59 @@ const VisitantesTable = () => {
 
       {/* Tabela */}
       <div className="table-wrapper">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Recepcionado por</TableHead>
-              <TableHead>Dia da visita</TableHead>
-              <TableHead>Nome completo</TableHead>
-              <TableHead>Data nascimento</TableHead>
-              <TableHead>WhatsApp</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Bairro</TableHead>
-              <TableHead>Cidade</TableHead>
-              <TableHead>Como conheceu</TableHead>
-              <TableHead>Pedido de oração</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedData.length === 0 ? (
+        {loading ? (
+          <div className="text-center p-8">Carregando...</div>
+        ) : (
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={10} className="text-center">
-                  Nenhum visitante encontrado
-                </TableCell>
+                <TableHead>Recepcionado por</TableHead>
+                <TableHead>Dia da visita</TableHead>
+                <TableHead>Nome completo</TableHead>
+                <TableHead>Data nascimento</TableHead>
+                <TableHead>WhatsApp</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Bairro</TableHead>
+                <TableHead>Cidade</TableHead>
+                <TableHead>Como conheceu</TableHead>
+                <TableHead>Pedido de oração</TableHead>
               </TableRow>
-            ) : (
-              paginatedData.map((visitante) => (
-                <TableRow key={visitante.id}>
-                  <TableCell>{visitante.recepcionadoPor}</TableCell>
-                  <TableCell>{formatDate(visitante.diaVisita)}</TableCell>
-                  <TableCell>{visitante.nomeCompleto}</TableCell>
-                  <TableCell>{formatDate(visitante.dataNascimento)}</TableCell>
-                  <TableCell>{visitante.whatsapp}</TableCell>
-                  <TableCell>{visitante.email}</TableCell>
-                  <TableCell>{visitante.bairro}</TableCell>
-                  <TableCell>{visitante.cidade}</TableCell>
-                  <TableCell>{visitante.comoConheceu}</TableCell>
-                  <TableCell className="max-w-xs truncate" title={visitante.pedidoOracao}>
-                    {visitante.pedidoOracao || '-'}
+            </TableHeader>
+            <TableBody>
+              {visitantes.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center">
+                    Nenhum visitante encontrado
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                visitantes.map((visitante) => (
+                  <TableRow key={visitante.id}>
+                    <TableCell>{visitante.recepcionado_por || '-'}</TableCell>
+                    <TableCell>{formatDate(visitante.dia_visita)}</TableCell>
+                    <TableCell>{visitante.nome_completo}</TableCell>
+                    <TableCell>{formatDateOnly(visitante.data_nascimento)}</TableCell>
+                    <TableCell>{visitante.whatsapp}</TableCell>
+                    <TableCell>{visitante.email}</TableCell>
+                    <TableCell>{visitante.bairro}</TableCell>
+                    <TableCell>{visitante.cidade}</TableCell>
+                    <TableCell>{formatComoConheceu(visitante.como_conheceu)}</TableCell>
+                    <TableCell className="max-w-xs truncate" title={visitante.pedido_oracao}>
+                      {visitante.pedido_oracao || '-'}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
 
       {/* Paginação */}
       <div className="pagination-section">
         <div className="pagination-info">
           <span>
-            Mostrando {startIndex + 1} a {Math.min(endIndex, filteredData.length)} de {filteredData.length} visitantes
+            Mostrando {visitantes.length > 0 ? startIndex + 1 : 0} a {endIndex} de {pagination.total} visitantes
           </span>
           <div className="page-size-selector">
             <Label htmlFor="pageSize">Linhas por página:</Label>
@@ -536,14 +549,14 @@ const VisitantesTable = () => {
           </Button>
           
           <div className="page-numbers">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
               let pageNum;
-              if (totalPages <= 5) {
+              if (pagination.totalPages <= 5) {
                 pageNum = i + 1;
               } else if (currentPage <= 3) {
                 pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
+              } else if (currentPage >= pagination.totalPages - 2) {
+                pageNum = pagination.totalPages - 4 + i;
               } else {
                 pageNum = currentPage - 2 + i;
               }
@@ -565,8 +578,8 @@ const VisitantesTable = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages, prev + 1))}
+            disabled={currentPage === pagination.totalPages || loading}
             className="pagination-button"
           >
             Próxima
@@ -580,78 +593,36 @@ const VisitantesTable = () => {
 
 // Componente de Estatísticas
 const EstatisticasVisitantes = () => {
-  // Dados mockados para estatísticas
-  const estatisticas = useMemo(() => {
-    const hoje = new Date();
-    const mesAtual = hoje.getMonth() + 1;
-    const anoAtual = hoje.getFullYear();
-    
-    // Estatísticas por período
-    const porDia = Array.from({ length: 7 }, (_, i) => {
-      const data = new Date();
-      data.setDate(data.getDate() - (6 - i));
-      return {
-        data: data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        quantidade: Math.floor(Math.random() * 20) + 5
-      };
-    });
+  const { toast } = useToast();
+  const [estatisticas, setEstatisticas] = useState({
+    porDia: [],
+    porMes: [],
+    porAno: [],
+    porBairro: [],
+    porDiaSemana: [],
+    resumo: { hoje: 0, mesAtual: 0, anoAtual: 0, total: 0 }
+  });
+  const [loading, setLoading] = useState(true);
 
-    const porMes = Array.from({ length: 12 }, (_, i) => {
-      const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-      return {
-        mes: meses[i],
-        quantidade: Math.floor(Math.random() * 50) + 10
-      };
-    });
-
-    const porAno = Array.from({ length: 5 }, (_, i) => {
-      const ano = anoAtual - (4 - i);
-      return {
-        ano: ano.toString(),
-        quantidade: Math.floor(Math.random() * 200) + 100
-      };
-    });
-
-    // Estatísticas por bairro
-    const bairros = ['Centro', 'Jardim América', 'Vila Nova', 'Bela Vista', 'São José', 'Parque Industrial', 'Alto da Boa Vista'];
-    const porBairro = bairros.map(bairro => ({
-      bairro,
-      quantidade: Math.floor(Math.random() * 30) + 5,
-      percentual: 0
-    }));
-    const totalBairros = porBairro.reduce((sum, b) => sum + b.quantidade, 0);
-    porBairro.forEach(b => {
-      b.percentual = ((b.quantidade / totalBairros) * 100).toFixed(1);
-    });
-
-    // Estatísticas por sexo
-    const porSexo = [
-      { sexo: 'Masculino', quantidade: 45, cor: '#3b82f6' },
-      { sexo: 'Feminino', quantidade: 55, cor: '#ec4899' },
-      { sexo: 'Não informado', quantidade: 10, cor: '#6b7280' }
-    ];
-    const totalSexo = porSexo.reduce((sum, s) => sum + s.quantidade, 0);
-    porSexo.forEach(s => {
-      s.percentual = ((s.quantidade / totalSexo) * 100).toFixed(1);
-    });
-
-    // Estatísticas por dia da semana
-    const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-    const porDiaSemana = diasSemana.map((dia, index) => ({
-      dia,
-      quantidade: Math.floor(Math.random() * 25) + 5,
-      ordem: index
-    }));
-
-    return {
-      porDia,
-      porMes,
-      porAno,
-      porBairro: porBairro.sort((a, b) => b.quantidade - a.quantidade),
-      porSexo,
-      porDiaSemana
+  useEffect(() => {
+    const buscarEstatisticas = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/visitantes/estatisticas');
+        setEstatisticas(response.data);
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar estatísticas. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
     };
-  }, []);
+
+    buscarEstatisticas();
+  }, [toast]);
 
   return (
     <div className="estatisticas-container">
@@ -829,32 +800,7 @@ const EstatisticasVisitantes = () => {
         </CardContent>
       </Card>
 
-      {/* Estatísticas por Sexo */}
-      <Card className="stat-chart-card">
-        <CardHeader>
-          <CardTitle className="stat-chart-title">
-            <Users className="stat-icon" />
-            Visitantes por Sexo
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="pie-chart-container">
-            {estatisticas.porSexo.map((item, index) => {
-              const total = estatisticas.porSexo.reduce((sum, s) => sum + s.quantidade, 0);
-              const percentual = ((item.quantidade / total) * 100).toFixed(1);
-              return (
-                <div key={index} className="pie-chart-item">
-                  <div className="pie-chart-indicator" style={{ backgroundColor: item.cor }} />
-                  <div className="pie-chart-info">
-                    <div className="pie-chart-label">{item.sexo}</div>
-                    <div className="pie-chart-value">{item.quantidade} ({percentual}%)</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Estatísticas por Sexo - Removido pois a tabela visitantes não possui campo de sexo */}
 
       {/* Estatísticas por Dia da Semana */}
       <Card className="stat-chart-card">
@@ -892,9 +838,41 @@ const EstatisticasVisitantes = () => {
   );
 };
 
+// Componente Wrapper para Relatório (gerencia estado de edição)
+const RelatorioFormWrapper = () => {
+  const [editingId, setEditingId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleEdit = (id) => {
+    setEditingId(id);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSaveSuccess = () => {
+    setEditingId(null);
+    setRefreshKey(prev => prev + 1); // Força atualização da lista
+  };
+
+  return (
+    <>
+      <RelatorioForm 
+        editingId={editingId} 
+        onCancelEdit={handleCancelEdit}
+        onSaveSuccess={handleSaveSuccess}
+      />
+      <div className="relatorios-section">
+        <RelatoriosGerados onEdit={handleEdit} refreshKey={refreshKey} />
+      </div>
+    </>
+  );
+};
+
 // Componente de Formulário de Relatório
-const RelatorioForm = () => {
-  const meses = [
+const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
+  const meses = useMemo(() => [
     { value: '01', label: 'Janeiro' },
     { value: '02', label: 'Fevereiro' },
     { value: '03', label: 'Março' },
@@ -907,18 +885,59 @@ const RelatorioForm = () => {
     { value: '10', label: 'Outubro' },
     { value: '11', label: 'Novembro' },
     { value: '12', label: 'Dezembro' }
-  ];
+  ], []);
 
-  const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
-  const mesAtualLabel = meses.find(m => m.value === mesAtual)?.label || 'Janeiro';
+  const mesAtual = useMemo(() => String(new Date().getMonth() + 1).padStart(2, '0'), []);
 
   const [formData, setFormData] = useState({
     nomeMinisterio: 'Ministério Recepção',
     mesReferencia: mesAtual,
     conteudo: ''
   });
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [loadingRelatorio, setLoadingRelatorio] = useState(false);
+
+  // Carregar relatório quando editingId mudar
+  useEffect(() => {
+    if (editingId) {
+      const carregarRelatorio = async () => {
+        setLoadingRelatorio(true);
+        try {
+          const response = await api.get(`/relatorios/${editingId}`);
+          const relatorio = response.data.relatorio;
+          
+          // Converter nome do mês para número
+          const mesEncontrado = meses.find(m => m.label === relatorio.mesReferencia);
+          const mesValue = mesEncontrado ? mesEncontrado.value : mesAtual;
+          
+          setFormData({
+            nomeMinisterio: relatorio.nomeMinisterio,
+            mesReferencia: mesValue,
+            conteudo: relatorio.conteudo
+          });
+        } catch (error) {
+          toast({
+            title: 'Erro',
+            description: 'Erro ao carregar relatório. Tente novamente.',
+            variant: 'destructive',
+          });
+          if (onCancelEdit) onCancelEdit();
+        } finally {
+          setLoadingRelatorio(false);
+        }
+      };
+
+      carregarRelatorio();
+    } else {
+      // Resetar formulário quando não estiver editando
+      setFormData({
+        nomeMinisterio: 'Ministério Recepção',
+        mesReferencia: mesAtual,
+        conteudo: ''
+      });
+    }
+  }, [editingId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -938,24 +957,42 @@ const RelatorioForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      // Aqui você fará a chamada à API quando estiver pronta
-      // const response = await api.post('/relatorios', formData);
-      
-      // Simulação de sucesso
-      setTimeout(() => {
-        setMessage({ type: 'success', text: 'Relatório enviado com sucesso!' });
+      if (editingId) {
+        // Atualizar relatório existente
+        await api.put(`/relatorios/${editingId}`, formData);
+        
+        toast({
+          title: 'Sucesso!',
+          description: 'Relatório atualizado com sucesso!',
+        });
+        
+        onSaveSuccess();
+      } else {
+        // Criar novo relatório
+        await api.post('/relatorios', formData);
+        
+        toast({
+          title: 'Sucesso!',
+          description: 'Relatório criado com sucesso!',
+        });
+
         setFormData({
           nomeMinisterio: 'Ministério Recepção',
           mesReferencia: mesAtual,
           conteudo: ''
         });
-        setLoading(false);
-      }, 1000);
+      }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao enviar relatório. Tente novamente.' });
+      const errorMessage = error.response?.data?.message || 
+        (editingId ? 'Erro ao atualizar relatório. Tente novamente.' : 'Erro ao criar relatório. Tente novamente.');
+      toast({
+        title: 'Erro',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -971,7 +1008,6 @@ const RelatorioForm = () => {
       [{ 'color': [] }, { 'background': [] }],
       [{ 'align': [] }],
       ['link', 'image', 'video'],
-      ['table'],
       ['clean']
     ],
   };
@@ -982,18 +1018,22 @@ const RelatorioForm = () => {
     'list', 'bullet', 'indent',
     'color', 'background',
     'align',
-    'link', 'image', 'video',
-    'table'
+    'link', 'image', 'video'
   ];
+
+  if (loadingRelatorio) {
+    return <div className="text-center p-8">Carregando relatório...</div>;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="relatorio-form">
-      {message.text && (
-        <div className={`form-message ${message.type}`}>
-          {message.text}
+      {editingId && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>Modo de Edição:</strong> Você está editando um relatório existente.
+          </p>
         </div>
       )}
-
       <div className="form-row form-row-2">
         <div className="form-group">
           <Label htmlFor="nomeMinisterio">Nome do Ministério</Label>
@@ -1045,12 +1085,26 @@ const RelatorioForm = () => {
       </div>
 
       <div className="form-actions">
+        {editingId && (
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={onCancelEdit}
+            className="cancel-button"
+            disabled={loading}
+          >
+            Cancelar Edição
+          </Button>
+        )}
         <Button 
           type="submit" 
           className="submit-button"
           disabled={loading}
         >
-          {loading ? 'Enviando...' : 'Enviar Relatório'}
+          {loading 
+            ? (editingId ? 'Atualizando...' : 'Enviando...') 
+            : (editingId ? 'Atualizar Relatório' : 'Enviar Relatório')
+          }
         </Button>
       </div>
     </form>
@@ -1058,47 +1112,69 @@ const RelatorioForm = () => {
 };
 
 // Componente de Lista de Relatórios Gerados
-const RelatoriosGerados = () => {
-  // Dados mockados de relatórios
-  const relatorios = useMemo(() => {
-    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const relatoriosList = [];
-    
-    for (let i = 0; i < 12; i++) {
-      const data = new Date();
-      data.setMonth(data.getMonth() - i);
-      const mes = meses[data.getMonth()];
-      const ano = data.getFullYear();
+const RelatoriosGerados = ({ onEdit, refreshKey }) => {
+  const { toast } = useToast();
+  const [relatorios, setRelatorios] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const buscarRelatorios = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/relatorios', {
+          params: {
+            nomeMinisterio: 'Ministério Recepção'
+          }
+        });
+        setRelatorios(response.data.relatorios);
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar relatórios. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    buscarRelatorios();
+  }, [toast, refreshKey]);
+
+  const handleDownload = async (relatorio) => {
+    try {
+      const response = await api.get(`/relatorios/${relatorio.id}/download`, {
+        responseType: 'blob'
+      });
       
-      relatoriosList.push({
-        id: i + 1,
-        nomeMinisterio: 'Ministério Recepção',
-        mesReferencia: mes,
-        anoReferencia: ano,
-        dataGeracao: data.toLocaleDateString('pt-BR'),
-        tamanho: `${Math.floor(Math.random() * 500) + 100} KB`
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Relatorio_${relatorio.nomeMinisterio}_${relatorio.mesReferencia}_${relatorio.anoReferencia}.html`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      toast({
+        title: 'Sucesso!',
+        description: 'Relatório baixado com sucesso!',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao baixar relatório. Tente novamente.',
+        variant: 'destructive',
       });
     }
-    
-    return relatoriosList;
-  }, []);
-
-  const handleDownload = (relatorio) => {
-    // Simulação de download
-    const link = document.createElement('a');
-    link.href = '#'; // Aqui você colocaria a URL real do PDF
-    link.download = `Relatorio_${relatorio.nomeMinisterio}_${relatorio.mesReferencia}_${relatorio.anoReferencia}.pdf`;
-    // link.click(); // Descomente quando tiver a URL real
-    
-    // Por enquanto, apenas um alerta
-    alert(`Download do relatório: ${relatorio.nomeMinisterio} - ${relatorio.mesReferencia}/${relatorio.anoReferencia}`);
   };
 
   return (
     <div className="relatorios-gerados-container">
       <h3 className="relatorios-gerados-title">Relatórios Gerados</h3>
       
-      {relatorios.length === 0 ? (
+      {loading ? (
+        <div className="text-center p-8">Carregando relatórios...</div>
+      ) : relatorios.length === 0 ? (
         <div className="relatorios-empty">
           <p>Nenhum relatório gerado ainda.</p>
         </div>
@@ -1119,15 +1195,26 @@ const RelatoriosGerados = () => {
                     <span className="relatorio-item-tamanho">{relatorio.tamanho}</span>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownload(relatorio)}
-                  className="relatorio-download-button"
-                >
-                  <Download className="download-icon" />
-                  <span>Download PDF</span>
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEdit && onEdit(relatorio.id)}
+                    className="relatorio-edit-button"
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    <span>Editar</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownload(relatorio)}
+                    className="relatorio-download-button"
+                  >
+                    <Download className="download-icon" />
+                    <span>Download</span>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

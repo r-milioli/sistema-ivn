@@ -3,6 +3,8 @@ const cors = require('cors');
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
+const visitantesRoutes = require('./routes/visitantesRoutes');
+const relatoriosRoutes = require('./routes/relatoriosRoutes');
 
 const app = express();
 
@@ -13,6 +15,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Rotas
 app.use('/api/auth', authRoutes);
+app.use('/api/visitantes', visitantesRoutes);
+app.use('/api/relatorios', relatoriosRoutes);
 
 // Rota de teste
 app.get('/api/health', (req, res) => {

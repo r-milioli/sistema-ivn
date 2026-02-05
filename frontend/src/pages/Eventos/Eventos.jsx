@@ -936,7 +936,6 @@ const RelatorioForm = () => {
       [{ 'color': [] }, { 'background': [] }],
       [{ 'align': [] }],
       ['link', 'image', 'video'],
-      ['table'],
       ['clean']
     ],
   };
@@ -948,7 +947,6 @@ const RelatorioForm = () => {
     'color', 'background',
     'align',
     'link', 'image', 'video',
-    'table'
   ];
 
   return (

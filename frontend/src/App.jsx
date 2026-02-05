@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/Layout/ProtectedRoute';
 import { TooltipProvider } from './components/ui/tooltip';
+import { Toaster } from './components/ui/toaster';
 import Login from './pages/Login/Login';
 import Register from './pages/Register/Register';
 import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
@@ -132,6 +133,7 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <AppRoutes />
+          <Toaster />
         </TooltipProvider>
       </AuthProvider>
     </Router>
