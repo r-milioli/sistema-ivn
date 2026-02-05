@@ -90,8 +90,8 @@ brew services start postgresql
    Dentro do psql, execute:
    ```sql
    CREATE DATABASE igreja_db;
-   CREATE USER igreja_user WITH PASSWORD 'igreja_password';
-   GRANT ALL PRIVILEGES ON DATABASE igreja_db TO igreja_user;
+   CREATE USER postgres WITH PASSWORD '123456';
+   GRANT ALL PRIVILEGES ON DATABASE igreja_db TO postgres;
    \q
    ```
 
@@ -101,26 +101,26 @@ brew services start postgresql
    
    Execute o script a partir do diretório raiz do projeto:
    ```bash
-   psql -U igreja_user -d igreja_db -f init_database.sql
+   psql -U postgres -d igreja_db -f init_database.sql
    ```
    
    **Opção 2: Executando migrações individualmente**
    
    Execute cada migração em ordem:
    ```bash
-   psql -U igreja_user -d igreja_db -f migrations/001_create_usuarios.sql
-   psql -U igreja_user -d igreja_db -f migrations/002_create_estagios.sql
-   psql -U igreja_user -d igreja_db -f migrations/003_create_ministerios_cargos.sql
-   psql -U igreja_user -d igreja_db -f migrations/004_create_relacionamentos_usuario.sql
-   psql -U igreja_user -d igreja_db -f migrations/005_create_financas.sql
-   psql -U igreja_user -d igreja_db -f migrations/006_insert_initial_data.sql
+   psql -U postgres -d igreja_db -f migrations/001_create_usuarios.sql
+   psql -U postgres -d igreja_db -f migrations/002_create_estagios.sql
+   psql -U postgres -d igreja_db -f migrations/003_create_ministerios_cargos.sql
+   psql -U postgres -d igreja_db -f migrations/004_create_relacionamentos_usuario.sql
+   psql -U postgres -d igreja_db -f migrations/005_create_financas.sql
+   psql -U postgres -d igreja_db -f migrations/006_insert_initial_data.sql
    ```
    
    **Opção 3: Executando dentro do psql**
    
    Conecte-se ao banco e execute:
    ```bash
-   psql -U igreja_user -d igreja_db
+   psql -U postgres -d igreja_db
    ```
    
    Dentro do psql:
@@ -133,20 +133,20 @@ brew services start postgresql
 **Credenciais padrão:**
 - Host: `localhost`
 - Porta: `5432`
-- Usuário: `igreja_user`
-- Senha: `igreja_password`
+- Usuário: `postgres`
+- Senha: `123456`
 - Banco: `igreja_db`
 
 **String de conexão:**
 ```
-postgresql://igreja_user:igreja_password@localhost:5432/igreja_db
+postgresql://postgres:123456@localhost:5432/igreja_db
 ```
 
 ### Exemplos de Uso
 
 **Conectar via psql:**
 ```bash
-psql -U igreja_user -d igreja_db
+psql -U postgres -d igreja_db
 ```
 
 **Conectar via cliente externo:**
@@ -200,17 +200,17 @@ O sistema já vem com os seguintes dados pré-configurados:
 
 **Conectar ao banco:**
 ```bash
-psql -U igreja_user -d igreja_db
+psql -U postgres -d igreja_db
 ```
 
 **Backup do banco:**
 ```bash
-pg_dump -U igreja_user -d igreja_db > backup.sql
+pg_dump -U postgres -d igreja_db > backup.sql
 ```
 
 **Restaurar backup:**
 ```bash
-psql -U igreja_user -d igreja_db < backup.sql
+psql -U postgres -d igreja_db < backup.sql
 ```
 
 **Listar todas as tabelas:**
@@ -236,7 +236,7 @@ Para adicionar novas migrações:
 2. Adicione a referência no arquivo `init_database.sql`
 3. Execute a nova migração:
    ```bash
-   psql -U igreja_user -d igreja_db -f migrations/007_nova_tabela.sql
+   psql -U postgres -d igreja_db -f migrations/007_nova_tabela.sql
    ```
 
 **Nota:** Sempre execute as migrações em ordem sequencial para manter a integridade dos dados.
