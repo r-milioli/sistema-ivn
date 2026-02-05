@@ -7,9 +7,13 @@ import { Button } from '../../components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Heart, Gift, Receipt, Calculator, ArrowUpCircle, ArrowDownCircle, Plus, X, PlusCircle, Edit, Trash2, ChevronLeft, ChevronRight, MinusCircle, Paperclip, FileText, Search } from 'lucide-react';
+import { useToast } from '../../hooks/use-toast';
+import api from '../../services/api';
 import './Financas.css';
 
 const Financas = () => {
+  const { toast } = useToast();
+
   // Estado para o formulário de Nova Entrada
   const [novaEntradaForm, setNovaEntradaForm] = useState({
     categoria: '',
@@ -21,13 +25,13 @@ const Financas = () => {
     tipoPagamento: ''
   });
   const [loadingNovaEntrada, setLoadingNovaEntrada] = useState(false);
-  const [messageNovaEntrada, setMessageNovaEntrada] = useState({ type: '', text: '' });
   const [editandoId, setEditandoId] = useState(null);
   
   // Estado para as entradas cadastradas
   const [entradas, setEntradas] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [totalEntradas, setTotalEntradas] = useState(0);
 
   // Estado para o formulário de Nova Saída
   const [novaSaidaForm, setNovaSaidaForm] = useState({
@@ -39,13 +43,13 @@ const Financas = () => {
     comprovanteNome: ''
   });
   const [loadingNovaSaida, setLoadingNovaSaida] = useState(false);
-  const [messageNovaSaida, setMessageNovaSaida] = useState({ type: '', text: '' });
   const [editandoSaidaId, setEditandoSaidaId] = useState(null);
   
   // Estado para as saídas cadastradas
   const [saidas, setSaidas] = useState([]);
   const [currentPageSaidas, setCurrentPageSaidas] = useState(1);
   const [pageSizeSaidas, setPageSizeSaidas] = useState(10);
+  const [totalSaidas, setTotalSaidas] = useState(0);
 
   // Estado para relatórios
   const [relatorioFilters, setRelatorioFilters] = useState({
@@ -57,27 +61,14 @@ const Financas = () => {
   });
   const [currentPageRelatorio, setCurrentPageRelatorio] = useState(1);
   const [pageSizeRelatorio, setPageSizeRelatorio] = useState(10);
+  const [relatorioData, setRelatorioData] = useState([]);
+  const [totalRelatorio, setTotalRelatorio] = useState(0);
   
-  // Lista mockada de usuários - TODO: Substituir por chamada à API
-  const [usuarios] = useState([
-    { id: 1, nome: 'João Silva' },
-    { id: 2, nome: 'Maria Santos' },
-    { id: 3, nome: 'Pedro Oliveira' },
-    { id: 4, nome: 'Ana Costa' },
-    { id: 5, nome: 'Carlos Souza' }
-  ]);
+  // Lista de usuários
+  const [usuarios, setUsuarios] = useState([]);
 
-  // Lista mockada de ministérios - TODO: Substituir por chamada à API
-  const [ministerios] = useState([
-    { id: 1, nome: 'Louvor' },
-    { id: 2, nome: 'Jovens' },
-    { id: 3, nome: 'Crianças' },
-    { id: 4, nome: 'Intercessão' },
-    { id: 5, nome: 'Recepção' },
-    { id: 6, nome: 'Mídia' },
-    { id: 7, nome: 'Limpeza' },
-    { id: 8, nome: 'Segurança' }
-  ]);
+  // Lista de ministérios
+  const [ministerios, setMinisterios] = useState([]);
   
   const [metrics, setMetrics] = useState({
     totalEntradas: 0,
@@ -91,34 +82,140 @@ const Financas = () => {
   });
   const [loadingMetrics, setLoadingMetrics] = useState(true);
 
+  // Carregar dados iniciais
   useEffect(() => {
-    // Simulação de carregamento de métricas
-    // TODO: Substituir por chamada real à API
-    const loadMetrics = async () => {
-      setLoadingMetrics(true);
+    const loadInitialData = async () => {
       try {
-        // Simulação de dados - substituir por chamada à API
-        setTimeout(() => {
-          setMetrics({
-            totalEntradas: 125000.50,
-            totalSaidas: 85000.25,
-            saldo: 40000.25,
-            dizimos: 75000.00,
-            ofertas: 35000.50,
-            outrasReceitas: 15000.00,
-            totalTransacoes: 245,
-            mediaTransacao: 510.20
-          });
-          setLoadingMetrics(false);
-        }, 500);
+        // Carregar métricas
+        const metricsResponse = await api.get('/financas/metricas');
+        setMetrics(metricsResponse.data);
+        setLoadingMetrics(false);
+
+        // Carregar entradas
+        await loadEntradas();
+
+        // Carregar saídas
+        await loadSaidas();
+
+        // Carregar usuários (endpoint temporário - pode precisar criar)
+        try {
+          // Por enquanto, vamos usar uma lista vazia e preencher quando necessário
+          // TODO: Criar endpoint para listar usuários
+          setUsuarios([]);
+        } catch (error) {
+          console.error('Erro ao carregar usuários:', error);
+        }
+
+        // Carregar ministérios (endpoint temporário - pode precisar criar)
+        try {
+          // Por enquanto, vamos usar uma lista vazia e preencher quando necessário
+          // TODO: Criar endpoint para listar ministérios
+          setMinisterios([]);
+        } catch (error) {
+          console.error('Erro ao carregar ministérios:', error);
+        }
       } catch (error) {
-        console.error('Erro ao carregar métricas:', error);
+        console.error('Erro ao carregar dados iniciais:', error);
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar dados. Tente novamente.',
+          variant: 'destructive',
+        });
         setLoadingMetrics(false);
       }
     };
 
-    loadMetrics();
+    loadInitialData();
   }, []);
+
+  // Carregar entradas
+  const loadEntradas = async () => {
+    try {
+      const response = await api.get('/financas/entradas', {
+        params: {
+          page: currentPage,
+          pageSize: pageSize
+        }
+      });
+      setEntradas(response.data.entradas.map(e => ({
+        id: e.id,
+        categoria: e.categoria,
+        valor: e.valor,
+        dataEntrada: e.dataEntrada,
+        turno: e.turno,
+        tipoPagamento: e.tipoPagamento,
+        autores: e.autores,
+        autoresNomes: e.autoresNomes || e.autores.map(a => a.nome).join(', '),
+        criadoEm: e.criadoEm
+      })));
+      setTotalEntradas(response.data.pagination.total);
+    } catch (error) {
+      console.error('Erro ao carregar entradas:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar entradas. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Carregar saídas
+  const loadSaidas = async () => {
+    try {
+      const response = await api.get('/financas/saidas', {
+        params: {
+          page: currentPageSaidas,
+          pageSize: pageSizeSaidas
+        }
+      });
+      setSaidas(response.data.saidas);
+      setTotalSaidas(response.data.pagination.total);
+    } catch (error) {
+      console.error('Erro ao carregar saídas:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar saídas. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Carregar relatório
+  const loadRelatorio = async () => {
+    try {
+      const response = await api.get('/financas/relatorio', {
+        params: {
+          ...relatorioFilters,
+          page: currentPageRelatorio,
+          pageSize: pageSizeRelatorio
+        }
+      });
+      setRelatorioData(response.data.relatorio);
+      setTotalRelatorio(response.data.pagination.total);
+    } catch (error) {
+      console.error('Erro ao carregar relatório:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar relatório. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Recarregar entradas quando página mudar
+  useEffect(() => {
+    loadEntradas();
+  }, [currentPage, pageSize]);
+
+  // Recarregar saídas quando página mudar
+  useEffect(() => {
+    loadSaidas();
+  }, [currentPageSaidas, pageSizeSaidas]);
+
+  // Recarregar relatório quando filtros mudarem
+  useEffect(() => {
+    loadRelatorio();
+  }, [relatorioFilters, currentPageRelatorio, pageSizeRelatorio]);
 
   // Handlers para o formulário de Nova Entrada
   const handleNovaEntradaChange = (e) => {
@@ -150,47 +247,70 @@ const Financas = () => {
   const handleSubmitNovaEntrada = async (e) => {
     e.preventDefault();
     setLoadingNovaEntrada(true);
-    setMessageNovaEntrada({ type: '', text: '' });
 
     // Validações
     if (!novaEntradaForm.categoria) {
-      setMessageNovaEntrada({ type: 'error', text: 'Por favor, selecione uma categoria.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione uma categoria.',
+        variant: 'destructive',
+      });
       setLoadingNovaEntrada(false);
       return;
     }
 
-    if (novaEntradaForm.autores.length === 0) {
-      setMessageNovaEntrada({ type: 'error', text: 'Por favor, adicione pelo menos um autor.' });
+    // Autor é obrigatório apenas para Dízimos
+    if (novaEntradaForm.categoria === 'Dízimos' && novaEntradaForm.autores.length === 0) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, adicione pelo menos um autor para a categoria Dízimos.',
+        variant: 'destructive',
+      });
       setLoadingNovaEntrada(false);
       return;
     }
 
     if (!novaEntradaForm.valor || parseFloat(novaEntradaForm.valor) <= 0) {
-      setMessageNovaEntrada({ type: 'error', text: 'Por favor, informe um valor válido.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, informe um valor válido.',
+        variant: 'destructive',
+      });
       setLoadingNovaEntrada(false);
       return;
     }
 
     if (!novaEntradaForm.dataEntrada) {
-      setMessageNovaEntrada({ type: 'error', text: 'Por favor, informe a data da entrada.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, informe a data da entrada.',
+        variant: 'destructive',
+      });
       setLoadingNovaEntrada(false);
       return;
     }
 
     if (!novaEntradaForm.turno) {
-      setMessageNovaEntrada({ type: 'error', text: 'Por favor, selecione o turno.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione o turno.',
+        variant: 'destructive',
+      });
       setLoadingNovaEntrada(false);
       return;
     }
 
     if (!novaEntradaForm.tipoPagamento) {
-      setMessageNovaEntrada({ type: 'error', text: 'Por favor, selecione o tipo de pagamento.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione o tipo de pagamento.',
+        variant: 'destructive',
+      });
       setLoadingNovaEntrada(false);
       return;
     }
 
     try {
-      // TODO: Substituir por chamada real à API
       const dadosEnvio = {
         categoria: novaEntradaForm.categoria,
         autores: novaEntradaForm.autores,
@@ -200,101 +320,105 @@ const Financas = () => {
         tipoPagamento: novaEntradaForm.tipoPagamento
       };
 
-      // Simulação de sucesso
-      setTimeout(() => {
-        if (editandoId) {
-          // Atualizar entrada existente
-          setEntradas(prev => prev.map(entrada => 
-            entrada.id === editandoId 
-              ? { ...entrada, ...dadosEnvio, autoresNomes: novaEntradaForm.autores.map(id => {
-                  const autor = usuarios.find(u => u.id.toString() === id.toString());
-                  return autor?.nome || `ID: ${id}`;
-                }) }
-              : entrada
-          ));
-          setMessageNovaEntrada({ type: 'success', text: 'Entrada atualizada com sucesso!' });
-        } else {
-          // Criar nova entrada
-          const novaEntrada = {
-            id: Date.now(), // TODO: Usar ID da API
-            ...dadosEnvio,
-            autoresNomes: novaEntradaForm.autores.map(id => {
-              const autor = usuarios.find(u => u.id.toString() === id.toString());
-              return autor?.nome || `ID: ${id}`;
-            }),
-            dataCriacao: new Date().toISOString()
-          };
-          setEntradas(prev => [novaEntrada, ...prev]);
-          setMessageNovaEntrada({ type: 'success', text: 'Entrada cadastrada com sucesso!' });
-        }
-        
-        setNovaEntradaForm({
-          categoria: '',
-          autores: [],
-          autorSelecionado: '',
-          valor: '',
-          dataEntrada: new Date().toISOString().split('T')[0],
-          turno: '',
-          tipoPagamento: ''
+      if (editandoId) {
+        // Atualizar entrada existente
+        await api.put(`/financas/entradas/${editandoId}`, dadosEnvio);
+        toast({
+          title: 'Sucesso',
+          description: 'Entrada atualizada com sucesso!',
         });
-        setEditandoId(null);
-        setLoadingNovaEntrada(false);
-      }, 1000);
+      } else {
+        // Criar nova entrada
+        await api.post('/financas/entradas', dadosEnvio);
+        toast({
+          title: 'Sucesso',
+          description: 'Entrada cadastrada com sucesso!',
+        });
+      }
+      
+      setNovaEntradaForm({
+        categoria: '',
+        autores: [],
+        autorSelecionado: '',
+        valor: '',
+        dataEntrada: new Date().toISOString().split('T')[0],
+        turno: '',
+        tipoPagamento: ''
+      });
+      setEditandoId(null);
+      await loadEntradas();
+      await loadRelatorio();
     } catch (error) {
-      setMessageNovaEntrada({ type: 'error', text: 'Erro ao cadastrar entrada. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao cadastrar entrada. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoadingNovaEntrada(false);
     }
   };
 
-  const handleEditarEntrada = (entrada) => {
-    setEditandoId(entrada.id);
-    setNovaEntradaForm({
-      categoria: entrada.categoria,
-      autores: entrada.autores || [],
-      autorSelecionado: '',
-      valor: entrada.valor.toString(),
-      dataEntrada: entrada.dataEntrada,
-      turno: entrada.turno,
-      tipoPagamento: entrada.tipoPagamento || ''
-    });
-    // Scroll para o topo do formulário
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleEditarEntrada = async (entrada) => {
+    try {
+      const response = await api.get(`/financas/entradas/${entrada.id}`);
+      const entradaData = response.data.entrada;
+      setEditandoId(entradaData.id);
+      setNovaEntradaForm({
+        categoria: entradaData.categoria,
+        autores: entradaData.autores.map(a => a.id),
+        autorSelecionado: '',
+        valor: entradaData.valor.toString(),
+        dataEntrada: entradaData.data_entrada,
+        turno: entradaData.turno,
+        tipoPagamento: entradaData.tipo_pagamento || ''
+      });
+      // Scroll para o topo do formulário
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar entrada. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDeletarEntrada = (id) => {
+  const handleDeletarEntrada = async (id) => {
     if (window.confirm('Tem certeza que deseja deletar esta entrada?')) {
-      setEntradas(prev => {
-        const newEntradas = prev.filter(entrada => entrada.id !== id);
-        // Ajustar página se necessário
-        const newTotalPages = Math.ceil(newEntradas.length / pageSize);
-        if (currentPage > newTotalPages && newTotalPages > 0) {
-          setCurrentPage(newTotalPages);
+      try {
+        await api.delete(`/financas/entradas/${id}`);
+        toast({
+          title: 'Sucesso',
+          description: 'Entrada deletada com sucesso!',
+        });
+        await loadEntradas();
+        await loadRelatorio();
+        if (editandoId === id) {
+          setEditandoId(null);
+          setNovaEntradaForm({
+            categoria: '',
+            autores: [],
+            autorSelecionado: '',
+            valor: '',
+            dataEntrada: new Date().toISOString().split('T')[0],
+            turno: '',
+            tipoPagamento: ''
+          });
         }
-        return newEntradas;
-      });
-      if (editandoId === id) {
-        setEditandoId(null);
-        setNovaEntradaForm({
-          categoria: '',
-          autores: [],
-          autorSelecionado: '',
-          valor: '',
-          dataEntrada: new Date().toISOString().split('T')[0],
-          turno: '',
-          tipoPagamento: ''
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: error.response?.data?.message || 'Erro ao deletar entrada. Tente novamente.',
+          variant: 'destructive',
         });
       }
     }
   };
 
-  // Cálculo de paginação
-  const totalPages = useMemo(() => Math.ceil(entradas.length / pageSize), [entradas.length, pageSize]);
-  const startIndex = useMemo(() => (currentPage - 1) * pageSize, [currentPage, pageSize]);
-  const endIndex = useMemo(() => startIndex + pageSize, [startIndex, pageSize]);
-  const paginatedEntradas = useMemo(() => 
-    entradas.slice(startIndex, endIndex), 
-    [entradas, startIndex, endIndex]
-  );
+  // Cálculo de paginação (agora usando dados do backend)
+  const totalPages = useMemo(() => Math.ceil(totalEntradas / pageSize), [totalEntradas, pageSize]);
+  const paginatedEntradas = entradas; // Já vem paginado do backend
 
   // Cálculo das páginas para exibição
   const pagesToShow = useMemo(() => {
@@ -339,128 +463,167 @@ const Financas = () => {
   const handleSubmitNovaSaida = async (e) => {
     e.preventDefault();
     setLoadingNovaSaida(true);
-    setMessageNovaSaida({ type: '', text: '' });
 
     // Validações
     if (!novaSaidaForm.valor || parseFloat(novaSaidaForm.valor) <= 0) {
-      setMessageNovaSaida({ type: 'error', text: 'Por favor, informe um valor válido.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, informe um valor válido.',
+        variant: 'destructive',
+      });
       setLoadingNovaSaida(false);
       return;
     }
 
     if (!novaSaidaForm.dataSaida) {
-      setMessageNovaSaida({ type: 'error', text: 'Por favor, informe a data da saída.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, informe a data da saída.',
+        variant: 'destructive',
+      });
       setLoadingNovaSaida(false);
       return;
     }
 
     if (!novaSaidaForm.motivo || novaSaidaForm.motivo.trim() === '') {
-      setMessageNovaSaida({ type: 'error', text: 'Por favor, informe o motivo da saída.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, informe o motivo da saída.',
+        variant: 'destructive',
+      });
       setLoadingNovaSaida(false);
       return;
     }
 
     if (!novaSaidaForm.ministerio) {
-      setMessageNovaSaida({ type: 'error', text: 'Por favor, selecione o ministério.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione o ministério.',
+        variant: 'destructive',
+      });
       setLoadingNovaSaida(false);
       return;
     }
 
     try {
-      // TODO: Substituir por chamada real à API
-      const dadosEnvio = {
-        valor: parseFloat(novaSaidaForm.valor),
-        dataSaida: novaSaidaForm.dataSaida,
-        motivo: novaSaidaForm.motivo.trim(),
-        ministerio: novaSaidaForm.ministerio,
-        comprovanteNome: novaSaidaForm.comprovanteNome || null
-      };
+      const formData = new FormData();
+      formData.append('valor', parseFloat(novaSaidaForm.valor));
+      formData.append('dataSaida', novaSaidaForm.dataSaida);
+      formData.append('motivo', novaSaidaForm.motivo.trim());
+      formData.append('ministerio', novaSaidaForm.ministerio);
+      
+      if (novaSaidaForm.comprovante) {
+        formData.append('comprovante', novaSaidaForm.comprovante);
+      }
 
-      // Simulação de sucesso
-      setTimeout(() => {
-        if (editandoSaidaId) {
-          // Atualizar saída existente
-          setSaidas(prev => prev.map(saida => 
-            saida.id === editandoSaidaId 
-              ? { ...saida, ...dadosEnvio }
-              : saida
-          ));
-          setMessageNovaSaida({ type: 'success', text: 'Saída atualizada com sucesso!' });
-        } else {
-          // Criar nova saída
-          const novaSaida = {
-            id: Date.now(), // TODO: Usar ID da API
-            ...dadosEnvio,
-            dataCriacao: new Date().toISOString()
-          };
-          setSaidas(prev => [novaSaida, ...prev]);
-          setMessageNovaSaida({ type: 'success', text: 'Saída cadastrada com sucesso!' });
-        }
-        
-        setNovaSaidaForm({
-          valor: '',
-          dataSaida: new Date().toISOString().split('T')[0],
-          motivo: '',
-          ministerio: '',
-          comprovante: null,
-          comprovanteNome: ''
+      if (editandoSaidaId) {
+        // Atualizar saída existente
+        await api.put(`/financas/saidas/${editandoSaidaId}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
         });
-        setEditandoSaidaId(null);
-        setLoadingNovaSaida(false);
-      }, 1000);
+        toast({
+          title: 'Sucesso',
+          description: 'Saída atualizada com sucesso!',
+        });
+      } else {
+        // Criar nova saída
+        await api.post('/financas/saidas', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        toast({
+          title: 'Sucesso',
+          description: 'Saída cadastrada com sucesso!',
+        });
+      }
+      
+      setNovaSaidaForm({
+        valor: '',
+        dataSaida: new Date().toISOString().split('T')[0],
+        motivo: '',
+        ministerio: '',
+        comprovante: null,
+        comprovanteNome: ''
+      });
+      setEditandoSaidaId(null);
+      const fileInput = document.getElementById('comprovante');
+      if (fileInput) fileInput.value = '';
+      await loadSaidas();
+      await loadRelatorio();
     } catch (error) {
-      setMessageNovaSaida({ type: 'error', text: 'Erro ao cadastrar saída. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao cadastrar saída. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoadingNovaSaida(false);
     }
   };
 
-  const handleEditarSaida = (saida) => {
-    setEditandoSaidaId(saida.id);
-    setNovaSaidaForm({
-      valor: saida.valor.toString(),
-      dataSaida: saida.dataSaida,
-      motivo: saida.motivo || '',
-      ministerio: saida.ministerio || '',
-      comprovante: null,
-      comprovanteNome: saida.comprovanteNome || ''
-    });
-    // Scroll para o topo do formulário
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleEditarSaida = async (saida) => {
+    try {
+      const response = await api.get(`/financas/saidas/${saida.id}`);
+      const saidaData = response.data.saida;
+      setEditandoSaidaId(saidaData.id);
+      setNovaSaidaForm({
+        valor: saidaData.valor.toString(),
+        dataSaida: saidaData.dataSaida,
+        motivo: saidaData.motivo || '',
+        ministerio: saidaData.ministerioId?.toString() || '',
+        comprovante: null,
+        comprovanteNome: saidaData.comprovanteNome || ''
+      });
+      // Scroll para o topo do formulário
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar saída. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDeletarSaida = (id) => {
+  const handleDeletarSaida = async (id) => {
     if (window.confirm('Tem certeza que deseja deletar esta saída?')) {
-      setSaidas(prev => {
-        const newSaidas = prev.filter(saida => saida.id !== id);
-        // Ajustar página se necessário
-        const newTotalPages = Math.ceil(newSaidas.length / pageSizeSaidas);
-        if (currentPageSaidas > newTotalPages && newTotalPages > 0) {
-          setCurrentPageSaidas(newTotalPages);
+      try {
+        await api.delete(`/financas/saidas/${id}`);
+        toast({
+          title: 'Sucesso',
+          description: 'Saída deletada com sucesso!',
+        });
+        await loadSaidas();
+        await loadRelatorio();
+        if (editandoSaidaId === id) {
+          setEditandoSaidaId(null);
+          setNovaSaidaForm({
+            valor: '',
+            dataSaida: new Date().toISOString().split('T')[0],
+            motivo: '',
+            ministerio: '',
+            comprovante: null,
+            comprovanteNome: ''
+          });
+          const fileInput = document.getElementById('comprovante');
+          if (fileInput) fileInput.value = '';
         }
-        return newSaidas;
-      });
-      if (editandoSaidaId === id) {
-        setEditandoSaidaId(null);
-        setNovaSaidaForm({
-          valor: '',
-          dataSaida: new Date().toISOString().split('T')[0],
-          motivo: '',
-          ministerio: '',
-          comprovante: null,
-          comprovanteNome: ''
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: error.response?.data?.message || 'Erro ao deletar saída. Tente novamente.',
+          variant: 'destructive',
         });
       }
     }
   };
 
-  // Cálculo de paginação para saídas
-  const totalPagesSaidas = useMemo(() => Math.ceil(saidas.length / pageSizeSaidas), [saidas.length, pageSizeSaidas]);
-  const startIndexSaidas = useMemo(() => (currentPageSaidas - 1) * pageSizeSaidas, [currentPageSaidas, pageSizeSaidas]);
-  const endIndexSaidas = useMemo(() => startIndexSaidas + pageSizeSaidas, [startIndexSaidas, pageSizeSaidas]);
-  const paginatedSaidas = useMemo(() => 
-    saidas.slice(startIndexSaidas, endIndexSaidas), 
-    [saidas, startIndexSaidas, endIndexSaidas]
-  );
+  // Cálculo de paginação para saídas (agora usando dados do backend)
+  const totalPagesSaidas = useMemo(() => Math.ceil(totalSaidas / pageSizeSaidas), [totalSaidas, pageSizeSaidas]);
+  const paginatedSaidas = saidas; // Já vem paginado do backend
 
   // Cálculo das páginas para exibição de saídas
   const pagesToShowSaidas = useMemo(() => {
@@ -485,102 +648,12 @@ const Financas = () => {
     return pages;
   }, [totalPagesSaidas, currentPageSaidas]);
 
-  // Função para combinar entradas e saídas para o relatório
-  const relatorioData = useMemo(() => {
-    const entradasFormatadas = entradas.map(entrada => ({
-      id: `entrada-${entrada.id}`,
-      tipo: 'ENTRADA',
-      valor: entrada.valor,
-      data: entrada.dataEntrada,
-      categoria: entrada.categoria,
-      descricao: entrada.autoresNomes?.join(', ') || 'N/A',
-      turno: entrada.turno,
-      tipoPagamento: entrada.tipoPagamento,
-      dataCriacao: entrada.dataCriacao
-    }));
-
-    const saidasFormatadas = saidas.map(saida => {
-      const ministerioNome = ministerios.find(m => m.id.toString() === saida.ministerio.toString())?.nome || 'N/A';
-      return {
-        id: `saida-${saida.id}`,
-        tipo: 'SAIDA',
-        valor: saida.valor,
-        data: saida.dataSaida,
-        categoria: 'Saída',
-        descricao: saida.motivo,
-        ministerio: ministerioNome,
-        comprovante: saida.comprovanteNome,
-        dataCriacao: saida.dataCriacao
-      };
-    });
-
-    return [...entradasFormatadas, ...saidasFormatadas].sort((a, b) => {
-      return new Date(b.dataCriacao || b.data) - new Date(a.dataCriacao || a.data);
-    });
-  }, [entradas, saidas, ministerios]);
-
-  // Filtrar dados do relatório
-  const filteredRelatorioData = useMemo(() => {
-    return relatorioData.filter(item => {
-      // Filtro por tipo
-      if (relatorioFilters.tipo && item.tipo !== relatorioFilters.tipo) {
-        return false;
-      }
-
-      // Filtro por data
-      if (relatorioFilters.dataInicio) {
-        const itemDate = new Date(item.data);
-        const inicioDate = new Date(relatorioFilters.dataInicio);
-        if (itemDate < inicioDate) return false;
-      }
-
-      if (relatorioFilters.dataFim) {
-        const itemDate = new Date(item.data);
-        const fimDate = new Date(relatorioFilters.dataFim);
-        fimDate.setHours(23, 59, 59, 999);
-        if (itemDate > fimDate) return false;
-      }
-
-      // Filtro por categoria (apenas para entradas)
-      if (relatorioFilters.categoria && item.tipo === 'ENTRADA') {
-        if (item.categoria !== relatorioFilters.categoria) {
-          return false;
-        }
-      }
-
-      // Filtro de busca
-      if (relatorioFilters.search) {
-        const searchLower = relatorioFilters.search.toLowerCase();
-        const searchInDescricao = item.descricao?.toLowerCase().includes(searchLower);
-        const searchInCategoria = item.categoria?.toLowerCase().includes(searchLower);
-        const searchInValor = item.valor.toString().includes(searchLower);
-        
-        if (!searchInDescricao && !searchInCategoria && !searchInValor) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [relatorioData, relatorioFilters]);
-
-  // Paginação do relatório
+  // Paginação do relatório (agora usando dados do backend)
   const totalPagesRelatorio = useMemo(() => 
-    Math.ceil(filteredRelatorioData.length / pageSizeRelatorio), 
-    [filteredRelatorioData.length, pageSizeRelatorio]
+    Math.ceil(totalRelatorio / pageSizeRelatorio), 
+    [totalRelatorio, pageSizeRelatorio]
   );
-  const startIndexRelatorio = useMemo(() => 
-    (currentPageRelatorio - 1) * pageSizeRelatorio, 
-    [currentPageRelatorio, pageSizeRelatorio]
-  );
-  const endIndexRelatorio = useMemo(() => 
-    startIndexRelatorio + pageSizeRelatorio, 
-    [startIndexRelatorio, pageSizeRelatorio]
-  );
-  const paginatedRelatorioData = useMemo(() => 
-    filteredRelatorioData.slice(startIndexRelatorio, endIndexRelatorio), 
-    [filteredRelatorioData, startIndexRelatorio, endIndexRelatorio]
-  );
+  const paginatedRelatorioData = relatorioData; // Já vem paginado do backend
 
   // Páginas para exibição do relatório
   const pagesToShowRelatorio = useMemo(() => {
@@ -792,11 +865,6 @@ const Financas = () => {
                 <p className="analytics-description">Cadastre uma nova entrada financeira</p>
                 
                 <form onSubmit={handleSubmitNovaEntrada} className="pessoa-form">
-                  {messageNovaEntrada.text && (
-                    <div className={`form-message ${messageNovaEntrada.type}`}>
-                      {messageNovaEntrada.text}
-                    </div>
-                  )}
 
                   <div className="form-row">
                     <div className="form-group">
@@ -820,7 +888,11 @@ const Financas = () => {
 
                   <div className="form-row">
                     <div className="form-group">
-                      <Label htmlFor="autorSelecionado">Autor(es) da Oferta</Label>
+                      <Label htmlFor="autorSelecionado">
+                        Autor(es) da Oferta
+                        {novaEntradaForm.categoria === 'Dízimos' && <span style={{ color: 'red' }}> *</span>}
+                        {novaEntradaForm.categoria && novaEntradaForm.categoria !== 'Dízimos' && <span style={{ color: '#666', fontSize: '0.875rem' }}> (Opcional)</span>}
+                      </Label>
                       <div className="autores-wrapper">
                         <div className="autores-select-wrapper">
                           <select
@@ -1009,7 +1081,7 @@ const Financas = () => {
                                   <TableCell>{entrada.categoria}</TableCell>
                                   <TableCell>
                                     <div className="autores-cell">
-                                      {entrada.autoresNomes?.join(', ') || 'N/A'}
+                                      {entrada.autoresNomes || 'N/A'}
                                     </div>
                                   </TableCell>
                                   <TableCell>
@@ -1128,11 +1200,6 @@ const Financas = () => {
                 <p className="analytics-description">Cadastre uma nova saída financeira</p>
                 
                 <form onSubmit={handleSubmitNovaSaida} className="pessoa-form">
-                  {messageNovaSaida.text && (
-                    <div className={`form-message ${messageNovaSaida.type}`}>
-                      {messageNovaSaida.text}
-                    </div>
-                  )}
 
                   <div className="form-row form-row-2">
                     <div className="form-group">
@@ -1305,7 +1372,6 @@ const Financas = () => {
                               </TableRow>
                             ) : (
                               paginatedSaidas.map((saida) => {
-                                const ministerioNome = ministerios.find(m => m.id.toString() === saida.ministerio.toString())?.nome || 'N/A';
                                 return (
                                   <TableRow key={saida.id}>
                                     <TableCell>
@@ -1319,7 +1385,7 @@ const Financas = () => {
                                         {saida.motivo}
                                       </div>
                                     </TableCell>
-                                    <TableCell>{ministerioNome}</TableCell>
+                                    <TableCell>{saida.ministerio || 'N/A'}</TableCell>
                                     <TableCell>
                                       {saida.comprovanteNome ? (
                                         <div className="comprovante-cell">
@@ -1579,11 +1645,11 @@ const Financas = () => {
                   </div>
 
                   {/* Paginação */}
-                  {filteredRelatorioData.length > pageSizeRelatorio && (
+                  {totalRelatorio > pageSizeRelatorio && (
                     <div className="pagination-section">
                       <div className="pagination-info">
                         <span>
-                          Mostrando {startIndexRelatorio + 1} a {Math.min(endIndexRelatorio, filteredRelatorioData.length)} de {filteredRelatorioData.length} registros
+                          Mostrando {((currentPageRelatorio - 1) * pageSizeRelatorio) + 1} a {Math.min(currentPageRelatorio * pageSizeRelatorio, totalRelatorio)} de {totalRelatorio} registros
                         </span>
                         <div className="page-size-selector">
                           <Label htmlFor="pageSizeRelatorio">Linhas por página:</Label>

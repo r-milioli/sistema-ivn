@@ -5,6 +5,8 @@ require('dotenv').config();
 const authRoutes = require('./routes/authRoutes');
 const visitantesRoutes = require('./routes/visitantesRoutes');
 const relatoriosRoutes = require('./routes/relatoriosRoutes');
+const financasRoutes = require('./routes/financasRoutes');
+const pessoasRoutes = require('./routes/pessoasRoutes');
 
 const app = express();
 
@@ -13,10 +15,15 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Servir arquivos estáticos (comprovantes)
+app.use('/uploads', express.static('uploads'));
+
 // Rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/visitantes', visitantesRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
+app.use('/api/financas', financasRoutes);
+app.use('/api', pessoasRoutes);
 
 // Rota de teste
 app.get('/api/health', (req, res) => {

@@ -4,13 +4,13 @@ const { generateToken } = require('../utils/jwt');
 const crypto = require('crypto');
 
 /**
- * Registrar novo usuário
+ * Registrar novo usuário (schema jornada única)
+ * Cria pessoa em `pessoas` (ou usa existente) e credenciais em `credenciais_acesso`
  */
 async function register(req, res) {
   try {
     const { nome, email, senha } = req.body;
 
-    // Validações básicas
     if (!nome || !email || !senha) {
       return res.status(400).json({ message: 'Nome, email e senha são obrigatórios' });
     }
@@ -19,35 +19,65 @@ async function register(req, res) {
       return res.status(400).json({ message: 'A senha deve ter no mínimo 6 caracteres' });
     }
 
-    // Verificar se email já existe
-    const emailCheck = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
-    if (emailCheck.rows.length > 0) {
-      return res.status(400).json({ message: 'Email já cadastrado' });
-    }
-
-    // Hash da senha
-    const senhaHash = await hashPassword(senha);
-
-    // Inserir usuário
-    const result = await pool.query(
-      `INSERT INTO usuarios (nome, email, senha_hash, ativo, email_verificado)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, nome, email, data_cadastro`,
-      [nome, email, senhaHash, true, false]
+    // Verificar se já existe pessoa com este email
+    const pessoaExistente = await pool.query(
+      'SELECT id, nome FROM pessoas WHERE email = $1',
+      [email]
     );
 
-    const user = result.rows[0];
+    let pessoaId;
 
-    // Gerar token JWT
-    const token = generateToken({ id: user.id, email: user.email });
+    if (pessoaExistente.rows.length > 0) {
+      // Pessoa já existe: verificar se já tem credenciais de acesso
+      const credencialExistente = await pool.query(
+        'SELECT id FROM credenciais_acesso WHERE pessoa_id = $1',
+        [pessoaExistente.rows[0].id]
+      );
+      if (credencialExistente.rows.length > 0) {
+        return res.status(400).json({ message: 'Email já cadastrado' });
+      }
+      pessoaId = pessoaExistente.rows[0].id;
+    } else {
+      // Criar nova pessoa (nome pode ser "Nome Sobrenome"; sobrenome opcional)
+      const nomePartes = (nome || '').trim().split(/\s+/);
+      const nomePrincipal = nomePartes[0] || nome;
+      const sobrenome = nomePartes.length > 1 ? nomePartes.slice(1).join(' ') : null;
+
+      const resultPessoa = await pool.query(
+        `INSERT INTO pessoas (nome, sobrenome, email, ativo)
+         VALUES ($1, $2, $3, TRUE)
+         RETURNING id`,
+        [nomePrincipal, sobrenome, email]
+      );
+      pessoaId = resultPessoa.rows[0].id;
+    }
+
+    const senhaHash = await hashPassword(senha);
+
+    // Criar credenciais de acesso
+    await pool.query(
+      `INSERT INTO credenciais_acesso (pessoa_id, senha_hash, tipo_acesso, email_verificado)
+       VALUES ($1, $2, 'Usuario', FALSE)`,
+      [pessoaId, senhaHash]
+    );
+
+    // Buscar nome completo para resposta
+    const pessoa = await pool.query(
+      'SELECT id, nome, sobrenome, email FROM pessoas WHERE id = $1',
+      [pessoaId]
+    );
+    const p = pessoa.rows[0];
+    const nomeCompleto = [p.nome, p.sobrenome].filter(Boolean).join(' ');
+
+    const token = generateToken({ id: pessoaId, email });
 
     res.status(201).json({
       message: 'Usuário criado com sucesso',
       token,
       user: {
-        id: user.id,
-        nome: user.nome,
-        email: user.email,
+        id: pessoaId,
+        nome: nomeCompleto,
+        email: p.email,
       },
     });
   } catch (error) {
@@ -57,55 +87,77 @@ async function register(req, res) {
 }
 
 /**
- * Login do usuário
+ * Login (schema jornada única)
+ * Busca pessoa por email, valida senha em credenciais_acesso
  */
 async function login(req, res) {
   try {
     const { email, senha } = req.body;
 
-    // Validações básicas
     if (!email || !senha) {
       return res.status(400).json({ message: 'Email e senha são obrigatórios' });
     }
 
-    // Buscar usuário
-    const result = await pool.query(
-      'SELECT id, nome, email, senha_hash, ativo FROM usuarios WHERE email = $1',
+    // Buscar pessoa por email
+    const resultPessoa = await pool.query(
+      'SELECT id, nome, sobrenome, email, ativo FROM pessoas WHERE email = $1',
       [email]
     );
 
-    if (result.rows.length === 0) {
+    if (resultPessoa.rows.length === 0) {
       return res.status(401).json({ message: 'Email ou senha incorretos' });
     }
 
-    const user = result.rows[0];
+    const pessoa = resultPessoa.rows[0];
 
-    // Verificar se usuário está ativo
-    if (!user.ativo) {
+    if (!pessoa.ativo) {
       return res.status(401).json({ message: 'Usuário inativo' });
     }
 
-    // Verificar senha
-    if (!user.senha_hash) {
+    // Buscar credenciais de acesso
+    const resultCred = await pool.query(
+      `SELECT senha_hash, bloqueado_ate, ultimo_login
+       FROM credenciais_acesso WHERE pessoa_id = $1`,
+      [pessoa.id]
+    );
+
+    if (resultCred.rows.length === 0) {
+      return res.status(401).json({
+        message: 'Esta conta não possui acesso ao sistema. Entre em contato com a administração.',
+      });
+    }
+
+    const cred = resultCred.rows[0];
+
+    if (cred.bloqueado_ate && new Date() < new Date(cred.bloqueado_ate)) {
+      return res.status(401).json({ message: 'Conta temporariamente bloqueada. Tente mais tarde.' });
+    }
+
+    if (!cred.senha_hash) {
       return res.status(401).json({ message: 'Senha não configurada. Use recuperação de senha.' });
     }
 
-    const senhaValida = await comparePassword(senha, user.senha_hash);
-
+    const senhaValida = await comparePassword(senha, cred.senha_hash);
     if (!senhaValida) {
       return res.status(401).json({ message: 'Email ou senha incorretos' });
     }
 
-    // Gerar token JWT
-    const token = generateToken({ id: user.id, email: user.email });
+    // Atualizar último login (opcional, não bloqueia resposta)
+    pool.query(
+      'UPDATE credenciais_acesso SET ultimo_login = CURRENT_TIMESTAMP WHERE pessoa_id = $1',
+      [pessoa.id]
+    ).catch(() => {});
+
+    const nomeCompleto = [pessoa.nome, pessoa.sobrenome].filter(Boolean).join(' ');
+    const token = generateToken({ id: pessoa.id, email: pessoa.email });
 
     res.json({
       message: 'Login realizado com sucesso',
       token,
       user: {
-        id: user.id,
-        nome: user.nome,
-        email: user.email,
+        id: pessoa.id,
+        nome: nomeCompleto,
+        email: pessoa.email,
       },
     });
   } catch (error) {
@@ -115,7 +167,8 @@ async function login(req, res) {
 }
 
 /**
- * Solicitar recuperação de senha
+ * Solicitar recuperação de senha (schema jornada única)
+ * Token salvo em credenciais_acesso
  */
 async function forgotPassword(req, res) {
   try {
@@ -125,34 +178,43 @@ async function forgotPassword(req, res) {
       return res.status(400).json({ message: 'Email é obrigatório' });
     }
 
-    // Buscar usuário
-    const result = await pool.query('SELECT id, nome FROM usuarios WHERE email = $1', [email]);
-
-    // Por segurança, sempre retornar sucesso mesmo se email não existir
-    if (result.rows.length === 0) {
+    const resultPessoa = await pool.query('SELECT id FROM pessoas WHERE email = $1', [email]);
+    if (resultPessoa.rows.length === 0) {
       return res.json({
         message: 'Se o email existir, você receberá instruções para recuperar sua senha',
       });
     }
 
-    // Gerar token de recuperação
+    const pessoaId = resultPessoa.rows[0].id;
+
+    // Só gera token se a pessoa tiver credenciais de acesso
+    const resultCred = await pool.query(
+      'SELECT id FROM credenciais_acesso WHERE pessoa_id = $1',
+      [pessoaId]
+    );
+    if (resultCred.rows.length === 0) {
+      return res.json({
+        message: 'Se o email existir, você receberá instruções para recuperar sua senha',
+      });
+    }
+
     const tokenRecuperacao = crypto.randomBytes(32).toString('hex');
     const tokenExpira = new Date();
-    tokenExpira.setHours(tokenExpira.getHours() + 1); // Token expira em 1 hora
+    tokenExpira.setHours(tokenExpira.getHours() + 1);
 
-    // Salvar token no banco
     await pool.query(
-      'UPDATE usuarios SET token_recuperacao = $1, token_recuperacao_expira = $2 WHERE email = $3',
-      [tokenRecuperacao, tokenExpira, email]
+      `UPDATE credenciais_acesso
+       SET token_recuperacao = $1, token_recuperacao_expira = $2
+       WHERE pessoa_id = $3`,
+      [tokenRecuperacao, tokenExpira, pessoaId]
     );
 
-    // Em produção, aqui você enviaria um email com o token
-    // Por enquanto, retornamos o token (apenas para desenvolvimento)
-    console.log(`Token de recuperação para ${email}: ${tokenRecuperacao}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Token de recuperação para ${email}: ${tokenRecuperacao}`);
+    }
 
     res.json({
       message: 'Se o email existir, você receberá instruções para recuperar sua senha',
-      // Em desenvolvimento, retornar token (remover em produção)
       ...(process.env.NODE_ENV === 'development' && { token: tokenRecuperacao }),
     });
   } catch (error) {
@@ -162,7 +224,7 @@ async function forgotPassword(req, res) {
 }
 
 /**
- * Redefinir senha com token
+ * Redefinir senha com token (schema jornada única)
  */
 async function resetPassword(req, res) {
   try {
@@ -176,10 +238,9 @@ async function resetPassword(req, res) {
       return res.status(400).json({ message: 'A senha deve ter no mínimo 6 caracteres' });
     }
 
-    // Buscar usuário pelo token
     const result = await pool.query(
-      `SELECT id, token_recuperacao_expira 
-       FROM usuarios 
+      `SELECT pessoa_id, token_recuperacao_expira
+       FROM credenciais_acesso
        WHERE token_recuperacao = $1`,
       [token]
     );
@@ -188,24 +249,19 @@ async function resetPassword(req, res) {
       return res.status(400).json({ message: 'Token inválido' });
     }
 
-    const user = result.rows[0];
+    const row = result.rows[0];
 
-    // Verificar se token não expirou
-    if (new Date() > new Date(user.token_recuperacao_expira)) {
+    if (new Date() > new Date(row.token_recuperacao_expira)) {
       return res.status(400).json({ message: 'Token expirado. Solicite uma nova recuperação.' });
     }
 
-    // Hash da nova senha
     const senhaHash = await hashPassword(senha);
 
-    // Atualizar senha e limpar token
     await pool.query(
-      `UPDATE usuarios 
-       SET senha_hash = $1, 
-           token_recuperacao = NULL, 
-           token_recuperacao_expira = NULL 
-       WHERE id = $2`,
-      [senhaHash, user.id]
+      `UPDATE credenciais_acesso
+       SET senha_hash = $1, token_recuperacao = NULL, token_recuperacao_expira = NULL
+       WHERE pessoa_id = $2`,
+      [senhaHash, row.pessoa_id]
     );
 
     res.json({ message: 'Senha redefinida com sucesso' });
@@ -216,20 +272,36 @@ async function resetPassword(req, res) {
 }
 
 /**
- * Obter dados do usuário autenticado
+ * Obter dados do usuário autenticado (schema jornada única)
+ * req.user.id é pessoa_id
  */
 async function getMe(req, res) {
   try {
+    const pessoaId = req.user.id;
+
     const result = await pool.query(
-      'SELECT id, nome, email, data_cadastro FROM usuarios WHERE id = $1',
-      [req.user.id]
+      `SELECT p.id, p.nome, p.sobrenome, p.email, p.criado_em,
+              ca.tipo_acesso
+       FROM pessoas p
+       LEFT JOIN credenciais_acesso ca ON ca.pessoa_id = p.id
+       WHERE p.id = $1`,
+      [pessoaId]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
 
-    res.json({ user: result.rows[0] });
+    const row = result.rows[0];
+    const user = {
+      id: row.id,
+      nome: [row.nome, row.sobrenome].filter(Boolean).join(' '),
+      email: row.email,
+      criado_em: row.criado_em,
+      tipo_acesso: row.tipo_acesso || null,
+    };
+
+    res.json({ user });
   } catch (error) {
     console.error('Erro ao buscar usuário:', error);
     res.status(500).json({ message: 'Erro ao buscar dados do usuário' });

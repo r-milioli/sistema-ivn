@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Input } from '../../components/ui/input';
@@ -13,9 +13,168 @@ import {
   TableRow,
 } from '../../components/ui/table';
 import { Users, Edit, Search, List, Trash2, ChevronLeft, ChevronRight, UserCog, Plus, X } from 'lucide-react';
+import { useToast } from '../../hooks/use-toast';
+import api from '../../services/api';
 import './GestaoPessoas.css';
 
+// Formulário de pessoa (fora do componente para evitar re-render a cada digitação)
+const PREFIX_ADD = '';
+const PREFIX_EDIT = 'edit-';
+
+const VIA_CEP_URL = 'https://viacep.com.br/ws';
+
+function PessoaForm({ formData, handleChange, loading, submitText, cancelButton, onCancel, onSubmit, idPrefix = PREFIX_ADD, onCepBlur }) {
+  const id = (name) => (idPrefix ? `${idPrefix}${name}` : name);
+
+  const handleCepBlur = (e) => {
+    const cep = (e.target.value || '').replace(/\D/g, '');
+    if (onCepBlur && cep.length === 8) {
+      onCepBlur(cep);
+    }
+  };
+
+  return (
+    <form onSubmit={onSubmit} className="pessoa-form">
+      <div className="form-row form-row-2">
+        <div className="form-group">
+          <Label htmlFor={id('nome')}>Nome *</Label>
+          <Input type="text" id={id('nome')} name="nome" value={formData.nome} onChange={handleChange} placeholder="Digite o nome" required className="form-input" />
+        </div>
+        <div className="form-group">
+          <Label htmlFor={id('sobrenome')}>Sobrenome</Label>
+          <Input type="text" id={id('sobrenome')} name="sobrenome" value={formData.sobrenome} onChange={handleChange} placeholder="Digite o sobrenome" className="form-input" />
+        </div>
+      </div>
+      <div className="form-row form-row-2">
+        <div className="form-group">
+          <Label htmlFor={id('sexo')}>Sexo</Label>
+          <select id={id('sexo')} name="sexo" value={formData.sexo} onChange={handleChange} className="form-select">
+            <option value="">Selecione o sexo</option>
+            <option value="masculino">Masculino</option>
+            <option value="feminino">Feminino</option>
+            <option value="outro">Outro</option>
+            <option value="nao-informar">Prefiro não informar</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <Label htmlFor={id('estadoCivil')}>Estado Civil</Label>
+          <select id={id('estadoCivil')} name="estadoCivil" value={formData.estadoCivil} onChange={handleChange} className="form-select">
+            <option value="">Selecione o estado civil</option>
+            <option value="solteiro">Solteiro(a)</option>
+            <option value="casado">Casado(a)</option>
+            <option value="divorciado">Divorciado(a)</option>
+            <option value="viuvo">Viúvo(a)</option>
+            <option value="uniao-estavel">União Estável</option>
+          </select>
+        </div>
+      </div>
+      <div className="form-row form-row-2">
+        <div className="form-group">
+          <Label htmlFor={id('dataNascimento')}>Data de Nascimento</Label>
+          <Input type="date" id={id('dataNascimento')} name="dataNascimento" value={formData.dataNascimento} onChange={handleChange} className="form-input" />
+        </div>
+        <div className="form-group">
+          <Label htmlFor={id('telefone')}>Telefone *</Label>
+          <Input type="tel" id={id('telefone')} name="telefone" value={formData.telefone} onChange={handleChange} placeholder="(00) 00000-0000" required className="form-input" />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <Label htmlFor={id('email')}>Email</Label>
+          <Input type="email" id={id('email')} name="email" value={formData.email} onChange={handleChange} placeholder="email@exemplo.com" className="form-input" />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <Label htmlFor={id('cep')}>CEP</Label>
+          <Input
+            type="text"
+            id={id('cep')}
+            name="cep"
+            value={formData.cep}
+            onChange={handleChange}
+            onBlur={handleCepBlur}
+            placeholder="00000-000"
+            className="form-input"
+            maxLength={9}
+          />
+          {onCepBlur && <span className="cep-hint">Digite o CEP e saia do campo para preencher o endereço</span>}
+        </div>
+      </div>
+      <div className="form-row form-row-2">
+        <div className="form-group" style={{ flex: 2 }}>
+          <Label htmlFor={id('rua')}>Rua</Label>
+          <Input type="text" id={id('rua')} name="rua" value={formData.rua} onChange={handleChange} placeholder="Digite o nome da rua" className="form-input" />
+        </div>
+        <div className="form-group">
+          <Label htmlFor={id('numero')}>Número</Label>
+          <Input type="text" id={id('numero')} name="numero" value={formData.numero} onChange={handleChange} placeholder="Nº" className="form-input" />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <Label htmlFor={id('complemento')}>Complemento</Label>
+          <Input type="text" id={id('complemento')} name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Apartamento, bloco, etc. (opcional)" className="form-input" />
+        </div>
+      </div>
+      <div className="form-row form-row-2">
+        <div className="form-group">
+          <Label htmlFor={id('bairro')}>Bairro</Label>
+          <Input type="text" id={id('bairro')} name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Digite o bairro" className="form-input" />
+        </div>
+        <div className="form-group">
+          <Label htmlFor={id('cidade')}>Cidade</Label>
+          <Input type="text" id={id('cidade')} name="cidade" value={formData.cidade} onChange={handleChange} placeholder="Digite a cidade" className="form-input" />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <Label htmlFor={id('estado')}>Estado</Label>
+          <select id={id('estado')} name="estado" value={formData.estado} onChange={handleChange} className="form-select">
+            <option value="">Selecione o estado</option>
+            <option value="AC">Acre</option>
+            <option value="AL">Alagoas</option>
+            <option value="AP">Amapá</option>
+            <option value="AM">Amazonas</option>
+            <option value="BA">Bahia</option>
+            <option value="CE">Ceará</option>
+            <option value="DF">Distrito Federal</option>
+            <option value="ES">Espírito Santo</option>
+            <option value="GO">Goiás</option>
+            <option value="MA">Maranhão</option>
+            <option value="MT">Mato Grosso</option>
+            <option value="MS">Mato Grosso do Sul</option>
+            <option value="MG">Minas Gerais</option>
+            <option value="PA">Pará</option>
+            <option value="PB">Paraíba</option>
+            <option value="PR">Paraná</option>
+            <option value="PE">Pernambuco</option>
+            <option value="PI">Piauí</option>
+            <option value="RJ">Rio de Janeiro</option>
+            <option value="RN">Rio Grande do Norte</option>
+            <option value="RS">Rio Grande do Sul</option>
+            <option value="RO">Rondônia</option>
+            <option value="RR">Roraima</option>
+            <option value="SC">Santa Catarina</option>
+            <option value="SP">São Paulo</option>
+            <option value="SE">Sergipe</option>
+            <option value="TO">Tocantins</option>
+          </select>
+        </div>
+      </div>
+      <div className="form-actions">
+        {cancelButton && onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel} className="cancel-button">Cancelar</Button>
+        )}
+        <Button type="submit" className="submit-button" disabled={loading}>{loading ? 'Salvando...' : submitText}</Button>
+      </div>
+    </form>
+  );
+}
+
 const GestaoPessoas = () => {
+  const { toast } = useToast();
+
   const [formData, setFormData] = useState({
     nome: '',
     sobrenome: '',
@@ -34,7 +193,6 @@ const GestaoPessoas = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
 
   // Estados para edição de pessoas
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,7 +214,6 @@ const GestaoPessoas = () => {
     estado: ''
   });
   const [loadingEdit, setLoadingEdit] = useState(false);
-  const [messageEdit, setMessageEdit] = useState({ type: '', text: '' });
 
   // Estados para lista de pessoas
   const [activeTab, setActiveTab] = useState('gestao-pessoas');
@@ -68,214 +225,79 @@ const GestaoPessoas = () => {
   });
   const [currentPageList, setCurrentPageList] = useState(1);
   const [pageSizeList, setPageSizeList] = useState(10);
+  const [totalPessoas, setTotalPessoas] = useState(0);
 
-  // Lista mockada de pessoas - TODO: Substituir por chamada à API
-  const [pessoas, setPessoas] = useState([
-    {
-      id: 1,
-      nome: 'João',
-      sobrenome: 'Silva',
-      sexo: 'masculino',
-      estadoCivil: 'casado',
-      dataNascimento: '1985-05-15',
-      telefone: '(11) 98765-4321',
-      email: 'joao.silva@email.com',
-      cep: '01310-100',
-      rua: 'Avenida Paulista',
-      numero: '1000',
-      complemento: 'Apto 101',
-      bairro: 'Bela Vista',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 2,
-      nome: 'Maria',
-      sobrenome: 'Santos',
-      sexo: 'feminino',
-      estadoCivil: 'solteiro',
-      dataNascimento: '1990-08-20',
-      telefone: '(11) 91234-5678',
-      email: 'maria.santos@email.com',
-      cep: '04547-130',
-      rua: 'Rua das Flores',
-      numero: '250',
-      complemento: '',
-      bairro: 'Vila Olímpia',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 3,
-      nome: 'Pedro',
-      sobrenome: 'Oliveira',
-      sexo: 'masculino',
-      estadoCivil: 'casado',
-      dataNascimento: '1988-03-10',
-      telefone: '(11) 99876-5432',
-      email: 'pedro.oliveira@email.com',
-      cep: '02013-000',
-      rua: 'Rua Augusta',
-      numero: '500',
-      complemento: 'Sala 302',
-      bairro: 'Consolação',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 4,
-      nome: 'Ana',
-      sobrenome: 'Costa',
-      sexo: 'feminino',
-      estadoCivil: 'divorciado',
-      dataNascimento: '1992-11-25',
-      telefone: '(11) 97654-3210',
-      email: 'ana.costa@email.com',
-      cep: '04038-001',
-      rua: 'Avenida Ibirapuera',
-      numero: '1500',
-      complemento: '',
-      bairro: 'Moema',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 5,
-      nome: 'Carlos',
-      sobrenome: 'Souza',
-      sexo: 'masculino',
-      estadoCivil: 'solteiro',
-      dataNascimento: '1995-07-05',
-      telefone: '(11) 92345-6789',
-      email: 'carlos.souza@email.com',
-      cep: '05433-070',
-      rua: 'Rua dos Pinheiros',
-      numero: '800',
-      complemento: 'Apto 45',
-      bairro: 'Pinheiros',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 6,
-      nome: 'Juliana',
-      sobrenome: 'Lima',
-      sexo: 'feminino',
-      estadoCivil: 'casado',
-      dataNascimento: '1987-09-12',
-      telefone: '(11) 94567-8901',
-      email: 'juliana.lima@email.com',
-      cep: '01234-567',
-      rua: 'Rua dos Três Irmãos',
-      numero: '300',
-      complemento: '',
-      bairro: 'Vila Madalena',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 7,
-      nome: 'Roberto',
-      sobrenome: 'Alves',
-      sexo: 'masculino',
-      estadoCivil: 'solteiro',
-      dataNascimento: '1993-02-18',
-      telefone: '(11) 93456-7890',
-      email: 'roberto.alves@email.com',
-      cep: '01310-200',
-      rua: 'Avenida Brigadeiro',
-      numero: '2000',
-      complemento: 'Apto 501',
-      bairro: 'Bela Vista',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 8,
-      nome: 'Fernanda',
-      sobrenome: 'Rocha',
-      sexo: 'feminino',
-      estadoCivil: 'uniao-estavel',
-      dataNascimento: '1991-06-30',
-      telefone: '(11) 95678-9012',
-      email: 'fernanda.rocha@email.com',
-      cep: '04021-001',
-      rua: 'Rua dos Pinheiros',
-      numero: '1200',
-      complemento: '',
-      bairro: 'Pinheiros',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 9,
-      nome: 'Lucas',
-      sobrenome: 'Pereira',
-      sexo: 'masculino',
-      estadoCivil: 'casado',
-      dataNascimento: '1986-12-05',
-      telefone: '(11) 96789-0123',
-      email: 'lucas.pereira@email.com',
-      cep: '05015-000',
-      rua: 'Rua Harmonia',
-      numero: '400',
-      complemento: 'Casa',
-      bairro: 'Vila Madalena',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 10,
-      nome: 'Beatriz',
-      sobrenome: 'Ferreira',
-      sexo: 'feminino',
-      estadoCivil: 'solteiro',
-      dataNascimento: '1994-04-22',
-      telefone: '(11) 97890-1234',
-      email: 'beatriz.ferreira@email.com',
-      cep: '04530-000',
-      rua: 'Avenida Faria Lima',
-      numero: '1500',
-      complemento: 'Sala 1001',
-      bairro: 'Itaim Bibi',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 11,
-      nome: 'Rafael',
-      sobrenome: 'Martins',
-      sexo: 'masculino',
-      estadoCivil: 'divorciado',
-      dataNascimento: '1989-10-15',
-      telefone: '(11) 98901-2345',
-      email: 'rafael.martins@email.com',
-      cep: '01452-000',
-      rua: 'Rua Bela Cintra',
-      numero: '800',
-      complemento: 'Apto 302',
-      bairro: 'Consolação',
-      cidade: 'São Paulo',
-      estado: 'SP'
-    },
-    {
-      id: 12,
-      nome: 'Camila',
-      sobrenome: 'Rodrigues',
-      sexo: 'feminino',
-      estadoCivil: 'casado',
-      dataNascimento: '1992-01-28',
-      telefone: '(11) 99012-3456',
-      email: 'camila.rodrigues@email.com',
-      cep: '05433-070',
-      rua: 'Rua dos Pinheiros',
-      numero: '900',
-      complemento: '',
-      bairro: 'Pinheiros',
-      cidade: 'São Paulo',
-      estado: 'SP'
+  // Lista de pessoas (carregada da API)
+  const [pessoas, setPessoas] = useState([]);
+  const [pessoasBusca, setPessoasBusca] = useState([]); // Para busca/autocomplete
+
+  // Lista de ministérios
+  const [ministerios, setMinisterios] = useState([]);
+
+  // Carregar pessoas
+  const loadPessoas = async () => {
+    try {
+      const response = await api.get('/pessoas', {
+        params: {
+          ...listFilters,
+          page: currentPageList,
+          pageSize: pageSizeList
+        }
+      });
+      setPessoas(response.data.pessoas);
+      setTotalPessoas(response.data.pagination.total);
+    } catch (error) {
+      console.error('Erro ao carregar pessoas:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar pessoas. Tente novamente.',
+        variant: 'destructive',
+      });
     }
-  ]);
+  };
+
+  // Carregar ministérios
+  const loadMinisterios = async () => {
+    try {
+      const response = await api.get('/ministerios');
+      setMinisterios(response.data.ministerios);
+    } catch (error) {
+      console.error('Erro ao carregar ministérios:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar ministérios. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Buscar pessoas (para autocomplete)
+  const buscarPessoasAPI = async (query) => {
+    if (!query || query.trim().length < 2) {
+      setPessoasBusca([]);
+      return;
+    }
+
+    try {
+      const response = await api.get('/pessoas/buscar', {
+        params: { q: query }
+      });
+      setPessoasBusca(response.data.pessoas);
+    } catch (error) {
+      console.error('Erro ao buscar pessoas:', error);
+      setPessoasBusca([]);
+    }
+  };
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    loadMinisterios();
+  }, []);
+
+  // Recarregar pessoas quando filtros ou paginação mudarem
+  useEffect(() => {
+    loadPessoas();
+  }, [currentPageList, pageSizeList, listFilters]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -287,75 +309,92 @@ const GestaoPessoas = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.nome.trim()) {
+      toast({ title: 'Erro', description: 'Nome é obrigatório.', variant: 'destructive' });
+      return;
+    }
+    if (!formData.telefone.trim()) {
+      toast({ title: 'Erro', description: 'Telefone é obrigatório.', variant: 'destructive' });
+      return;
+    }
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      // Simulação de sucesso
-      setTimeout(() => {
-        setMessage({ type: 'success', text: 'Pessoa cadastrada com sucesso!' });
-        setFormData({
-          nome: '',
-          sobrenome: '',
-          sexo: '',
-          estadoCivil: '',
-          dataNascimento: '',
-          telefone: '',
-          email: '',
-          cep: '',
-          rua: '',
-          numero: '',
-          complemento: '',
-          bairro: '',
-          cidade: '',
-          estado: ''
-        });
-        setLoading(false);
-      }, 1000);
+      await api.post('/pessoas', formData);
+      toast({
+        title: 'Sucesso',
+        description: 'Pessoa cadastrada com sucesso!',
+      });
+      setFormData({
+        nome: '',
+        sobrenome: '',
+        sexo: '',
+        estadoCivil: '',
+        dataNascimento: '',
+        telefone: '',
+        email: '',
+        cep: '',
+        rua: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        cidade: '',
+        estado: ''
+      });
+      await loadPessoas();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao cadastrar pessoa. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao cadastrar pessoa. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
     }
   };
 
-  // Filtrar pessoas para pesquisa
-  const filteredPessoas = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    
-    const query = searchQuery.toLowerCase();
-    return pessoas.filter(pessoa => {
-      const nomeCompleto = `${pessoa.nome} ${pessoa.sobrenome}`.toLowerCase();
-      const email = pessoa.email?.toLowerCase() || '';
-      const telefone = pessoa.telefone?.replace(/\D/g, '') || '';
-      const searchQueryClean = query.replace(/\D/g, '');
-      
-      return nomeCompleto.includes(query) ||
-             email.includes(query) ||
-             telefone.includes(searchQueryClean);
-    });
-  }, [searchQuery, pessoas]);
+  // Buscar pessoas quando searchQuery mudar
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      buscarPessoasAPI(searchQuery);
+    }, 300); // Debounce de 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Filtrar pessoas para pesquisa (usando resultado da API)
+  const filteredPessoas = pessoasBusca;
 
   // Preencher formulário quando pessoa for selecionada
-  const handleSelectPerson = (pessoa) => {
-    setSelectedPerson(pessoa);
-    setEditFormData({
-      nome: pessoa.nome || '',
-      sobrenome: pessoa.sobrenome || '',
-      sexo: pessoa.sexo || '',
-      estadoCivil: pessoa.estadoCivil || '',
-      dataNascimento: pessoa.dataNascimento || '',
-      telefone: pessoa.telefone || '',
-      email: pessoa.email || '',
-      cep: pessoa.cep || '',
-      rua: pessoa.rua || '',
-      numero: pessoa.numero || '',
-      complemento: pessoa.complemento || '',
-      bairro: pessoa.bairro || '',
-      cidade: pessoa.cidade || '',
-      estado: pessoa.estado || ''
-    });
-    setSearchQuery('');
-    setMessageEdit({ type: '', text: '' });
+  const handleSelectPerson = async (pessoa) => {
+    try {
+      const response = await api.get(`/pessoas/${pessoa.id}`);
+      const pessoaData = response.data.pessoa;
+      setSelectedPerson(pessoaData);
+      setEditFormData({
+        nome: pessoaData.nome || '',
+        sobrenome: pessoaData.sobrenome || '',
+        sexo: pessoaData.sexo || '',
+        estadoCivil: pessoaData.estadoCivil || '',
+        dataNascimento: pessoaData.dataNascimento || '',
+        telefone: pessoaData.telefone || '',
+        email: pessoaData.email || '',
+        cep: pessoaData.cep || '',
+        rua: pessoaData.rua || '',
+        numero: pessoaData.numero || '',
+        complemento: pessoaData.complemento || '',
+        bairro: pessoaData.bairro || '',
+        cidade: pessoaData.cidade || '',
+        estado: pessoaData.estado || ''
+      });
+      setSearchQuery('');
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar pessoa. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleEditChange = (e) => {
@@ -366,25 +405,96 @@ const GestaoPessoas = () => {
     }));
   };
 
+  // ViaCEP: busca endereço pelo CEP e preenche o formulário
+  const fetchViaCep = async (cep) => {
+    try {
+      const res = await fetch(`${VIA_CEP_URL}/${cep.replace(/\D/g, '')}/json/`);
+      const data = await res.json();
+      if (data.erro) return null;
+      return {
+        rua: data.logradouro || '',
+        bairro: data.bairro || '',
+        cidade: data.localidade || '',
+        estado: data.uf || ''
+      };
+    } catch (err) {
+      return null;
+    }
+  };
+
+  const handleCepBlurAdd = async (cep) => {
+    const endereco = await fetchViaCep(cep);
+    if (endereco) {
+      setFormData(prev => ({ ...prev, ...endereco }));
+      toast({ title: 'CEP encontrado', description: 'Endereço preenchido automaticamente.' });
+    } else {
+      toast({ title: 'CEP não encontrado', description: 'Verifique o número e tente novamente.', variant: 'destructive' });
+    }
+  };
+
+  const handleCepBlurEdit = async (cep) => {
+    const endereco = await fetchViaCep(cep);
+    if (endereco) {
+      setEditFormData(prev => ({ ...prev, ...endereco }));
+      toast({ title: 'CEP encontrado', description: 'Endereço preenchido automaticamente.' });
+    } else {
+      toast({ title: 'CEP não encontrado', description: 'Verifique o número e tente novamente.', variant: 'destructive' });
+    }
+  };
+
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    if (!editFormData.nome.trim()) {
+      toast({ title: 'Erro', description: 'Nome é obrigatório.', variant: 'destructive' });
+      return;
+    }
+    if (!editFormData.telefone.trim()) {
+      toast({ title: 'Erro', description: 'Telefone é obrigatório.', variant: 'destructive' });
+      return;
+    }
     setLoadingEdit(true);
-    setMessageEdit({ type: '', text: '' });
 
     if (!selectedPerson) {
-      setMessageEdit({ type: 'error', text: 'Por favor, selecione uma pessoa para editar.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione uma pessoa para editar.',
+        variant: 'destructive',
+      });
       setLoadingEdit(false);
       return;
     }
 
     try {
-      // Simulação de sucesso
-      setTimeout(() => {
-        setMessageEdit({ type: 'success', text: 'Pessoa atualizada com sucesso!' });
-        setLoadingEdit(false);
-      }, 1000);
+      await api.put(`/pessoas/${selectedPerson.id}`, editFormData);
+      toast({
+        title: 'Sucesso',
+        description: 'Pessoa atualizada com sucesso!',
+      });
+      setSelectedPerson(null);
+      setEditFormData({
+        nome: '',
+        sobrenome: '',
+        sexo: '',
+        estadoCivil: '',
+        dataNascimento: '',
+        telefone: '',
+        email: '',
+        cep: '',
+        rua: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        cidade: '',
+        estado: ''
+      });
+      await loadPessoas();
     } catch (error) {
-      setMessageEdit({ type: 'error', text: 'Erro ao atualizar pessoa. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao atualizar pessoa. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoadingEdit(false);
     }
   };
@@ -408,68 +518,20 @@ const GestaoPessoas = () => {
       estado: ''
     });
     setSearchQuery('');
-    setMessageEdit({ type: '', text: '' });
   };
 
-  // Filtrar pessoas para lista
-  const filteredListPessoas = useMemo(() => {
-    return pessoas.filter(pessoa => {
-      // Filtro de busca (nome, email, telefone)
-      if (listFilters.search) {
-        const query = listFilters.search.toLowerCase();
-        const nomeCompleto = `${pessoa.nome} ${pessoa.sobrenome}`.toLowerCase();
-        const email = pessoa.email?.toLowerCase() || '';
-        const telefone = pessoa.telefone?.replace(/\D/g, '') || '';
-        const searchQueryClean = query.replace(/\D/g, '');
-        
-        if (!nomeCompleto.includes(query) && 
-            !email.includes(query) && 
-            !telefone.includes(searchQueryClean)) {
-          return false;
-        }
-      }
-
-      // Filtro por cidade
-      if (listFilters.cidade) {
-        if (pessoa.cidade?.toLowerCase() !== listFilters.cidade.toLowerCase()) {
-          return false;
-        }
-      }
-
-      // Filtro por estado
-      if (listFilters.estado) {
-        if (pessoa.estado !== listFilters.estado) {
-          return false;
-        }
-      }
-
-      // Filtro por sexo
-      if (listFilters.sexo) {
-        if (pessoa.sexo !== listFilters.sexo) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [pessoas, listFilters]);
-
-  // Paginação da lista
+  // Paginação da lista (usando dados do backend)
   const totalPagesList = useMemo(() => 
-    Math.ceil(filteredListPessoas.length / pageSizeList), 
-    [filteredListPessoas.length, pageSizeList]
+    Math.ceil(totalPessoas / pageSizeList), 
+    [totalPessoas, pageSizeList]
   );
   const startIndexList = useMemo(() => 
     (currentPageList - 1) * pageSizeList, 
     [currentPageList, pageSizeList]
   );
   const endIndexList = useMemo(() => 
-    startIndexList + pageSizeList, 
-    [startIndexList, pageSizeList]
-  );
-  const paginatedListPessoas = useMemo(() => 
-    filteredListPessoas.slice(startIndexList, endIndexList), 
-    [filteredListPessoas, startIndexList, endIndexList]
+    Math.min(startIndexList + pageSizeList, totalPessoas), 
+    [startIndexList, pageSizeList, totalPessoas]
   );
 
   // Páginas para exibição
@@ -507,22 +569,30 @@ const GestaoPessoas = () => {
   };
 
   // Função para excluir pessoa
-  const handleDeletePerson = (id) => {
+  const handleDeletePerson = async (id) => {
     if (window.confirm('Tem certeza que deseja excluir esta pessoa?')) {
-      setPessoas(prev => prev.filter(p => p.id !== id));
-      // Se a pessoa excluída estava selecionada, limpar seleção
-      if (selectedPerson?.id === id) {
-        handleClearSelection();
-      }
-      // Ajustar página se necessário
-      const newTotalPages = Math.ceil((filteredListPessoas.length - 1) / pageSizeList);
-      if (currentPageList > newTotalPages && newTotalPages > 0) {
-        setCurrentPageList(newTotalPages);
+      try {
+        await api.delete(`/pessoas/${id}`);
+        toast({
+          title: 'Sucesso',
+          description: 'Pessoa excluída com sucesso!',
+        });
+        // Se a pessoa excluída estava selecionada, limpar seleção
+        if (selectedPerson?.id === id) {
+          handleClearSelection();
+        }
+        await loadPessoas();
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: error.response?.data?.message || 'Erro ao excluir pessoa. Tente novamente.',
+          variant: 'destructive',
+        });
       }
     }
   };
 
-  // Obter lista única de cidades para filtro
+  // Obter lista única de cidades para filtro (será carregada do backend se necessário)
   const uniqueCidades = useMemo(() => {
     const cidades = [...new Set(pessoas.map(p => p.cidade).filter(Boolean))];
     return cidades.sort();
@@ -539,46 +609,44 @@ const GestaoPessoas = () => {
     tipoUsuario: ''
   });
   const [loadingAtribuicao, setLoadingAtribuicao] = useState(false);
-  const [messageAtribuicao, setMessageAtribuicao] = useState({ type: '', text: '' });
 
-  // Lista mockada de ministérios - TODO: Substituir por chamada à API
-  const [ministerios] = useState([
-    { id: 1, nome: 'Louvor' },
-    { id: 2, nome: 'Jovens' },
-    { id: 3, nome: 'Crianças' },
-    { id: 4, nome: 'Intercessão' },
-    { id: 5, nome: 'Recepção' },
-    { id: 6, nome: 'Mídia' },
-    { id: 7, nome: 'Limpeza' },
-    { id: 8, nome: 'Segurança' },
-    { id: 9, nome: 'Ensino' },
-    { id: 10, nome: 'Missões' },
-    { id: 11, nome: 'Ação Social' },
-    { id: 12, nome: 'Visitação' }
-  ]);
+  // Buscar pessoas para atribuição
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      buscarPessoasAPI(atribuicaoSearchQuery);
+    }, 300);
 
-  // Filtrar pessoas para atribuição
-  const filteredPessoasAtribuicao = useMemo(() => {
-    if (!atribuicaoSearchQuery.trim()) return [];
-    
-    const query = atribuicaoSearchQuery.toLowerCase();
-    return pessoas.filter(pessoa => {
-      const nomeCompleto = `${pessoa.nome} ${pessoa.sobrenome}`.toLowerCase();
-      const email = pessoa.email?.toLowerCase() || '';
-      const telefone = pessoa.telefone?.replace(/\D/g, '') || '';
-      const searchQueryClean = query.replace(/\D/g, '');
-      
-      return nomeCompleto.includes(query) ||
-             email.includes(query) ||
-             telefone.includes(searchQueryClean);
-    });
-  }, [atribuicaoSearchQuery, pessoas]);
+    return () => clearTimeout(timeoutId);
+  }, [atribuicaoSearchQuery]);
+
+  const filteredPessoasAtribuicao = pessoasBusca;
 
   // Preencher formulário quando pessoa for selecionada na atribuição
-  const handleSelectPersonAtribuicao = (pessoa) => {
+  const handleSelectPersonAtribuicao = async (pessoa) => {
     setSelectedPersonAtribuicao(pessoa);
     setAtribuicaoSearchQuery('');
-    setMessageAtribuicao({ type: '', text: '' });
+    
+    // Carregar atribuições existentes
+    try {
+      const response = await api.get(`/pessoas/${pessoa.id}/atribuicoes`);
+      const atribuicao = response.data.atribuicao;
+      setAtribuicaoFormData({
+        cargoEclesiastico: atribuicao.cargoEclesiastico || '',
+        estagiosUsuario: atribuicao.estagiosUsuario || [],
+        ministeriosLider: atribuicao.ministeriosLider?.map(m => m.id) || [],
+        ministeriosParticipante: atribuicao.ministeriosParticipante?.map(m => m.id) || [],
+        tipoUsuario: atribuicao.tipoUsuario || 'Usuario'
+      });
+    } catch (error) {
+      // Se não houver atribuições, usar valores padrão
+      setAtribuicaoFormData({
+        cargoEclesiastico: '',
+        estagiosUsuario: [],
+        ministeriosLider: [],
+        ministeriosParticipante: [],
+        tipoUsuario: 'Usuario'
+      });
+    }
   };
 
   const handleAtribuicaoChange = (e) => {
@@ -660,40 +728,67 @@ const GestaoPessoas = () => {
   const handleAtribuicaoSubmit = async (e) => {
     e.preventDefault();
     setLoadingAtribuicao(true);
-    setMessageAtribuicao({ type: '', text: '' });
 
     if (!selectedPersonAtribuicao) {
-      setMessageAtribuicao({ type: 'error', text: 'Por favor, selecione uma pessoa para atribuir.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione uma pessoa para atribuir.',
+        variant: 'destructive',
+      });
       setLoadingAtribuicao(false);
       return;
     }
 
     if (atribuicaoFormData.estagiosUsuario.length === 0) {
-      setMessageAtribuicao({ type: 'error', text: 'Por favor, selecione pelo menos um estágio de usuário.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione pelo menos um estágio de usuário.',
+        variant: 'destructive',
+      });
       setLoadingAtribuicao(false);
       return;
     }
 
     if (atribuicaoFormData.estagiosUsuario.includes('Líder') && atribuicaoFormData.ministeriosLider.length === 0) {
-      setMessageAtribuicao({ type: 'error', text: 'Por favor, selecione pelo menos um ministério para líder.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione pelo menos um ministério para líder.',
+        variant: 'destructive',
+      });
       setLoadingAtribuicao(false);
       return;
     }
 
     if (atribuicaoFormData.estagiosUsuario.includes('Participante de Ministério') && atribuicaoFormData.ministeriosParticipante.length === 0) {
-      setMessageAtribuicao({ type: 'error', text: 'Por favor, selecione pelo menos um ministério para participante.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione pelo menos um ministério para participante.',
+        variant: 'destructive',
+      });
       setLoadingAtribuicao(false);
       return;
     }
 
     try {
-      // Simulação de sucesso
-      setTimeout(() => {
-        setMessageAtribuicao({ type: 'success', text: 'Atribuições salvas com sucesso!' });
-        setLoadingAtribuicao(false);
-      }, 1000);
+      await api.post(`/pessoas/${selectedPersonAtribuicao.id}/atribuicoes`, atribuicaoFormData);
+      toast({
+        title: 'Sucesso',
+        description: 'Atribuições salvas com sucesso!',
+      });
+      setAtribuicaoFormData({
+        cargoEclesiastico: '',
+        estagiosUsuario: [],
+        ministeriosLider: [],
+        ministeriosParticipante: [],
+        tipoUsuario: 'Usuario'
+      });
     } catch (error) {
-      setMessageAtribuicao({ type: 'error', text: 'Erro ao salvar atribuições. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao salvar atribuições. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoadingAtribuicao(false);
     }
   };
@@ -708,285 +803,10 @@ const GestaoPessoas = () => {
       tipoUsuario: ''
     });
     setAtribuicaoSearchQuery('');
-    setMessageAtribuicao({ type: '', text: '' });
     setEstagioSelecionado('');
     setMinisterioLiderSelecionado('');
     setMinisterioParticipanteSelecionado('');
   };
-
-  // Componente do formulário (reutilizável)
-  const PessoaForm = ({ formData, handleChange, loading, message, submitText, cancelButton, onCancel, onSubmit }) => (
-    <form onSubmit={onSubmit} className="pessoa-form">
-      {message.text && (
-        <div className={`form-message ${message.type}`}>
-          {message.text}
-        </div>
-      )}
-
-      <div className="form-row form-row-2">
-        <div className="form-group">
-          <Label htmlFor="edit-nome">Nome</Label>
-          <Input
-            type="text"
-            id="edit-nome"
-            name="nome"
-            value={formData.nome}
-            onChange={handleChange}
-            placeholder="Digite o nome"
-            required
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <Label htmlFor="edit-sobrenome">Sobrenome completo</Label>
-          <Input
-            type="text"
-            id="edit-sobrenome"
-            name="sobrenome"
-            value={formData.sobrenome}
-            onChange={handleChange}
-            placeholder="Digite o sobrenome completo"
-            required
-            className="form-input"
-          />
-        </div>
-      </div>
-
-      <div className="form-row form-row-2">
-        <div className="form-group">
-          <Label htmlFor="edit-sexo">Sexo</Label>
-          <select
-            id="edit-sexo"
-            name="sexo"
-            value={formData.sexo}
-            onChange={handleChange}
-            required
-            className="form-select"
-          >
-            <option value="">Selecione o sexo</option>
-            <option value="masculino">Masculino</option>
-            <option value="feminino">Feminino</option>
-            <option value="outro">Outro</option>
-            <option value="nao-informar">Prefiro não informar</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <Label htmlFor="edit-estadoCivil">Estado Civil</Label>
-          <select
-            id="edit-estadoCivil"
-            name="estadoCivil"
-            value={formData.estadoCivil}
-            onChange={handleChange}
-            required
-            className="form-select"
-          >
-            <option value="">Selecione o estado civil</option>
-            <option value="solteiro">Solteiro(a)</option>
-            <option value="casado">Casado(a)</option>
-            <option value="divorciado">Divorciado(a)</option>
-            <option value="viuvo">Viúvo(a)</option>
-            <option value="uniao-estavel">União Estável</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="form-row form-row-2">
-        <div className="form-group">
-          <Label htmlFor="edit-dataNascimento">Data de Nascimento</Label>
-          <Input
-            type="date"
-            id="edit-dataNascimento"
-            name="dataNascimento"
-            value={formData.dataNascimento}
-            onChange={handleChange}
-            required
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <Label htmlFor="edit-telefone">Telefone</Label>
-          <Input
-            type="tel"
-            id="edit-telefone"
-            name="telefone"
-            value={formData.telefone}
-            onChange={handleChange}
-            placeholder="(00) 00000-0000"
-            required
-            className="form-input"
-          />
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <Label htmlFor="edit-email">Email</Label>
-          <Input
-            type="email"
-            id="edit-email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="email@exemplo.com"
-            required
-            className="form-input"
-          />
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <Label htmlFor="edit-cep">CEP</Label>
-          <Input
-            type="text"
-            id="edit-cep"
-            name="cep"
-            value={formData.cep}
-            onChange={handleChange}
-            placeholder="00000-000"
-            required
-            className="form-input"
-          />
-        </div>
-      </div>
-
-      <div className="form-row form-row-2">
-        <div className="form-group" style={{ flex: 2 }}>
-          <Label htmlFor="edit-rua">Rua</Label>
-          <Input
-            type="text"
-            id="edit-rua"
-            name="rua"
-            value={formData.rua}
-            onChange={handleChange}
-            placeholder="Digite o nome da rua"
-            required
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <Label htmlFor="edit-numero">Número</Label>
-          <Input
-            type="text"
-            id="edit-numero"
-            name="numero"
-            value={formData.numero}
-            onChange={handleChange}
-            placeholder="Nº"
-            required
-            className="form-input"
-          />
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <Label htmlFor="edit-complemento">Complemento</Label>
-          <Input
-            type="text"
-            id="edit-complemento"
-            name="complemento"
-            value={formData.complemento}
-            onChange={handleChange}
-            placeholder="Apartamento, bloco, etc. (opcional)"
-            className="form-input"
-          />
-        </div>
-      </div>
-
-      <div className="form-row form-row-2">
-        <div className="form-group">
-          <Label htmlFor="edit-bairro">Bairro</Label>
-          <Input
-            type="text"
-            id="edit-bairro"
-            name="bairro"
-            value={formData.bairro}
-            onChange={handleChange}
-            placeholder="Digite o bairro"
-            required
-            className="form-input"
-          />
-        </div>
-        <div className="form-group">
-          <Label htmlFor="edit-cidade">Cidade</Label>
-          <Input
-            type="text"
-            id="edit-cidade"
-            name="cidade"
-            value={formData.cidade}
-            onChange={handleChange}
-            placeholder="Digite a cidade"
-            required
-            className="form-input"
-          />
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <Label htmlFor="edit-estado">Estado</Label>
-          <select
-            id="edit-estado"
-            name="estado"
-            value={formData.estado}
-            onChange={handleChange}
-            required
-            className="form-select"
-          >
-            <option value="">Selecione o estado</option>
-            <option value="AC">Acre</option>
-            <option value="AL">Alagoas</option>
-            <option value="AP">Amapá</option>
-            <option value="AM">Amazonas</option>
-            <option value="BA">Bahia</option>
-            <option value="CE">Ceará</option>
-            <option value="DF">Distrito Federal</option>
-            <option value="ES">Espírito Santo</option>
-            <option value="GO">Goiás</option>
-            <option value="MA">Maranhão</option>
-            <option value="MT">Mato Grosso</option>
-            <option value="MS">Mato Grosso do Sul</option>
-            <option value="MG">Minas Gerais</option>
-            <option value="PA">Pará</option>
-            <option value="PB">Paraíba</option>
-            <option value="PR">Paraná</option>
-            <option value="PE">Pernambuco</option>
-            <option value="PI">Piauí</option>
-            <option value="RJ">Rio de Janeiro</option>
-            <option value="RN">Rio Grande do Norte</option>
-            <option value="RS">Rio Grande do Sul</option>
-            <option value="RO">Rondônia</option>
-            <option value="RR">Roraima</option>
-            <option value="SC">Santa Catarina</option>
-            <option value="SP">São Paulo</option>
-            <option value="SE">Sergipe</option>
-            <option value="TO">Tocantins</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="form-actions">
-        {cancelButton && onCancel && (
-          <Button 
-            type="button" 
-            variant="outline"
-            onClick={onCancel}
-            className="cancel-button"
-          >
-            Cancelar
-          </Button>
-        )}
-        <Button 
-          type="submit" 
-          className="submit-button"
-          disabled={loading}
-        >
-          {loading ? 'Salvando...' : submitText}
-        </Button>
-      </div>
-    </form>
-  );
 
   return (
     <MainLayout>
@@ -1017,359 +837,64 @@ const GestaoPessoas = () => {
             <TabsContent value="gestao-pessoas" className="gestao-pessoas-tabs-content">
               <div className="tab-content-wrapper">
                 <h2>Cadastrar Pessoa</h2>
-                
-                <form onSubmit={handleSubmit} className="pessoa-form">
-                  {message.text && (
-                    <div className={`form-message ${message.type}`}>
-                      {message.text}
-                    </div>
-                  )}
-
-                  <div className="form-row form-row-2">
-                    <div className="form-group">
-                      <Label htmlFor="nome">Nome</Label>
-                      <Input
-                        type="text"
-                        id="nome"
-                        name="nome"
-                        value={formData.nome}
-                        onChange={handleChange}
-                        placeholder="Digite o nome"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <Label htmlFor="sobrenome">Sobrenome completo</Label>
-                      <Input
-                        type="text"
-                        id="sobrenome"
-                        name="sobrenome"
-                        value={formData.sobrenome}
-                        onChange={handleChange}
-                        placeholder="Digite o sobrenome completo"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row form-row-2">
-                    <div className="form-group">
-                      <Label htmlFor="sexo">Sexo</Label>
-                      <select
-                        id="sexo"
-                        name="sexo"
-                        value={formData.sexo}
-                        onChange={handleChange}
-                        required
-                        className="form-select"
-                      >
-                        <option value="">Selecione o sexo</option>
-                        <option value="masculino">Masculino</option>
-                        <option value="feminino">Feminino</option>
-                        <option value="outro">Outro</option>
-                        <option value="nao-informar">Prefiro não informar</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <Label htmlFor="estadoCivil">Estado Civil</Label>
-                      <select
-                        id="estadoCivil"
-                        name="estadoCivil"
-                        value={formData.estadoCivil}
-                        onChange={handleChange}
-                        required
-                        className="form-select"
-                      >
-                        <option value="">Selecione o estado civil</option>
-                        <option value="solteiro">Solteiro(a)</option>
-                        <option value="casado">Casado(a)</option>
-                        <option value="divorciado">Divorciado(a)</option>
-                        <option value="viuvo">Viúvo(a)</option>
-                        <option value="uniao-estavel">União Estável</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-row form-row-2">
-                    <div className="form-group">
-                      <Label htmlFor="dataNascimento">Data de Nascimento</Label>
-                      <Input
-                        type="date"
-                        id="dataNascimento"
-                        name="dataNascimento"
-                        value={formData.dataNascimento}
-                        onChange={handleChange}
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <Label htmlFor="telefone">Telefone</Label>
-                      <Input
-                        type="tel"
-                        id="telefone"
-                        name="telefone"
-                        value={formData.telefone}
-                        onChange={handleChange}
-                        placeholder="(00) 00000-0000"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="email@exemplo.com"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <Label htmlFor="cep">CEP</Label>
-                      <Input
-                        type="text"
-                        id="cep"
-                        name="cep"
-                        value={formData.cep}
-                        onChange={handleChange}
-                        placeholder="00000-000"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row form-row-2">
-                    <div className="form-group" style={{ flex: 2 }}>
-                      <Label htmlFor="rua">Rua</Label>
-                      <Input
-                        type="text"
-                        id="rua"
-                        name="rua"
-                        value={formData.rua}
-                        onChange={handleChange}
-                        placeholder="Digite o nome da rua"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <Label htmlFor="numero">Número</Label>
-                      <Input
-                        type="text"
-                        id="numero"
-                        name="numero"
-                        value={formData.numero}
-                        onChange={handleChange}
-                        placeholder="Nº"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <Label htmlFor="complemento">Complemento</Label>
-                      <Input
-                        type="text"
-                        id="complemento"
-                        name="complemento"
-                        value={formData.complemento}
-                        onChange={handleChange}
-                        placeholder="Apartamento, bloco, etc. (opcional)"
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row form-row-2">
-                    <div className="form-group">
-                      <Label htmlFor="bairro">Bairro</Label>
-                      <Input
-                        type="text"
-                        id="bairro"
-                        name="bairro"
-                        value={formData.bairro}
-                        onChange={handleChange}
-                        placeholder="Digite o bairro"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <Label htmlFor="cidade">Cidade</Label>
-                      <Input
-                        type="text"
-                        id="cidade"
-                        name="cidade"
-                        value={formData.cidade}
-                        onChange={handleChange}
-                        placeholder="Digite a cidade"
-                        required
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <Label htmlFor="estado">Estado</Label>
-                      <select
-                        id="estado"
-                        name="estado"
-                        value={formData.estado}
-                        onChange={handleChange}
-                        required
-                        className="form-select"
-                      >
-                        <option value="">Selecione o estado</option>
-                        <option value="AC">Acre</option>
-                        <option value="AL">Alagoas</option>
-                        <option value="AP">Amapá</option>
-                        <option value="AM">Amazonas</option>
-                        <option value="BA">Bahia</option>
-                        <option value="CE">Ceará</option>
-                        <option value="DF">Distrito Federal</option>
-                        <option value="ES">Espírito Santo</option>
-                        <option value="GO">Goiás</option>
-                        <option value="MA">Maranhão</option>
-                        <option value="MT">Mato Grosso</option>
-                        <option value="MS">Mato Grosso do Sul</option>
-                        <option value="MG">Minas Gerais</option>
-                        <option value="PA">Pará</option>
-                        <option value="PB">Paraíba</option>
-                        <option value="PR">Paraná</option>
-                        <option value="PE">Pernambuco</option>
-                        <option value="PI">Piauí</option>
-                        <option value="RJ">Rio de Janeiro</option>
-                        <option value="RN">Rio Grande do Norte</option>
-                        <option value="RS">Rio Grande do Sul</option>
-                        <option value="RO">Rondônia</option>
-                        <option value="RR">Roraima</option>
-                        <option value="SC">Santa Catarina</option>
-                        <option value="SP">São Paulo</option>
-                        <option value="SE">Sergipe</option>
-                        <option value="TO">Tocantins</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-actions">
-                    <Button 
-                      type="submit" 
-                      className="submit-button"
-                      disabled={loading}
-                    >
-                      {loading ? 'Cadastrando...' : 'Cadastrar Pessoa'}
-                    </Button>
-                  </div>
-                </form>
+                <PessoaForm
+                  formData={formData}
+                  handleChange={handleChange}
+                  loading={loading}
+                  submitText="Cadastrar Pessoa"
+                  cancelButton={false}
+                  onSubmit={handleSubmit}
+                  idPrefix={PREFIX_ADD}
+                  onCepBlur={handleCepBlurAdd}
+                />
               </div>
             </TabsContent>
 
             <TabsContent value="editar-pessoas" className="gestao-pessoas-tabs-content">
               <div className="tab-content-wrapper">
                 <h2>Editar Pessoa</h2>
-                
-                {/* Campo de Pesquisa */}
                 <div className="search-section">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <Label htmlFor="search-person">Buscar Pessoa</Label>
-                      <div className="search-input-wrapper">
-                        <Search className="search-icon" />
-                        <Input
-                          type="text"
-                          id="search-person"
-                          placeholder="Digite o nome, email ou telefone..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="form-input search-input"
-                          disabled={!!selectedPerson}
-                        />
-                      </div>
-                      
-                      {/* Lista de resultados da pesquisa */}
-                      {searchQuery && !selectedPerson && filteredPessoas.length > 0 && (
-                        <div className="search-results">
-                          {filteredPessoas.map(pessoa => (
-                            <div
-                              key={pessoa.id}
-                              className="search-result-item"
-                              onClick={() => handleSelectPerson(pessoa)}
-                            >
-                              <div className="result-item-info">
-                                <div className="result-item-name">
-                                  {pessoa.nome} {pessoa.sobrenome}
-                                </div>
-                                <div className="result-item-details">
-                                  {pessoa.email && <span>{pessoa.email}</span>}
-                                  {pessoa.telefone && <span>{pessoa.telefone}</span>}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {searchQuery && !selectedPerson && filteredPessoas.length === 0 && (
-                        <div className="search-no-results">
-                          Nenhuma pessoa encontrada
-                        </div>
-                      )}
-
-                      {/* Pessoa selecionada */}
-                      {selectedPerson && (
-                        <div className="selected-person">
-                          <div className="selected-person-info">
-                            <div className="selected-person-name">
-                              {selectedPerson.nome} {selectedPerson.sobrenome}
-                            </div>
-                            <div className="selected-person-details">
-                              {selectedPerson.email && <span>{selectedPerson.email}</span>}
-                              {selectedPerson.telefone && <span>{selectedPerson.telefone}</span>}
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleClearSelection}
-                            className="clear-selection-button"
-                          >
-                            Limpar Seleção
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                  <Label htmlFor="search-pessoa-edit">Buscar pessoa para editar</Label>
+                  <div className="search-input-wrapper">
+                    <Search className="search-icon" />
+                    <Input
+                      type="text"
+                      id="search-pessoa-edit"
+                      placeholder="Digite o nome, email ou telefone..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="form-input search-input"
+                    />
                   </div>
+                  {filteredPessoas.length > 0 && (
+                    <div className="search-results-dropdown">
+                      {filteredPessoas.map((pessoa) => (
+                        <div
+                          key={pessoa.id}
+                          className="search-result-item"
+                          onClick={() => handleSelectPerson(pessoa)}
+                        >
+                          <span className="result-name">{pessoa.nomeCompleto || `${pessoa.nome} ${pessoa.sobrenome}`}</span>
+                          {pessoa.email && <span className="result-email">{pessoa.email}</span>}
+                          {pessoa.telefone && <span className="result-phone">{pessoa.telefone}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Formulário de Edição */}
                 {selectedPerson && (
                   <div className="edit-form-section">
                     <PessoaForm
                       formData={editFormData}
                       handleChange={handleEditChange}
                       loading={loadingEdit}
-                      message={messageEdit}
                       submitText="Atualizar Pessoa"
                       cancelButton={true}
                       onCancel={handleClearSelection}
                       onSubmit={handleEditSubmit}
+                      idPrefix={PREFIX_EDIT}
+                      onCepBlur={handleCepBlurEdit}
                     />
                   </div>
                 )}
@@ -1495,14 +1020,14 @@ const GestaoPessoas = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paginatedListPessoas.length === 0 ? (
+                        {pessoas.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={8} className="text-center">
                               Nenhuma pessoa encontrada
                             </TableCell>
                           </TableRow>
                         ) : (
-                          paginatedListPessoas.map((pessoa) => (
+                          pessoas.map((pessoa) => (
                             <TableRow key={pessoa.id}>
                               <TableCell>
                                 <div className="pessoa-name-cell">
@@ -1558,11 +1083,11 @@ const GestaoPessoas = () => {
                   </div>
 
                   {/* Paginação */}
-                  {filteredListPessoas.length > pageSizeList && (
+                  {totalPessoas > pageSizeList && (
                     <div className="pagination-section">
                       <div className="pagination-info">
                         <span>
-                          Mostrando {startIndexList + 1} a {Math.min(endIndexList, filteredListPessoas.length)} de {filteredListPessoas.length} pessoas
+                          Mostrando {startIndexList + 1} a {endIndexList} de {totalPessoas} pessoas
                         </span>
                         <div className="page-size-selector">
                           <Label htmlFor="pageSizeList">Linhas por página:</Label>
@@ -1706,11 +1231,6 @@ const GestaoPessoas = () => {
                 {/* Formulário de Atribuição */}
                 {selectedPersonAtribuicao && (
                   <form onSubmit={handleAtribuicaoSubmit} className="pessoa-form">
-                    {messageAtribuicao.text && (
-                      <div className={`form-message ${messageAtribuicao.type}`}>
-                        {messageAtribuicao.text}
-                      </div>
-                    )}
 
                     <div className="form-row">
                       <div className="form-group">

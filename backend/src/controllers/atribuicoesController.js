@@ -1,0 +1,267 @@
+const pool = require('../config/database');
+const crypto = require('crypto');
+const { hashPassword } = require('../utils/password');
+
+// Schema jornada única: um estágio por pessoa (estagio_espiritual_enum)
+const ESTAGIOS_VALIDOS = [
+  'Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Membresia',
+  'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'
+];
+
+// Frontend pode enviar "Participante de Ministério" -> mapear para enum
+const MAP_ESTAGIO_FRONT = { 'Participante de Ministério': 'Participante' };
+
+function normalizarEstagio(estagio) {
+  return MAP_ESTAGIO_FRONT[estagio] || estagio;
+}
+
+// tipo_acesso_enum no schema
+const TIPOS_ACESSO_VALIDOS = ['Sem Acesso', 'Usuario', 'Lider', 'Admin', 'SuperAdmin'];
+
+/**
+ * Criar ou atualizar atribuições (schema jornada única)
+ * - Estágio único em pessoas.estagio_atual + registro em jornada_espiritual
+ * - Cargo em pessoas (cargo_eclesiastico, data_ordenacao)
+ * - Tipo de acesso em credenciais_acesso (cria/atualiza linha se necessário)
+ * - Ministérios em pessoa_ministerios (e_lider, data_inicio, data_fim)
+ */
+async function criarOuAtualizarAtribuicao(req, res) {
+  try {
+    const { pessoaId } = req.params;
+    const {
+      cargoEclesiastico,
+      estagiosUsuario,
+      ministeriosLider,
+      ministeriosParticipante,
+      tipoUsuario
+    } = req.body;
+    const registradoPor = req.user?.id;
+
+    if (!pessoaId) {
+      return res.status(400).json({ message: 'ID da pessoa é obrigatório' });
+    }
+
+    const pessoaCheck = await pool.query('SELECT id, estagio_atual FROM pessoas WHERE id = $1', [pessoaId]);
+    if (pessoaCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Pessoa não encontrada' });
+    }
+
+    if (!Array.isArray(estagiosUsuario) || estagiosUsuario.length === 0) {
+      return res.status(400).json({ message: 'É necessário informar pelo menos um estágio de usuário' });
+    }
+
+    const estagioNovo = normalizarEstagio(estagiosUsuario[0]);
+    if (!ESTAGIOS_VALIDOS.includes(estagioNovo)) {
+      return res.status(400).json({ message: `Estágio inválido: ${estagiosUsuario[0]}` });
+    }
+
+    if (cargoEclesiastico) {
+      const cargosValidos = ['Pastor', 'Evangelista', 'Presbítero', 'Diácono'];
+      if (!cargosValidos.includes(cargoEclesiastico)) {
+        return res.status(400).json({ message: 'Cargo eclesiástico inválido' });
+      }
+    }
+
+    if (!tipoUsuario || !TIPOS_ACESSO_VALIDOS.includes(tipoUsuario)) {
+      return res.status(400).json({ message: 'Tipo de acesso inválido' });
+    }
+
+    if (estagiosUsuario.includes('Líder') || estagiosUsuario.some(e => normalizarEstagio(e) === 'Líder')) {
+      if (!Array.isArray(ministeriosLider) || ministeriosLider.length === 0) {
+        return res.status(400).json({ message: 'É necessário informar pelo menos um ministério para líder' });
+      }
+      const ministeriosCheck = await pool.query('SELECT id FROM ministerios WHERE id = ANY($1::int[])', [ministeriosLider]);
+      if (ministeriosCheck.rows.length !== ministeriosLider.length) {
+        return res.status(400).json({ message: 'Um ou mais ministérios não foram encontrados' });
+      }
+    }
+
+    const estagioParticipante = normalizarEstagio('Participante de Ministério');
+    const temParticipante = estagiosUsuario.some(e => normalizarEstagio(e) === 'Participante');
+    if (temParticipante) {
+      if (!Array.isArray(ministeriosParticipante) || ministeriosParticipante.length === 0) {
+        return res.status(400).json({ message: 'É necessário informar pelo menos um ministério para participante' });
+      }
+      const ministeriosCheck = await pool.query('SELECT id FROM ministerios WHERE id = ANY($1::int[])', [ministeriosParticipante]);
+      if (ministeriosCheck.rows.length !== ministeriosParticipante.length) {
+        return res.status(400).json({ message: 'Um ou mais ministérios não foram encontrados' });
+      }
+    }
+
+    await pool.query('BEGIN');
+
+    try {
+      const estagioAtualAnterior = pessoaCheck.rows[0].estagio_atual;
+
+      // 1) Registrar mudança de estágio na jornada_espiritual (trigger atualiza pessoas.estagio_atual)
+      if (estagioNovo !== estagioAtualAnterior) {
+        await pool.query(
+          `INSERT INTO jornada_espiritual (pessoa_id, estagio_anterior, estagio_novo, observacoes, registrado_por)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [pessoaId, estagioAtualAnterior, estagioNovo, 'Atualizado pela gestão de pessoas', registradoPor || null]
+        );
+      }
+
+      // 2) Cargo eclesiástico e data_ordenacao em pessoas
+      await pool.query(
+        `UPDATE pessoas 
+         SET cargo_eclesiastico = $1, data_ordenacao = $2, atualizado_em = CURRENT_TIMESTAMP 
+         WHERE id = $3`,
+        [cargoEclesiastico || null, req.body.dataOrdenacao || null, pessoaId]
+      );
+
+      // 3) Credenciais de acesso (tipo_acesso)
+      const credExistente = await pool.query('SELECT id FROM credenciais_acesso WHERE pessoa_id = $1', [pessoaId]);
+      if (tipoUsuario === 'Sem Acesso') {
+        await pool.query('DELETE FROM credenciais_acesso WHERE pessoa_id = $1', [pessoaId]);
+      } else {
+        if (credExistente.rows.length > 0) {
+          await pool.query(
+            'UPDATE credenciais_acesso SET tipo_acesso = $1, atualizado_em = CURRENT_TIMESTAMP WHERE pessoa_id = $2',
+            [tipoUsuario, pessoaId]
+          );
+        } else {
+          const placeholderHash = await hashPassword(crypto.randomBytes(24).toString('hex'));
+          await pool.query(
+            `INSERT INTO credenciais_acesso (pessoa_id, senha_hash, tipo_acesso)
+             VALUES ($1, $2, $3)`,
+            [pessoaId, placeholderHash, tipoUsuario]
+          );
+        }
+      }
+
+      // 4) Ministérios: encerrar participações atuais (data_fim = hoje) e inserir novas
+      await pool.query(
+        `UPDATE pessoa_ministerios SET data_fim = CURRENT_DATE, atualizado_em = CURRENT_TIMESTAMP 
+         WHERE pessoa_id = $1 AND data_fim IS NULL`,
+        [pessoaId]
+      );
+
+      const hoje = new Date().toISOString().slice(0, 10);
+
+      if (Array.isArray(ministeriosLider) && ministeriosLider.length > 0) {
+        for (const ministerioId of ministeriosLider) {
+          await pool.query(
+            `INSERT INTO pessoa_ministerios (pessoa_id, ministerio_id, e_lider, data_inicio)
+             VALUES ($1, $2, TRUE, $3)
+             ON CONFLICT (pessoa_id, ministerio_id, data_inicio) DO NOTHING`,
+            [pessoaId, ministerioId, hoje]
+          );
+        }
+      }
+
+      if (Array.isArray(ministeriosParticipante) && ministeriosParticipante.length > 0) {
+        for (const ministerioId of ministeriosParticipante) {
+          if (ministeriosLider && ministeriosLider.includes(Number(ministerioId))) continue;
+          await pool.query(
+            `INSERT INTO pessoa_ministerios (pessoa_id, ministerio_id, e_lider, data_inicio)
+             VALUES ($1, $2, FALSE, $3)
+             ON CONFLICT (pessoa_id, ministerio_id, data_inicio) DO NOTHING`,
+            [pessoaId, ministerioId, hoje]
+          );
+        }
+      }
+
+      await pool.query('COMMIT');
+
+      const atribuicao = await obterAtribuicaoCompleta(pessoaId);
+      res.json({ message: 'Atribuições salvas com sucesso', atribuicao });
+    } catch (error) {
+      await pool.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Erro ao criar/atualizar atribuição:', error);
+    res.status(500).json({ message: 'Erro ao salvar atribuições', error: error.message });
+  }
+}
+
+/**
+ * Obter atribuições de uma pessoa (schema jornada única)
+ */
+async function obterAtribuicao(req, res) {
+  try {
+    const { pessoaId } = req.params;
+
+    const pessoaCheck = await pool.query('SELECT id FROM pessoas WHERE id = $1', [pessoaId]);
+    if (pessoaCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Pessoa não encontrada' });
+    }
+
+    const atribuicao = await obterAtribuicaoCompleta(pessoaId);
+    res.json({ atribuicao });
+  } catch (error) {
+    console.error('Erro ao obter atribuição:', error);
+    res.status(500).json({ message: 'Erro ao obter atribuições', error: error.message });
+  }
+}
+
+/**
+ * Monta atribuições a partir de pessoas, credenciais_acesso e pessoa_ministerios
+ */
+async function obterAtribuicaoCompleta(pessoaId) {
+  const pessoaResult = await pool.query(
+    'SELECT estagio_atual, cargo_eclesiastico, data_ordenacao FROM pessoas WHERE id = $1',
+    [pessoaId]
+  );
+  const p = pessoaResult.rows[0];
+  if (!p) return null;
+
+  const credResult = await pool.query(
+    'SELECT tipo_acesso FROM credenciais_acesso WHERE pessoa_id = $1',
+    [pessoaId]
+  );
+  const tipoAcesso = credResult.rows[0]?.tipo_acesso || 'Sem Acesso';
+
+  const ministeriosResult = await pool.query(
+    `SELECT pm.ministerio_id, m.nome, pm.e_lider
+     FROM pessoa_ministerios pm
+     JOIN ministerios m ON pm.ministerio_id = m.id
+     WHERE pm.pessoa_id = $1 AND pm.data_fim IS NULL`,
+    [pessoaId]
+  );
+
+  const ministeriosLider = ministeriosResult.rows.filter(r => r.e_lider).map(r => ({ id: r.ministerio_id, nome: r.nome }));
+  const ministeriosParticipante = ministeriosResult.rows.filter(r => !r.e_lider).map(r => ({ id: r.ministerio_id, nome: r.nome }));
+
+  // Frontend usa "Participante de Ministério"; no schema o enum é "Participante"
+  const estagioParaFront = p.estagio_atual === 'Participante' ? 'Participante de Ministério' : p.estagio_atual;
+
+  return {
+    pessoaId: parseInt(pessoaId),
+    cargoEclesiastico: p.cargo_eclesiastico || null,
+    tipoUsuario: tipoAcesso,
+    estagiosUsuario: [estagioParaFront],
+    ministeriosLider,
+    ministeriosParticipante
+  };
+}
+
+/**
+ * Listar ministérios
+ */
+async function listarMinisterios(req, res) {
+  try {
+    const result = await pool.query(
+      'SELECT id, nome, descricao, ativo FROM ministerios WHERE ativo = true ORDER BY nome'
+    );
+
+    res.json({
+      ministerios: result.rows.map(row => ({
+        id: row.id,
+        nome: row.nome,
+        descricao: row.descricao,
+        ativo: row.ativo
+      }))
+    });
+  } catch (error) {
+    console.error('Erro ao listar ministérios:', error);
+    res.status(500).json({ message: 'Erro ao listar ministérios', error: error.message });
+  }
+}
+
+module.exports = {
+  criarOuAtualizarAtribuicao,
+  obterAtribuicao,
+  listarMinisterios,
+};
