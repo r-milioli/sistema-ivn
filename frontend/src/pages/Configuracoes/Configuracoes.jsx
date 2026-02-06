@@ -8,10 +8,15 @@ import { Button } from '../../components/ui/button';
 import { User, Settings, Upload, X, Camera } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
+import { useToast } from '../../hooks/use-toast';
+import api from '../../services/api';
 import './Configuracoes.css';
 
+const VIA_CEP_URL = 'https://viacep.com.br/ws';
+
 const Configuracoes = () => {
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -32,7 +37,7 @@ const Configuracoes = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [loadingUserData, setLoadingUserData] = useState(true);
 
   // Estados para formulário de Sistema
   const [sistemaFormData, setSistemaFormData] = useState({
@@ -42,38 +47,56 @@ const Configuracoes = () => {
     confirmarSenha: ''
   });
   const [loadingSistema, setLoadingSistema] = useState(false);
-  const [messageSistema, setMessageSistema] = useState({ type: '', text: '' });
   const [fotoPerfil, setFotoPerfil] = useState(null);
-  const [fotoPerfilPreview, setFotoPerfilPreview] = useState(user?.fotoPerfil || null);
+  const [fotoPerfilPreview, setFotoPerfilPreview] = useState(null);
 
+  // Carregar dados completos do usuário
   useEffect(() => {
-    // Preencher formulário com dados do usuário
-    if (user) {
-      setFormData({
-        nome: user.nome || '',
-        sobrenome: user.sobrenome || '',
-        email: user.email || '',
-        telefone: user.telefone || '',
-        dataNascimento: user.dataNascimento || '',
-        sexo: user.sexo || '',
-        estadoCivil: user.estadoCivil || '',
-        cep: user.cep || '',
-        rua: user.rua || '',
-        numero: user.numero || '',
-        complemento: user.complemento || '',
-        bairro: user.bairro || '',
-        cidade: user.cidade || '',
-        estado: user.estado || ''
-      });
-      setFotoPerfilPreview(user.fotoPerfil || null);
-      setSistemaFormData({
-        email: user.email || '',
-        senhaAtual: '',
-        novaSenha: '',
-        confirmarSenha: ''
-      });
+    const loadUserData = async () => {
+      try {
+        setLoadingUserData(true);
+        const response = await api.get('/auth/me');
+        const userData = response.data.user;
+        
+        setFormData({
+          nome: userData.nome || '',
+          sobrenome: userData.sobrenome || '',
+          email: userData.email || '',
+          telefone: userData.telefone || '',
+          dataNascimento: userData.dataNascimento || '',
+          sexo: userData.sexo || '',
+          estadoCivil: userData.estadoCivil || '',
+          cep: userData.cep || '',
+          rua: userData.rua || '',
+          numero: userData.numero || '',
+          complemento: userData.complemento || '',
+          bairro: userData.bairro || '',
+          cidade: userData.cidade || '',
+          estado: userData.estado || ''
+        });
+        setFotoPerfilPreview(userData.fotoPerfil || null);
+        setSistemaFormData({
+          email: userData.email || '',
+          senhaAtual: '',
+          novaSenha: '',
+          confirmarSenha: ''
+        });
+      } catch (error) {
+        console.error('Erro ao carregar dados do usuário:', error);
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar dados do usuário. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingUserData(false);
+      }
+    };
+
+    if (authUser) {
+      loadUserData();
     }
-  }, [user]);
+  }, [authUser, toast]);
 
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
@@ -103,7 +126,7 @@ const Configuracoes = () => {
 
   const handleRemoverFoto = () => {
     setFotoPerfil(null);
-    setFotoPerfilPreview(user?.fotoPerfil || null);
+    setFotoPerfilPreview(null);
     const fileInput = document.getElementById('fotoPerfil');
     if (fileInput) fileInput.value = '';
   };
@@ -119,11 +142,14 @@ const Configuracoes = () => {
   const handleSistemaSubmit = async (e) => {
     e.preventDefault();
     setLoadingSistema(true);
-    setMessageSistema({ type: '', text: '' });
 
     // Validações
     if (!sistemaFormData.email) {
-      setMessageSistema({ type: 'error', text: 'O email é obrigatório.' });
+      toast({
+        title: 'Erro',
+        description: 'O email é obrigatório.',
+        variant: 'destructive',
+      });
       setLoadingSistema(false);
       return;
     }
@@ -131,53 +157,80 @@ const Configuracoes = () => {
     // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(sistemaFormData.email)) {
-      setMessageSistema({ type: 'error', text: 'Por favor, insira um email válido.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, insira um email válido.',
+        variant: 'destructive',
+      });
       setLoadingSistema(false);
       return;
     }
 
-    // Se estiver alterando a senha, validar campos de senha
-    if (sistemaFormData.senhaAtual || sistemaFormData.novaSenha || sistemaFormData.confirmarSenha) {
-      if (!sistemaFormData.senhaAtual) {
-        setMessageSistema({ type: 'error', text: 'Por favor, informe a senha atual.' });
-        setLoadingSistema(false);
-        return;
-      }
-
-      if (!sistemaFormData.novaSenha) {
-        setMessageSistema({ type: 'error', text: 'Por favor, informe a nova senha.' });
-        setLoadingSistema(false);
-        return;
-      }
-
-      if (sistemaFormData.novaSenha.length < 6) {
-        setMessageSistema({ type: 'error', text: 'A nova senha deve ter no mínimo 6 caracteres.' });
-        setLoadingSistema(false);
-        return;
-      }
-
-      if (sistemaFormData.novaSenha !== sistemaFormData.confirmarSenha) {
-        setMessageSistema({ type: 'error', text: 'As senhas não coincidem.' });
-        setLoadingSistema(false);
-        return;
-      }
-    }
-
     try {
-      // Simulação de atualização - TODO: Substituir por chamada real à API
-      setTimeout(() => {
-        setMessageSistema({ type: 'success', text: 'Configurações atualizadas com sucesso!' });
-        setLoadingSistema(false);
-        // Limpar campos de senha após sucesso
-        setSistemaFormData(prev => ({
-          ...prev,
-          senhaAtual: '',
-          novaSenha: '',
-          confirmarSenha: ''
-        }));
-      }, 1000);
+      // Atualizar email se mudou
+      if (sistemaFormData.email !== formData.email) {
+        await api.put('/auth/me/email', { email: sistemaFormData.email });
+        toast({
+          title: 'Sucesso',
+          description: 'Email atualizado com sucesso!',
+        });
+        // Atualizar formData também
+        setFormData(prev => ({ ...prev, email: sistemaFormData.email }));
+      }
+
+      // Atualizar senha se fornecida
+      if (sistemaFormData.senhaAtual && sistemaFormData.novaSenha) {
+        if (sistemaFormData.novaSenha.length < 6) {
+          toast({
+            title: 'Erro',
+            description: 'A nova senha deve ter no mínimo 6 caracteres.',
+            variant: 'destructive',
+          });
+          setLoadingSistema(false);
+          return;
+        }
+
+        if (sistemaFormData.novaSenha !== sistemaFormData.confirmarSenha) {
+          toast({
+            title: 'Erro',
+            description: 'As senhas não coincidem.',
+            variant: 'destructive',
+          });
+          setLoadingSistema(false);
+          return;
+        }
+
+        await api.put('/auth/me/password', {
+          senhaAtual: sistemaFormData.senhaAtual,
+          novaSenha: sistemaFormData.novaSenha,
+        });
+        toast({
+          title: 'Sucesso',
+          description: 'Senha atualizada com sucesso!',
+        });
+      }
+
+      // Limpar campos de senha após sucesso
+      setSistemaFormData(prev => ({
+        ...prev,
+        senhaAtual: '',
+        novaSenha: '',
+        confirmarSenha: ''
+      }));
+
+      if (!sistemaFormData.senhaAtual && sistemaFormData.email === formData.email) {
+        toast({
+          title: 'Info',
+          description: 'Nenhuma alteração foi feita.',
+        });
+      }
     } catch (error) {
-      setMessageSistema({ type: 'error', text: 'Erro ao atualizar configurações. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao atualizar configurações. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoadingSistema(false);
     }
   };
@@ -190,19 +243,124 @@ const Configuracoes = () => {
     }));
   };
 
+  // ViaCEP: busca endereço pelo CEP e preenche o formulário
+  const fetchViaCep = async (cep) => {
+    try {
+      const cepLimpo = cep.replace(/\D/g, '');
+      if (cepLimpo.length !== 8) return null;
+      
+      const res = await fetch(`${VIA_CEP_URL}/${cepLimpo}/json/`);
+      const data = await res.json();
+      if (data.erro) return null;
+      return {
+        rua: data.logradouro || '',
+        bairro: data.bairro || '',
+        cidade: data.localidade || '',
+        estado: data.uf || ''
+      };
+    } catch (err) {
+      return null;
+    }
+  };
+
+  const handleCepBlur = async (e) => {
+    const cep = e.target.value || '';
+    const cepLimpo = cep.replace(/\D/g, '');
+    
+    if (cepLimpo.length === 8) {
+      const endereco = await fetchViaCep(cep);
+      if (endereco) {
+        setFormData(prev => ({ ...prev, ...endereco }));
+        toast({ 
+          title: 'CEP encontrado', 
+          description: 'Endereço preenchido automaticamente.' 
+        });
+      } else {
+        toast({ 
+          title: 'CEP não encontrado', 
+          description: 'Verifique o número e tente novamente.', 
+          variant: 'destructive' 
+        });
+      }
+    }
+  };
+
+  // Função auxiliar para converter arquivo em base64
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage({ type: '', text: '' });
+
+    // Validações básicas - apenas nome e email são obrigatórios
+    if (!formData.nome.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'Nome é obrigatório.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.email || !formData.email.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'Email é obrigatório.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, insira um email válido.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
 
     try {
-      // Simulação de atualização - TODO: Substituir por chamada real à API
-      setTimeout(() => {
-        setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
-        setLoading(false);
-      }, 1000);
+      const payload = {
+        ...formData,
+        fotoPerfil: fotoPerfil ? await fileToBase64(fotoPerfil) : undefined,
+      };
+
+      const response = await api.put('/pessoas/me', payload);
+      
+      toast({
+        title: 'Sucesso',
+        description: 'Perfil atualizado com sucesso!',
+      });
+
+      // Atualizar preview da foto se foi alterada
+      if (fotoPerfil) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFotoPerfilPreview(reader.result);
+        };
+        reader.readAsDataURL(fotoPerfil);
+        setFotoPerfil(null);
+      }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao atualizar perfil. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao atualizar perfil. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -229,12 +387,10 @@ const Configuracoes = () => {
               <div className="tab-content-wrapper">
                 <h2>Editar Perfil</h2>
                 
+                {loadingUserData ? (
+                  <div className="loading-message">Carregando dados do usuário...</div>
+                ) : (
                 <form onSubmit={handleSubmit} className="perfil-form">
-                  {message.text && (
-                    <div className={`form-message ${message.type}`}>
-                      {message.text}
-                    </div>
-                  )}
 
                   {/* Campo de Foto de Perfil */}
                   <div className="form-row">
@@ -320,7 +476,6 @@ const Configuracoes = () => {
                         value={formData.sobrenome}
                         onChange={handleChange}
                         placeholder="Digite o sobrenome"
-                        required
                         className="form-input"
                       />
                     </div>
@@ -349,7 +504,6 @@ const Configuracoes = () => {
                         value={formData.telefone}
                         onChange={handleChange}
                         placeholder="(00) 00000-0000"
-                        required
                         className="form-input"
                       />
                     </div>
@@ -414,9 +568,14 @@ const Configuracoes = () => {
                         name="cep"
                         value={formData.cep}
                         onChange={handleChange}
+                        onBlur={handleCepBlur}
                         placeholder="00000-000"
                         className="form-input"
+                        maxLength={9}
                       />
+                      <span className="cep-hint" style={{ fontSize: '0.875rem', color: '#666', marginTop: '4px', display: 'block' }}>
+                        Digite o CEP e saia do campo para preencher o endereço automaticamente
+                      </span>
                     </div>
                   </div>
 
@@ -541,6 +700,7 @@ const Configuracoes = () => {
                     </Button>
                   </div>
                 </form>
+                )}
               </div>
             </TabsContent>
 
@@ -548,12 +708,10 @@ const Configuracoes = () => {
               <div className="tab-content-wrapper">
                 <h2>Configurações do Sistema</h2>
                 
+                {loadingUserData ? (
+                  <div className="loading-message">Carregando dados do usuário...</div>
+                ) : (
                 <form onSubmit={handleSistemaSubmit} className="perfil-form">
-                  {messageSistema.text && (
-                    <div className={`form-message ${messageSistema.type}`}>
-                      {messageSistema.text}
-                    </div>
-                  )}
 
                   <div className="form-row">
                     <div className="form-group">
@@ -629,6 +787,7 @@ const Configuracoes = () => {
                     </Button>
                   </div>
                 </form>
+                )}
               </div>
             </TabsContent>
           </Tabs>

@@ -280,7 +280,9 @@ async function getMe(req, res) {
     const pessoaId = req.user.id;
 
     const result = await pool.query(
-      `SELECT p.id, p.nome, p.sobrenome, p.email, p.criado_em,
+      `SELECT p.id, p.nome, p.sobrenome, p.email, p.telefone, p.data_nascimento, 
+              p.sexo, p.estado_civil, p.cep, p.rua, p.numero, p.complemento, 
+              p.bairro, p.cidade, p.estado, p.foto_perfil, p.criado_em,
               ca.tipo_acesso
        FROM pessoas p
        LEFT JOIN credenciais_acesso ca ON ca.pessoa_id = p.id
@@ -295,8 +297,21 @@ async function getMe(req, res) {
     const row = result.rows[0];
     const user = {
       id: row.id,
-      nome: [row.nome, row.sobrenome].filter(Boolean).join(' '),
+      nome: row.nome,
+      sobrenome: row.sobrenome || '',
       email: row.email,
+      telefone: row.telefone || '',
+      dataNascimento: row.data_nascimento ? row.data_nascimento.toISOString().split('T')[0] : '',
+      sexo: row.sexo || '',
+      estadoCivil: row.estado_civil || '',
+      cep: row.cep || '',
+      rua: row.rua || '',
+      numero: row.numero || '',
+      complemento: row.complemento || '',
+      bairro: row.bairro || '',
+      cidade: row.cidade || '',
+      estado: row.estado || '',
+      fotoPerfil: row.foto_perfil || null,
       criado_em: row.criado_em,
       tipo_acesso: row.tipo_acesso || null,
     };
@@ -308,10 +323,100 @@ async function getMe(req, res) {
   }
 }
 
+/**
+ * Atualizar senha do usuário autenticado (schema jornada única)
+ */
+async function updatePassword(req, res) {
+  try {
+    const pessoaId = req.user.id;
+    const { senhaAtual, novaSenha } = req.body;
+
+    if (!senhaAtual || !novaSenha) {
+      return res.status(400).json({ message: 'Senha atual e nova senha são obrigatórias' });
+    }
+
+    if (novaSenha.length < 6) {
+      return res.status(400).json({ message: 'A nova senha deve ter no mínimo 6 caracteres' });
+    }
+
+    // Buscar credenciais
+    const resultCred = await pool.query(
+      'SELECT senha_hash FROM credenciais_acesso WHERE pessoa_id = $1',
+      [pessoaId]
+    );
+
+    if (resultCred.rows.length === 0) {
+      return res.status(404).json({ message: 'Credenciais não encontradas' });
+    }
+
+    // Verificar senha atual
+    const senhaValida = await comparePassword(senhaAtual, resultCred.rows[0].senha_hash);
+    if (!senhaValida) {
+      return res.status(401).json({ message: 'Senha atual incorreta' });
+    }
+
+    // Atualizar senha
+    const novaSenhaHash = await hashPassword(novaSenha);
+    await pool.query(
+      'UPDATE credenciais_acesso SET senha_hash = $1 WHERE pessoa_id = $2',
+      [novaSenhaHash, pessoaId]
+    );
+
+    res.json({ message: 'Senha atualizada com sucesso' });
+  } catch (error) {
+    console.error('Erro ao atualizar senha:', error);
+    res.status(500).json({ message: 'Erro ao atualizar senha' });
+  }
+}
+
+/**
+ * Atualizar email do usuário autenticado (schema jornada única)
+ * Atualiza tanto em pessoas quanto em credenciais_acesso se necessário
+ */
+async function updateEmail(req, res) {
+  try {
+    const pessoaId = req.user.id;
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email é obrigatório' });
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Email inválido' });
+    }
+
+    // Verificar se email já está em uso por outra pessoa
+    const emailCheck = await pool.query(
+      'SELECT id FROM pessoas WHERE email = $1 AND id != $2',
+      [email, pessoaId]
+    );
+
+    if (emailCheck.rows.length > 0) {
+      return res.status(400).json({ message: 'Email já cadastrado para outra pessoa' });
+    }
+
+    // Atualizar email em pessoas
+    await pool.query(
+      'UPDATE pessoas SET email = $1, atualizado_em = CURRENT_TIMESTAMP WHERE id = $2',
+      [email, pessoaId]
+    );
+
+    res.json({ message: 'Email atualizado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao atualizar email:', error);
+    res.status(500).json({ message: 'Erro ao atualizar email' });
+  }
+}
+
 module.exports = {
   register,
   login,
   forgotPassword,
   resetPassword,
   getMe,
+  updatePassword,
+  updateEmail,
 };

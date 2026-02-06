@@ -32,7 +32,14 @@ router.post('/login', loginValidation, handleValidationErrors, authController.lo
 router.post('/forgot-password', forgotPasswordValidation, handleValidationErrors, authController.forgotPassword);
 router.post('/reset-password', resetPasswordValidation, handleValidationErrors, authController.resetPassword);
 
-// Rota protegida
+// Rotas protegidas
 router.get('/me', authMiddleware, authController.getMe);
+router.put('/me/password', authMiddleware, [
+  body('senhaAtual').notEmpty().withMessage('Senha atual é obrigatória'),
+  body('novaSenha').isLength({ min: 6 }).withMessage('Nova senha deve ter no mínimo 6 caracteres'),
+], handleValidationErrors, authController.updatePassword);
+router.put('/me/email', authMiddleware, [
+  body('email').isEmail().withMessage('Email inválido'),
+], handleValidationErrors, authController.updateEmail);
 
 module.exports = router;

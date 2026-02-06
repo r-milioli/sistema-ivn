@@ -396,6 +396,92 @@ async function atualizarPessoa(req, res) {
 }
 
 /**
+ * Atualizar perfil do usuário autenticado (schema jornada única)
+ * Usa req.user.id (pessoa_id) para atualizar apenas os próprios dados
+ */
+async function updateMe(req, res) {
+  try {
+    const pessoaId = req.user.id;
+    const {
+      nome, sobrenome, sexo, estadoCivil, dataNascimento, telefone, email,
+      cep, rua, numero, complemento, bairro, cidade, estado, fotoPerfil
+    } = req.body;
+
+    // Apenas nome e email são obrigatórios na página de configurações
+    if (!nome || !nome.trim()) {
+      return res.status(400).json({ message: 'Nome é obrigatório' });
+    }
+    if (!email || !email.trim()) {
+      return res.status(400).json({ message: 'Email é obrigatório' });
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Email inválido' });
+    }
+
+    const sexosValidos = ['masculino', 'feminino', 'outro', 'nao-informar'];
+    if (sexo && !sexosValidos.includes(sexo)) {
+      return res.status(400).json({ message: 'Sexo inválido' });
+    }
+
+    const estadosCivisValidos = ['solteiro', 'casado', 'divorciado', 'viuvo', 'uniao-estavel'];
+    if (estadoCivil && !estadosCivisValidos.includes(estadoCivil)) {
+      return res.status(400).json({ message: 'Estado civil inválido' });
+    }
+
+    const estadosValidos = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+    if (estado && !estadosValidos.includes(estado)) {
+      return res.status(400).json({ message: 'Estado inválido' });
+    }
+
+    const pessoaExistente = await pool.query('SELECT id, email FROM pessoas WHERE id = $1', [pessoaId]);
+    if (pessoaExistente.rows.length === 0) {
+      return res.status(404).json({ message: 'Pessoa não encontrada' });
+    }
+
+    // Se email mudou, verificar se não está em uso
+    if (email && email !== pessoaExistente.rows[0].email) {
+      const emailCheck = await pool.query('SELECT id FROM pessoas WHERE email = $1 AND id != $2', [email, pessoaId]);
+      if (emailCheck.rows.length > 0) {
+        return res.status(400).json({ message: 'Email já cadastrado para outra pessoa' });
+      }
+    }
+
+    const emptyToNull = (v) => (v != null && String(v).trim() !== '' ? v : null);
+    const result = await pool.query(
+      `UPDATE pessoas 
+       SET nome = $1, sobrenome = $2, sexo = $3, estado_civil = $4, data_nascimento = $5,
+           telefone = $6, email = COALESCE($7, email), cep = $8, rua = $9, numero = $10,
+           complemento = $11, bairro = $12, cidade = $13, estado = $14,
+           foto_perfil = $15,
+           atualizado_em = CURRENT_TIMESTAMP
+       WHERE id = $16
+       RETURNING id, nome, sobrenome, sexo, estado_civil, data_nascimento,
+                 telefone, email, cep, rua, numero, complemento, bairro, cidade, estado,
+                 foto_perfil, criado_em, atualizado_em`,
+      [
+        nome, emptyToNull(sobrenome), emptyToNull(sexo), emptyToNull(estadoCivil), emptyToNull(dataNascimento), 
+        telefone, emptyToNull(email),
+        emptyToNull(cep), emptyToNull(rua), emptyToNull(numero), emptyToNull(complemento), 
+        emptyToNull(bairro), emptyToNull(cidade), emptyToNull(estado),
+        emptyToNull(fotoPerfil),
+        pessoaId
+      ]
+    );
+
+    res.json({
+      message: 'Perfil atualizado com sucesso',
+      pessoa: mapRowToPessoa(result.rows[0])
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar perfil:', error);
+    res.status(500).json({ message: 'Erro ao atualizar perfil', error: error.message });
+  }
+}
+
+/**
  * Deletar pessoa (schema jornada única: soft delete - marca ativo = FALSE)
  */
 async function deletarPessoa(req, res) {
@@ -425,5 +511,6 @@ module.exports = {
   buscarPessoas,
   obterPessoaPorId,
   atualizarPessoa,
+  updateMe,
   deletarPessoa,
 };
