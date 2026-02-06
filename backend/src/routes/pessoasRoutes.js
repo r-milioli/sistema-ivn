@@ -4,7 +4,7 @@ const { body, query } = require('express-validator');
 const authMiddleware = require('../middleware/authMiddleware');
 const { criarPessoa, listarPessoas, buscarPessoas, obterPessoaPorId, atualizarPessoa, updateMe, deletarPessoa } = require('../controllers/pessoasController');
 const handleValidationErrors = require('../middleware/validationMiddleware');
-const { criarOuAtualizarAtribuicao, obterAtribuicao, listarMinisterios } = require('../controllers/atribuicoesController');
+const { criarOuAtualizarAtribuicao, obterAtribuicao, listarMinisterios, obterCargosEclesiasticosEndpoint } = require('../controllers/atribuicoesController');
 
 // Middleware de validação: apenas nome e telefone obrigatórios
 const validarPessoa = [
@@ -62,7 +62,7 @@ const validarPerfil = [
 const validarAtribuicao = [
   body('estagiosUsuario').isArray({ min: 1 }).withMessage('É necessário informar pelo menos um estágio'),
   body('tipoUsuario').isIn(['Sem Acesso', 'Usuario', 'Lider', 'Admin', 'SuperAdmin']).withMessage('Tipo de acesso inválido'),
-  body('cargoEclesiastico').optional().isIn(['Pastor', 'Evangelista', 'Presbítero', 'Diácono']).withMessage('Cargo eclesiástico inválido'),
+  body('cargoEclesiastico').optional().trim(),
   body('ministeriosLider').optional().isArray(),
   body('ministeriosParticipante').optional().isArray()
 ];
@@ -83,5 +83,6 @@ router.delete('/pessoas/:id', authMiddleware, deletarPessoa);
 router.post('/pessoas/:pessoaId/atribuicoes', authMiddleware, validarAtribuicao, criarOuAtualizarAtribuicao);
 router.get('/pessoas/:pessoaId/atribuicoes', authMiddleware, obterAtribuicao);
 router.get('/ministerios', authMiddleware, listarMinisterios);
+router.get('/cargos-eclesiasticos', authMiddleware, obterCargosEclesiasticosEndpoint);
 
 module.exports = router;

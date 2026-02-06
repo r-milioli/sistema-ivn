@@ -862,10 +862,7 @@ const Eventos = () => {
             <TabsContent value="relatorios" className="eventos-tabs-content">
               <div className="tab-content-wrapper">
                 <h2>Relatório</h2>
-                <RelatorioForm />
-                <div className="relatorios-section">
-                  <RelatoriosGerados />
-                </div>
+                <RelatorioFormWrapper />
               </div>
             </TabsContent>
           </Tabs>
@@ -875,9 +872,41 @@ const Eventos = () => {
   );
 };
 
+// Componente Wrapper para Relatório (gerencia estado de edição)
+const RelatorioFormWrapper = () => {
+  const [editingId, setEditingId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleEdit = (id) => {
+    setEditingId(id);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSaveSuccess = () => {
+    setEditingId(null);
+    setRefreshKey(prev => prev + 1); // Força atualização da lista
+  };
+
+  return (
+    <>
+      <RelatorioForm 
+        editingId={editingId} 
+        onCancelEdit={handleCancelEdit}
+        onSaveSuccess={handleSaveSuccess}
+      />
+      <div className="relatorios-section">
+        <RelatoriosGerados onEdit={handleEdit} refreshKey={refreshKey} />
+      </div>
+    </>
+  );
+};
+
 // Componente de Formulário de Relatório
-const RelatorioForm = () => {
-  const meses = [
+const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
+  const meses = useMemo(() => [
     { value: '01', label: 'Janeiro' },
     { value: '02', label: 'Fevereiro' },
     { value: '03', label: 'Março' },
@@ -890,18 +919,81 @@ const RelatorioForm = () => {
     { value: '10', label: 'Outubro' },
     { value: '11', label: 'Novembro' },
     { value: '12', label: 'Dezembro' }
-  ];
+  ], []);
 
-  const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
-  const mesAtualLabel = meses.find(m => m.value === mesAtual)?.label || 'Janeiro';
+  const mesAtual = useMemo(() => String(new Date().getMonth() + 1).padStart(2, '0'), []);
 
   const [formData, setFormData] = useState({
     nomeMinisterio: 'Ministério Eventos',
     mesReferencia: mesAtual,
-    conteudo: ''
+    conteudo: '',
+    pastorLiderId: ''
   });
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [loadingRelatorio, setLoadingRelatorio] = useState(false);
+  const [pastoresLideres, setPastoresLideres] = useState([]);
+
+  // Carregar pastores líderes
+  useEffect(() => {
+    const carregarPastoresLideres = async () => {
+      try {
+        const response = await api.get('/relatorios/pastores-lideres');
+        setPastoresLideres(response.data.pastoresLideres || []);
+      } catch (error) {
+        console.error('Erro ao carregar pastores líderes:', error);
+        toast({
+          title: 'Aviso',
+          description: 'Erro ao carregar lista de pastores líderes.',
+          variant: 'destructive',
+        });
+      }
+    };
+    carregarPastoresLideres();
+  }, [toast]);
+
+  // Carregar relatório quando editingId mudar
+  useEffect(() => {
+    if (editingId) {
+      const carregarRelatorio = async () => {
+        setLoadingRelatorio(true);
+        try {
+          const response = await api.get(`/relatorios/${editingId}`);
+          const relatorio = response.data.relatorio;
+          
+          // Converter nome do mês para número
+          const mesEncontrado = meses.find(m => m.label === relatorio.mesReferencia);
+          const mesValue = mesEncontrado ? mesEncontrado.value : mesAtual;
+          
+          setFormData({
+            nomeMinisterio: relatorio.nomeMinisterio,
+            mesReferencia: mesValue,
+            conteudo: relatorio.conteudo,
+            pastorLiderId: relatorio.pastorLiderId || ''
+          });
+        } catch (error) {
+          toast({
+            title: 'Erro',
+            description: 'Erro ao carregar relatório. Tente novamente.',
+            variant: 'destructive',
+          });
+          if (onCancelEdit) onCancelEdit();
+        } finally {
+          setLoadingRelatorio(false);
+        }
+      };
+
+      carregarRelatorio();
+    } else {
+      // Resetar formulário quando não estiver editando
+      setFormData({
+        nomeMinisterio: 'Ministério Eventos',
+        mesReferencia: mesAtual,
+        conteudo: '',
+        pastorLiderId: ''
+      });
+    }
+  }, [editingId, mesAtual, meses, onCancelEdit, toast]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -921,24 +1013,43 @@ const RelatorioForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      // Aqui você fará a chamada à API quando estiver pronta
-      // const response = await api.post('/relatorios', formData);
-      
-      // Simulação de sucesso
-      setTimeout(() => {
-        setMessage({ type: 'success', text: 'Relatório enviado com sucesso!' });
+      if (editingId) {
+        // Atualizar relatório existente
+        await api.put(`/relatorios/${editingId}`, formData);
+        
+        toast({
+          title: 'Sucesso!',
+          description: 'Relatório atualizado com sucesso!',
+        });
+        
+        onSaveSuccess();
+      } else {
+        // Criar novo relatório
+        await api.post('/relatorios', formData);
+        
+        toast({
+          title: 'Sucesso!',
+          description: 'Relatório criado com sucesso!',
+        });
+
         setFormData({
           nomeMinisterio: 'Ministério Eventos',
           mesReferencia: mesAtual,
-          conteudo: ''
+          conteudo: '',
+          pastorLiderId: ''
         });
-        setLoading(false);
-      }, 1000);
+      }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao enviar relatório. Tente novamente.' });
+      const errorMessage = error.response?.data?.message || 
+        (editingId ? 'Erro ao atualizar relatório. Tente novamente.' : 'Erro ao criar relatório. Tente novamente.');
+      toast({
+        title: 'Erro',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -967,14 +1078,19 @@ const RelatorioForm = () => {
     'link', 'image', 'video',
   ];
 
+  if (loadingRelatorio) {
+    return <div className="text-center p-8">Carregando relatório...</div>;
+  }
+
   return (
     <form onSubmit={handleSubmit} className="relatorio-form">
-      {message.text && (
-        <div className={`form-message ${message.type}`}>
-          {message.text}
+      {editingId && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>Modo de Edição:</strong> Você está editando um relatório existente.
+          </p>
         </div>
       )}
-
       <div className="form-row form-row-2">
         <div className="form-group">
           <Label htmlFor="nomeMinisterio">Nome do Ministério</Label>
@@ -1008,6 +1124,26 @@ const RelatorioForm = () => {
         </div>
       </div>
 
+      <div className="form-row form-row-2">
+        <div className="form-group">
+          <Label htmlFor="pastorLiderId">Pastor Líder do Ministério</Label>
+          <select
+            id="pastorLiderId"
+            name="pastorLiderId"
+            value={formData.pastorLiderId}
+            onChange={handleChange}
+            className="form-select"
+          >
+            <option value="">Selecione um pastor líder (opcional)</option>
+            {pastoresLideres.map((pastor) => (
+              <option key={pastor.id} value={pastor.id}>
+                {pastor.nomeCompleto}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="form-row">
         <div className="form-group">
           <Label htmlFor="conteudo">Conteúdo do Relatório</Label>
@@ -1026,12 +1162,26 @@ const RelatorioForm = () => {
       </div>
 
       <div className="form-actions">
+        {editingId && (
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={onCancelEdit}
+            className="cancel-button"
+            disabled={loading}
+          >
+            Cancelar Edição
+          </Button>
+        )}
         <Button 
           type="submit" 
           className="submit-button"
           disabled={loading}
         >
-          {loading ? 'Enviando...' : 'Enviar Relatório'}
+          {loading 
+            ? (editingId ? 'Atualizando...' : 'Enviando...') 
+            : (editingId ? 'Atualizar Relatório' : 'Enviar Relatório')
+          }
         </Button>
       </div>
     </form>
@@ -1039,47 +1189,69 @@ const RelatorioForm = () => {
 };
 
 // Componente de Lista de Relatórios Gerados
-const RelatoriosGerados = () => {
-  // Dados mockados de relatórios
-  const relatorios = useMemo(() => {
-    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const relatoriosList = [];
-    
-    for (let i = 0; i < 12; i++) {
-      const data = new Date();
-      data.setMonth(data.getMonth() - i);
-      const mes = meses[data.getMonth()];
-      const ano = data.getFullYear();
+const RelatoriosGerados = ({ onEdit, refreshKey }) => {
+  const { toast } = useToast();
+  const [relatorios, setRelatorios] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const buscarRelatorios = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/relatorios', {
+          params: {
+            nomeMinisterio: 'Ministério Eventos'
+          }
+        });
+        setRelatorios(response.data.relatorios);
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar relatórios. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    buscarRelatorios();
+  }, [toast, refreshKey]);
+
+  const handleDownload = async (relatorio) => {
+    try {
+      const response = await api.get(`/relatorios/${relatorio.id}/download`, {
+        responseType: 'blob'
+      });
       
-      relatoriosList.push({
-        id: i + 1,
-        nomeMinisterio: 'Ministério Eventos',
-        mesReferencia: mes,
-        anoReferencia: ano,
-        dataGeracao: data.toLocaleDateString('pt-BR'),
-        tamanho: `${Math.floor(Math.random() * 500) + 100} KB`
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Relatorio_${relatorio.nomeMinisterio}_${relatorio.mesReferencia}_${relatorio.anoReferencia}.html`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      toast({
+        title: 'Sucesso!',
+        description: 'Relatório baixado com sucesso!',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao baixar relatório. Tente novamente.',
+        variant: 'destructive',
       });
     }
-    
-    return relatoriosList;
-  }, []);
-
-  const handleDownload = (relatorio) => {
-    // Simulação de download
-    const link = document.createElement('a');
-    link.href = '#'; // Aqui você colocaria a URL real do PDF
-    link.download = `Relatorio_${relatorio.nomeMinisterio}_${relatorio.mesReferencia}_${relatorio.anoReferencia}.pdf`;
-    // link.click(); // Descomente quando tiver a URL real
-    
-    // Por enquanto, apenas um alerta
-    alert(`Download do relatório: ${relatorio.nomeMinisterio} - ${relatorio.mesReferencia}/${relatorio.anoReferencia}`);
   };
 
   return (
     <div className="relatorios-gerados-container">
       <h3 className="relatorios-gerados-title">Relatórios Gerados</h3>
       
-      {relatorios.length === 0 ? (
+      {loading ? (
+        <div className="text-center p-8">Carregando relatórios...</div>
+      ) : relatorios.length === 0 ? (
         <div className="relatorios-empty">
           <p>Nenhum relatório gerado ainda.</p>
         </div>
@@ -1100,15 +1272,26 @@ const RelatoriosGerados = () => {
                     <span className="relatorio-item-tamanho">{relatorio.tamanho}</span>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownload(relatorio)}
-                  className="relatorio-download-button"
-                >
-                  <Download className="download-icon" />
-                  <span>Download PDF</span>
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEdit && onEdit(relatorio.id)}
+                    className="relatorio-edit-button"
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    <span>Editar</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownload(relatorio)}
+                    className="relatorio-download-button"
+                  >
+                    <Download className="download-icon" />
+                    <span>Download</span>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

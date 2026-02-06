@@ -5,7 +5,7 @@ const pool = require('../config/database');
  */
 async function criarRelatorio(req, res) {
   try {
-    const { nomeMinisterio, mesReferencia, conteudo } = req.body;
+    const { nomeMinisterio, mesReferencia, conteudo, pastorLiderId } = req.body;
     const userId = req.user.id;
 
     // Validações básicas
@@ -38,23 +38,62 @@ async function criarRelatorio(req, res) {
       }
     }
 
+    // Validar pastor_lider_id se fornecido
+    if (pastorLiderId) {
+      const pastorCheck = await pool.query(
+        'SELECT id, cargo_eclesiastico FROM pessoas WHERE id = $1 AND cargo_eclesiastico = $2',
+        [pastorLiderId, 'Pastor lider']
+      );
+      if (pastorCheck.rows.length === 0) {
+        return res.status(400).json({ 
+          message: 'A pessoa selecionada não possui o cargo "Pastor lider"' 
+        });
+      }
+    }
+
+    // Verificar se a coluna pastor_lider_id existe
+    const colunaExiste = await pool.query(
+      `SELECT 1 FROM information_schema.columns 
+       WHERE table_name = 'relatorios' AND column_name = 'pastor_lider_id'`
+    );
+    const temPastorLider = colunaExiste.rows.length > 0;
+
     // Inserir relatório (schema jornada única: usa titulo e ministerio_id)
-    const result = await pool.query(
-      `INSERT INTO relatorios (
+    let insertQuery, insertValues;
+    if (temPastorLider) {
+      insertQuery = `INSERT INTO relatorios (
+        titulo, ministerio_id, mes_referencia, ano_referencia, conteudo, pastor_lider_id, criado_por
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, titulo, ministerio_id, mes_referencia, ano_referencia, 
+                conteudo, pastor_lider_id, criado_por, criado_em, atualizado_em`;
+      insertValues = [
+        nomeMinisterio, // Usado como titulo
+        ministerioId,
+        mesReferencia.padStart(2, '0'),
+        anoReferencia,
+        conteudo,
+        pastorLiderId || null,
+        userId
+      ];
+    } else {
+      insertQuery = `INSERT INTO relatorios (
         titulo, ministerio_id, mes_referencia, ano_referencia, conteudo, criado_por
       )
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, titulo, ministerio_id, mes_referencia, ano_referencia, 
-                conteudo, criado_por, criado_em, atualizado_em`,
-      [
+                conteudo, criado_por, criado_em, atualizado_em`;
+      insertValues = [
         nomeMinisterio, // Usado como titulo
         ministerioId,
         mesReferencia.padStart(2, '0'),
         anoReferencia,
         conteudo,
         userId
-      ]
-    );
+      ];
+    }
+    
+    const result = await pool.query(insertQuery, insertValues);
 
     const relatorio = result.rows[0];
 
@@ -82,6 +121,13 @@ async function listarRelatorios(req, res) {
     const pageSizeNum = parseInt(pageSize);
     const offset = (pageNum - 1) * pageSizeNum;
 
+    // Verificar se a coluna pastor_lider_id existe
+    const colunaExiste = await pool.query(
+      `SELECT 1 FROM information_schema.columns 
+       WHERE table_name = 'relatorios' AND column_name = 'pastor_lider_id'`
+    );
+    const temPastorLider = colunaExiste.rows.length > 0;
+
     // Construir query base (schema jornada única - usa titulo e ministerio_id)
     let query = `
       SELECT 
@@ -92,12 +138,30 @@ async function listarRelatorios(req, res) {
         r.ano_referencia,
         r.arquivo_pdf_path,
         r.tamanho_arquivo,
+        `;
+    
+    if (temPastorLider) {
+      query += `r.pastor_lider_id,
+        CONCAT(pl.nome, ' ', COALESCE(pl.sobrenome, '')) as pastor_lider_nome,`;
+    } else {
+      query += `NULL as pastor_lider_id,
+        NULL as pastor_lider_nome,`;
+    }
+    
+    query += `
         CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) as criado_por_nome,
         r.criado_em,
         r.atualizado_em
       FROM relatorios r
       LEFT JOIN pessoas p ON r.criado_por = p.id
-      LEFT JOIN ministerios m ON r.ministerio_id = m.id
+      LEFT JOIN ministerios m ON r.ministerio_id = m.id`;
+    
+    if (temPastorLider) {
+      query += `
+      LEFT JOIN pessoas pl ON r.pastor_lider_id = pl.id`;
+    }
+    
+    query += `
       WHERE 1=1
     `;
     
@@ -176,7 +240,9 @@ async function listarRelatorios(req, res) {
       dataGeracao: new Date(row.criado_em).toLocaleDateString('pt-BR'),
       tamanho: row.tamanho_arquivo || 'N/A',
       criadoPor: row.criado_por_nome,
-      arquivoPdfPath: row.arquivo_pdf_path
+      arquivoPdfPath: row.arquivo_pdf_path,
+      pastorLiderId: row.pastor_lider_id,
+      pastorLiderNome: row.pastor_lider_nome
     }));
 
     res.json({
@@ -201,8 +267,15 @@ async function obterRelatorioPorId(req, res) {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      `SELECT 
+    // Verificar se a coluna pastor_lider_id existe
+    const colunaExiste = await pool.query(
+      `SELECT 1 FROM information_schema.columns 
+       WHERE table_name = 'relatorios' AND column_name = 'pastor_lider_id'`
+    );
+    const temPastorLider = colunaExiste.rows.length > 0;
+
+    let query = `
+      SELECT 
         r.id,
         r.titulo as nome_ministerio,
         COALESCE(m.nome, r.titulo) as nome_ministerio_display,
@@ -211,16 +284,34 @@ async function obterRelatorioPorId(req, res) {
         r.conteudo,
         r.arquivo_pdf_path,
         r.tamanho_arquivo,
+        `;
+    
+    if (temPastorLider) {
+      query += `r.pastor_lider_id,
+        CONCAT(pl.nome, ' ', COALESCE(pl.sobrenome, '')) as pastor_lider_nome,`;
+    } else {
+      query += `NULL as pastor_lider_id,
+        NULL as pastor_lider_nome,`;
+    }
+    
+    query += `
         CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) as criado_por_nome,
         r.criado_por,
         r.criado_em,
         r.atualizado_em
       FROM relatorios r
       LEFT JOIN pessoas p ON r.criado_por = p.id
-      LEFT JOIN ministerios m ON r.ministerio_id = m.id
-      WHERE r.id = $1`,
-      [id]
-    );
+      LEFT JOIN ministerios m ON r.ministerio_id = m.id`;
+    
+    if (temPastorLider) {
+      query += `
+      LEFT JOIN pessoas pl ON r.pastor_lider_id = pl.id`;
+    }
+    
+    query += `
+      WHERE r.id = $1`;
+
+    const result = await pool.query(query, [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Relatório não encontrado' });
@@ -239,6 +330,8 @@ async function obterRelatorioPorId(req, res) {
         conteudo: relatorio.conteudo,
         arquivoPdfPath: relatorio.arquivo_pdf_path,
         tamanho: relatorio.tamanho_arquivo,
+        pastorLiderId: relatorio.pastor_lider_id,
+        pastorLiderNome: relatorio.pastor_lider_nome,
         criadoPor: relatorio.criado_por_nome,
         criadoEm: relatorio.criado_em,
         atualizadoEm: relatorio.atualizado_em
@@ -256,7 +349,7 @@ async function obterRelatorioPorId(req, res) {
 async function atualizarRelatorio(req, res) {
   try {
     const { id } = req.params;
-    const { nomeMinisterio, mesReferencia, conteudo } = req.body;
+    const { nomeMinisterio, mesReferencia, conteudo, pastorLiderId } = req.body;
     const userId = req.user.id;
 
     // Validações básicas
@@ -294,6 +387,19 @@ async function atualizarRelatorio(req, res) {
     // Obter ano atual
     const anoReferencia = new Date().getFullYear();
 
+    // Validar pastor_lider_id se fornecido
+    if (pastorLiderId) {
+      const pastorCheck = await pool.query(
+        'SELECT id, cargo_eclesiastico FROM pessoas WHERE id = $1 AND cargo_eclesiastico = $2',
+        [pastorLiderId, 'Pastor lider']
+      );
+      if (pastorCheck.rows.length === 0) {
+        return res.status(400).json({ 
+          message: 'A pessoa selecionada não possui o cargo "Pastor lider"' 
+        });
+      }
+    }
+
     // Buscar ministerio_id pelo nome (ou criar se não existir - opcional)
     let ministerioId = null;
     if (nomeMinisterio) {
@@ -306,9 +412,38 @@ async function atualizarRelatorio(req, res) {
       }
     }
 
+    // Verificar se a coluna pastor_lider_id existe
+    const colunaExiste = await pool.query(
+      `SELECT 1 FROM information_schema.columns 
+       WHERE table_name = 'relatorios' AND column_name = 'pastor_lider_id'`
+    );
+    const temPastorLider = colunaExiste.rows.length > 0;
+
     // Atualizar relatório (schema jornada única: usa titulo e ministerio_id)
-    const result = await pool.query(
-      `UPDATE relatorios 
+    let updateQuery, updateValues;
+    if (temPastorLider) {
+      updateQuery = `UPDATE relatorios 
+       SET titulo = $1,
+           ministerio_id = $2,
+           mes_referencia = $3, 
+           ano_referencia = $4, 
+           conteudo = $5,
+           pastor_lider_id = $6,
+           atualizado_em = CURRENT_TIMESTAMP
+       WHERE id = $7
+       RETURNING id, titulo, ministerio_id, mes_referencia, ano_referencia, 
+                 conteudo, pastor_lider_id, criado_por, criado_em, atualizado_em`;
+      updateValues = [
+        nomeMinisterio, // Usado como titulo
+        ministerioId,
+        mesReferencia.padStart(2, '0'),
+        anoReferencia,
+        conteudo,
+        pastorLiderId || null,
+        id
+      ];
+    } else {
+      updateQuery = `UPDATE relatorios 
        SET titulo = $1,
            ministerio_id = $2,
            mes_referencia = $3, 
@@ -317,16 +452,18 @@ async function atualizarRelatorio(req, res) {
            atualizado_em = CURRENT_TIMESTAMP
        WHERE id = $6
        RETURNING id, titulo, ministerio_id, mes_referencia, ano_referencia, 
-                 conteudo, criado_por, criado_em, atualizado_em`,
-      [
+                 conteudo, criado_por, criado_em, atualizado_em`;
+      updateValues = [
         nomeMinisterio, // Usado como titulo
         ministerioId,
         mesReferencia.padStart(2, '0'),
         anoReferencia,
         conteudo,
         id
-      ]
-    );
+      ];
+    }
+    
+    const result = await pool.query(updateQuery, updateValues);
 
     const relatorio = result.rows[0];
 
@@ -388,10 +525,41 @@ async function downloadRelatorio(req, res) {
   }
 }
 
+/**
+ * Buscar pastores líderes (pessoas com cargo "Pastor lider")
+ */
+async function buscarPastoresLideres(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        id,
+        nome,
+        sobrenome,
+        CONCAT(nome, ' ', COALESCE(sobrenome, '')) as nome_completo
+      FROM pessoas
+      WHERE cargo_eclesiastico = 'Pastor lider'
+      ORDER BY nome, sobrenome`
+    );
+
+    res.json({
+      pastoresLideres: result.rows.map(row => ({
+        id: row.id,
+        nome: row.nome,
+        sobrenome: row.sobrenome || '',
+        nomeCompleto: row.nome_completo
+      }))
+    });
+  } catch (error) {
+    console.error('Erro ao buscar pastores líderes:', error);
+    res.status(500).json({ message: 'Erro ao buscar pastores líderes', error: error.message });
+  }
+}
+
 module.exports = {
   criarRelatorio,
   listarRelatorios,
   obterRelatorioPorId,
   atualizarRelatorio,
   downloadRelatorio,
+  buscarPastoresLideres,
 };

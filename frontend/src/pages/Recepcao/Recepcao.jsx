@@ -890,11 +890,31 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
   const [formData, setFormData] = useState({
     nomeMinisterio: 'Ministério Recepção',
     mesReferencia: mesAtual,
-    conteudo: ''
+    conteudo: '',
+    pastorLiderId: ''
   });
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [loadingRelatorio, setLoadingRelatorio] = useState(false);
+  const [pastoresLideres, setPastoresLideres] = useState([]);
+
+  // Carregar pastores líderes
+  useEffect(() => {
+    const carregarPastoresLideres = async () => {
+      try {
+        const response = await api.get('/relatorios/pastores-lideres');
+        setPastoresLideres(response.data.pastoresLideres || []);
+      } catch (error) {
+        console.error('Erro ao carregar pastores líderes:', error);
+        toast({
+          title: 'Aviso',
+          description: 'Erro ao carregar lista de pastores líderes.',
+          variant: 'destructive',
+        });
+      }
+    };
+    carregarPastoresLideres();
+  }, [toast]);
 
   // Carregar relatório quando editingId mudar
   useEffect(() => {
@@ -912,7 +932,8 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
           setFormData({
             nomeMinisterio: relatorio.nomeMinisterio,
             mesReferencia: mesValue,
-            conteudo: relatorio.conteudo
+            conteudo: relatorio.conteudo,
+            pastorLiderId: relatorio.pastorLiderId || ''
           });
         } catch (error) {
           toast({
@@ -932,10 +953,11 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
       setFormData({
         nomeMinisterio: 'Ministério Recepção',
         mesReferencia: mesAtual,
-        conteudo: ''
+        conteudo: '',
+        pastorLiderId: ''
       });
     }
-  }, [editingId]);
+  }, [editingId, mesAtual, meses, onCancelEdit, toast]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -1059,6 +1081,26 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
             {meses.map((mes) => (
               <option key={mes.value} value={mes.value}>
                 {mes.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="form-row form-row-2">
+        <div className="form-group">
+          <Label htmlFor="pastorLiderId">Pastor Líder do Ministério</Label>
+          <select
+            id="pastorLiderId"
+            name="pastorLiderId"
+            value={formData.pastorLiderId}
+            onChange={handleChange}
+            className="form-select"
+          >
+            <option value="">Selecione um pastor líder (opcional)</option>
+            {pastoresLideres.map((pastor) => (
+              <option key={pastor.id} value={pastor.id}>
+                {pastor.nomeCompleto}
               </option>
             ))}
           </select>

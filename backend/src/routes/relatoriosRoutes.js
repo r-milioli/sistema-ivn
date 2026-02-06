@@ -35,6 +35,7 @@ router.use(authMiddleware);
 // Rotas
 router.post('/', criarValidation, handleValidationErrors, relatoriosController.criarRelatorio);
 router.get('/', listarValidation, handleValidationErrors, relatoriosController.listarRelatorios);
+router.get('/pastores-lideres', relatoriosController.buscarPastoresLideres);
 router.get('/:id', relatoriosController.obterRelatorioPorId);
 router.put('/:id', atualizarValidation, handleValidationErrors, relatoriosController.atualizarRelatorio);
 router.get('/:id/download', relatoriosController.downloadRelatorio);

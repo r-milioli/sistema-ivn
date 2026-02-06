@@ -19,6 +19,25 @@ function normalizarEstagio(estagio) {
 const TIPOS_ACESSO_VALIDOS = ['Sem Acesso', 'Usuario', 'Lider', 'Admin', 'SuperAdmin'];
 
 /**
+ * Buscar valores do enum cargo_eclesiastico_enum do banco de dados
+ */
+async function obterCargosEclesiasticos() {
+  try {
+    const result = await pool.query(
+      `SELECT enumlabel as valor 
+       FROM pg_enum 
+       WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'cargo_eclesiastico_enum')
+       ORDER BY enumsortorder`
+    );
+    return result.rows.map(row => row.valor);
+  } catch (error) {
+    console.error('Erro ao buscar cargos eclesiásticos:', error);
+    // Fallback para valores padrão se houver erro
+    return ['Pastor', 'Evangelista', 'Presbítero', 'Diácono', 'Pastor lider'];
+  }
+}
+
+/**
  * Criar ou atualizar atribuições (schema jornada única)
  * - Estágio único em pessoas.estagio_atual + registro em jornada_espiritual
  * - Cargo em pessoas (cargo_eclesiastico, data_ordenacao)
@@ -56,10 +75,23 @@ async function criarOuAtualizarAtribuicao(req, res) {
     }
 
     if (cargoEclesiastico) {
-      const cargosValidos = ['Pastor', 'Evangelista', 'Presbítero', 'Diácono'];
-      if (!cargosValidos.includes(cargoEclesiastico)) {
-        return res.status(400).json({ message: 'Cargo eclesiástico inválido' });
+      const cargosValidos = await obterCargosEclesiasticos();
+      // Normalizar comparação (trim e case-insensitive)
+      const cargoNormalizado = cargoEclesiastico.trim();
+      const cargoEncontrado = cargosValidos.find(c => c.trim().toLowerCase() === cargoNormalizado.toLowerCase());
+      
+      if (!cargoEncontrado) {
+        console.error('Cargo inválido:', {
+          recebido: cargoEclesiastico,
+          cargosValidos: cargosValidos
+        });
+        return res.status(400).json({ 
+          message: `Cargo eclesiástico inválido. Cargos válidos: ${cargosValidos.join(', ')}. Recebido: "${cargoEclesiastico}"` 
+        });
       }
+      
+      // Usar o valor exato do banco (pode ter diferenças de case)
+      req.body.cargoEclesiastico = cargoEncontrado;
     }
 
     if (!tipoUsuario || !TIPOS_ACESSO_VALIDOS.includes(tipoUsuario)) {
@@ -260,8 +292,22 @@ async function listarMinisterios(req, res) {
   }
 }
 
+/**
+ * Obter valores do enum cargo_eclesiastico_enum
+ */
+async function obterCargosEclesiasticosEndpoint(req, res) {
+  try {
+    const cargos = await obterCargosEclesiasticos();
+    res.json({ cargos });
+  } catch (error) {
+    console.error('Erro ao obter cargos eclesiásticos:', error);
+    res.status(500).json({ message: 'Erro ao obter cargos eclesiásticos', error: error.message });
+  }
+}
+
 module.exports = {
   criarOuAtualizarAtribuicao,
   obterAtribuicao,
   listarMinisterios,
+  obterCargosEclesiasticosEndpoint,
 };

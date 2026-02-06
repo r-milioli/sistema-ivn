@@ -42,10 +42,19 @@ END $$;
 
 -- Enum para cargo eclesiástico
 DO $$ BEGIN
-  CREATE TYPE cargo_eclesiastico_enum AS ENUM ('Pastor', 'Evangelista', 'Presbítero', 'Diácono');
+  CREATE TYPE cargo_eclesiastico_enum AS ENUM ('Pastor', 'Evangelista', 'Presbítero', 'Diácono', 'Pastor lider');
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
+
+-- IMPORTANTE: Se você já tem um banco de dados existente com este enum criado anteriormente,
+-- o comando acima NÃO adicionará automaticamente o novo valor 'Pastor lider'.
+-- Isso acontece porque o PostgreSQL não permite modificar enums dentro de blocos transacionais.
+-- 
+-- Para adicionar 'Pastor lider' a um banco existente, execute ANTES de rodar este script:
+-- ALTER TYPE cargo_eclesiastico_enum ADD VALUE 'Pastor lider';
+--
+-- Para novos bancos de dados, o valor já estará incluído automaticamente.
 
 -- Enum para estágio espiritual (jornada do usuário)
 DO $$ BEGIN
@@ -465,6 +474,9 @@ CREATE TABLE IF NOT EXISTS relatorios (
   -- Conteúdo
   conteudo TEXT NOT NULL, -- HTML do editor rich text
   
+  -- Pastor Líder do Ministério
+  pastor_lider_id INTEGER REFERENCES pessoas(id),
+  
   -- Arquivo gerado
   arquivo_pdf_path TEXT,
   tamanho_arquivo VARCHAR(20),
@@ -873,6 +885,22 @@ COMMENT ON TABLE saidas_financeiras IS 'Saídas financeiras';
 COMMENT ON TABLE eventos IS 'Eventos da igreja';
 COMMENT ON TABLE evento_participantes IS 'Participantes de cada evento';
 COMMENT ON TABLE relatorios IS 'Relatórios gerados pelos ministérios';
+
+-- =====================================================
+-- ATUALIZAÇÕES DE SCHEMA (para bancos existentes)
+-- =====================================================
+
+-- Adicionar coluna pastor_lider_id na tabela relatorios (se não existir)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'relatorios' AND column_name = 'pastor_lider_id'
+  ) THEN
+    ALTER TABLE relatorios 
+    ADD COLUMN pastor_lider_id INTEGER REFERENCES pessoas(id);
+  END IF;
+END $$;
 
 -- =====================================================
 -- FIM DO SCHEMA REFATORADO

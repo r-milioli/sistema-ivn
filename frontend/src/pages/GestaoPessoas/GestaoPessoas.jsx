@@ -631,6 +631,22 @@ const GestaoPessoas = () => {
     tipoUsuario: ''
   });
   const [loadingAtribuicao, setLoadingAtribuicao] = useState(false);
+  const [cargosEclesiasticos, setCargosEclesiasticos] = useState([]);
+
+  // Carregar cargos eclesiásticos do banco de dados
+  useEffect(() => {
+    const carregarCargosEclesiasticos = async () => {
+      try {
+        const response = await api.get('/cargos-eclesiasticos');
+        setCargosEclesiasticos(response.data.cargos || []);
+      } catch (error) {
+        console.error('Erro ao carregar cargos eclesiásticos:', error);
+        // Fallback para valores padrão em caso de erro
+        setCargosEclesiasticos(['Pastor', 'Evangelista', 'Presbítero', 'Diácono', 'Pastor lider']);
+      }
+    };
+    carregarCargosEclesiasticos();
+  }, []);
 
   // Buscar pessoas para atribuição
   useEffect(() => {
@@ -1265,10 +1281,11 @@ const GestaoPessoas = () => {
                           className="form-select"
                         >
                           <option value="">Selecione um cargo (opcional)</option>
-                          <option value="Pastor">Pastor</option>
-                          <option value="Evangelista">Evangelista</option>
-                          <option value="Presbítero">Presbítero</option>
-                          <option value="Diácono">Diácono</option>
+                          {cargosEclesiasticos.map((cargo) => (
+                            <option key={cargo} value={cargo}>
+                              {cargo}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
