@@ -138,13 +138,17 @@ const Financas = () => {
           });
         }
 
-        // Carregar ministérios (endpoint temporário - pode precisar criar)
+        // Carregar ministérios
         try {
-          // Por enquanto, vamos usar uma lista vazia e preencher quando necessário
-          // TODO: Criar endpoint para listar ministérios
-          setMinisterios([]);
+          const ministeriosResponse = await api.get('/ministerios');
+          setMinisterios(ministeriosResponse.data.ministerios || []);
         } catch (error) {
           console.error('Erro ao carregar ministérios:', error);
+          toast({
+            title: 'Aviso',
+            description: 'Erro ao carregar lista de ministérios.',
+            variant: 'destructive',
+          });
         }
       } catch (error) {
         console.error('Erro ao carregar dados iniciais:', error);

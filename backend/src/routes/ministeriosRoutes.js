@@ -23,6 +23,7 @@ router.use(authMiddleware);
 // Rotas
 router.post('/', criarValidation, handleValidationErrors, ministeriosController.criarMinisterio);
 router.get('/', ministeriosController.listarMinisterios);
+router.get('/meus-lider', ministeriosController.listarMinisteriosLider);
 router.get('/:id', ministeriosController.obterMinisterioPorId);
 router.put('/:id', atualizarValidation, handleValidationErrors, ministeriosController.atualizarMinisterio);
 router.delete('/:id', ministeriosController.deletarMinisterio);

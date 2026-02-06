@@ -116,6 +116,7 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [loadingRelatorio, setLoadingRelatorio] = useState(false);
   const [pastoresLideres, setPastoresLideres] = useState([]);
+  const [ministeriosLider, setMinisteriosLider] = useState([]);
 
   // Carregar pastores líderes
   useEffect(() => {
@@ -133,6 +134,24 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
       }
     };
     carregarPastoresLideres();
+  }, [toast]);
+
+  // Carregar ministérios onde o usuário é líder
+  useEffect(() => {
+    const carregarMinisteriosLider = async () => {
+      try {
+        const response = await api.get('/ministerios/meus-lider');
+        setMinisteriosLider(response.data.ministerios || []);
+      } catch (error) {
+        console.error('Erro ao carregar ministérios como líder:', error);
+        toast({
+          title: 'Aviso',
+          description: 'Erro ao carregar lista de ministérios.',
+          variant: 'destructive',
+        });
+      }
+    };
+    carregarMinisteriosLider();
   }, [toast]);
 
   // Carregar relatório quando editingId mudar
@@ -278,15 +297,20 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
       <div className="form-row form-row-2">
         <div className="form-group">
           <Label htmlFor="nomeMinisterio">Nome do Ministério</Label>
-          <Input
-            type="text"
+          <select
             id="nomeMinisterio"
             name="nomeMinisterio"
             value={formData.nomeMinisterio}
             onChange={handleChange}
-            className="form-input"
-            placeholder="Digite o nome do ministério (opcional)"
-          />
+            className="form-select"
+          >
+            <option value="">Selecione um ministério </option>
+            {ministeriosLider.map((ministerio) => (
+              <option key={ministerio.id} value={ministerio.nome}>
+                {ministerio.nome}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="form-group">
@@ -318,7 +342,7 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
             onChange={handleChange}
             className="form-select"
           >
-            <option value="">Selecione um pastor líder (opcional)</option>
+            <option value="">Selecione um pastor líder</option>
             {pastoresLideres.map((pastor) => (
               <option key={pastor.id} value={pastor.id}>
                 {pastor.nomeCompleto}

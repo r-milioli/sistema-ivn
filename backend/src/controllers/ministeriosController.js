@@ -200,10 +200,48 @@ async function deletarMinisterio(req, res) {
   }
 }
 
+/**
+ * Listar ministérios onde o usuário logado é líder
+ */
+async function listarMinisteriosLider(req, res) {
+  try {
+    const pessoaId = req.user?.id;
+
+    if (!pessoaId) {
+      return res.status(401).json({ 
+        message: 'Usuário não autenticado' 
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT DISTINCT m.id, m.nome, m.descricao
+       FROM ministerios m
+       INNER JOIN pessoa_ministerios pm ON m.id = pm.ministerio_id
+       WHERE pm.pessoa_id = $1 
+         AND pm.e_lider = TRUE 
+         AND pm.data_fim IS NULL
+         AND m.ativo = TRUE
+       ORDER BY m.nome`,
+      [pessoaId]
+    );
+
+    res.json({
+      ministerios: result.rows
+    });
+  } catch (error) {
+    console.error('Erro ao listar ministérios como líder:', error);
+    res.status(500).json({ 
+      message: 'Erro ao listar ministérios como líder', 
+      error: error.message 
+    });
+  }
+}
+
 module.exports = {
   criarMinisterio,
   listarMinisterios,
   obterMinisterioPorId,
   atualizarMinisterio,
-  deletarMinisterio
+  deletarMinisterio,
+  listarMinisteriosLider
 };
