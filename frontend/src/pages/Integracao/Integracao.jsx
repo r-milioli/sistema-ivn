@@ -13,12 +13,22 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
-import { Search, UserPlus, Camera, X, Heart, List, ChevronLeft, ChevronRight, GraduationCap, Users, BarChart3, TrendingUp, Calendar, FileText, Download } from 'lucide-react';
+import { Search, UserPlus, Camera, X, Heart, List, ChevronLeft, ChevronRight, GraduationCap, Users, BarChart3, TrendingUp, Calendar, FileText, Download, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/alert-dialog';
 import api from '../../services/api';
 import './Integracao.css';
 
@@ -579,8 +589,6 @@ const Integracao = () => {
     email: '',
     telefone: '',
     dataNascimento: '',
-    endereco: '',
-    cidade: '',
     dataMatricula: new Date().toISOString().split('T')[0]
   });
   const [alunosMembresia, setAlunosMembresia] = useState([]);
@@ -600,8 +608,28 @@ const Integracao = () => {
           pageSize: pageSizeMembresia
         }
       });
-      setAlunosMembresia(response.data.matriculas || []);
-      setTotalMatriculas(response.data.pagination.total);
+      
+      // Mapear dados do backend (snake_case) para frontend (camelCase)
+      const matriculasMapeadas = (response.data.matriculas || []).map(matricula => ({
+        id: matricula.id,
+        pessoaId: matricula.pessoa_id,
+        nomeCompleto: matricula.nome_completo || `${matricula.nome || ''} ${matricula.sobrenome || ''}`.trim(),
+        email: (matricula.email !== null && matricula.email !== undefined && matricula.email !== '') ? matricula.email : '',
+        telefone: (matricula.telefone !== null && matricula.telefone !== undefined && matricula.telefone !== '') ? matricula.telefone : '',
+        dataMatricula: matricula.data_matricula || matricula.dataMatricula,
+        dataConclusao: matricula.data_conclusao || matricula.dataConclusao,
+        concluido: matricula.concluido || matricula.concluido,
+        estagioAtual: matricula.estagio_atual || matricula.estagioAtual || 'Em Membresia',
+        aulas: (matricula.aulas || []).map(aula => ({
+          numero: aula.numero || aula.aula_numero,
+          concluida: aula.concluida || false,
+          dataConclusao: aula.dataConclusao || aula.data_conclusao,
+          observacoes: aula.observacoes || null
+        }))
+      }));
+      
+      setAlunosMembresia(matriculasMapeadas);
+      setTotalMatriculas(response.data.pagination?.total || 0);
     } catch (error) {
       console.error('Erro ao carregar matrículas:', error);
       toast({
@@ -678,13 +706,31 @@ const Integracao = () => {
   // Selecionar novo convertido e preencher formulário
   const handleSelectNovoConvertido = (pessoa) => {
     setSelectedNovoConvertido(pessoa);
+    // Converter data de nascimento para formato YYYY-MM-DD se existir
+    let dataNascimentoFormatada = '';
+    if (pessoa.dataNascimento) {
+      if (typeof pessoa.dataNascimento === 'string' && pessoa.dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        dataNascimentoFormatada = pessoa.dataNascimento;
+      } else {
+        try {
+          const date = new Date(pessoa.dataNascimento);
+          if (!isNaN(date.getTime())) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            dataNascimentoFormatada = `${year}-${month}-${day}`;
+          }
+        } catch (e) {
+          console.error('Erro ao converter data de nascimento:', e);
+        }
+      }
+    }
+    
     setMembresiaFormData({
-      nomeCompleto: `${pessoa.nome} ${pessoa.sobrenome || ''}`.trim(),
+      nomeCompleto: `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim(),
       email: pessoa.email || '',
-      telefone: pessoa.telefone || '',
-      dataNascimento: pessoa.data_nascimento || '',
-      endereco: `${pessoa.rua || ''} ${pessoa.numero || ''}`.trim(),
-      cidade: pessoa.cidade || '',
+      telefone: pessoa.telefone || pessoa.whatsapp || '',
+      dataNascimento: dataNascimentoFormatada,
       dataMatricula: new Date().toISOString().split('T')[0]
     });
     setMembresiaSearchQuery('');
@@ -698,8 +744,6 @@ const Integracao = () => {
       email: '',
       telefone: '',
       dataNascimento: '',
-      endereco: '',
-      cidade: '',
       dataMatricula: new Date().toISOString().split('T')[0]
     });
     setMembresiaSearchQuery('');
@@ -809,7 +853,7 @@ const Integracao = () => {
               </TabsTrigger>
               <TabsTrigger value="listar-membros" className="integracao-tabs-trigger">
                 <Users className="tab-icon" />
-                <span>Listar Membros</span>
+                <span>Alunos Membresia</span>
               </TabsTrigger>
               <TabsTrigger value="analytics" className="integracao-tabs-trigger">
                 <BarChart3 className="tab-icon" />
@@ -1457,20 +1501,23 @@ const Integracao = () => {
                     </div>
                     {filteredNovosConvertidos.length > 0 && (
                       <div className="search-results-dropdown">
-                        {filteredNovosConvertidos.map(nc => (
-                          <div
-                            key={nc.id}
-                            className="search-result-item"
-                            onClick={() => handleSelectNovoConvertido(nc)}
-                          >
-                            <div>
-                              <strong>{nc.nomeCompleto}</strong>
-                              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                {nc.email} • {nc.telefone}
+                        {filteredNovosConvertidos.map(nc => {
+                          const nomeCompleto = nc.nomeCompleto || `${nc.nome || ''} ${nc.sobrenome || ''}`.trim();
+                          return (
+                            <div
+                              key={nc.id}
+                              className="search-result-item"
+                              onClick={() => handleSelectNovoConvertido(nc)}
+                            >
+                              <div>
+                                <strong>{nomeCompleto}</strong>
+                                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                  {nc.email || ''} {nc.email && nc.telefone ? '•' : ''} {nc.telefone || nc.whatsapp || ''}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1480,7 +1527,7 @@ const Integracao = () => {
                 {selectedNovoConvertido && (
                   <div className="selected-person-card" style={{ marginBottom: '24px' }}>
                     <div>
-                      <strong>Novo Convertido Selecionado:</strong> {selectedNovoConvertido.nomeCompleto}
+                      <strong>Novo Convertido Selecionado:</strong> {selectedNovoConvertido.nomeCompleto || `${selectedNovoConvertido.nome || ''} ${selectedNovoConvertido.sobrenome || ''}`.trim()}
                     </div>
                     <Button
                       type="button"
@@ -1574,34 +1621,6 @@ const Integracao = () => {
                       </div>
                     </div>
 
-                    <div className="form-row form-row-2">
-                      <div className="form-group">
-                        <Label htmlFor="membresia-endereco">Endereço</Label>
-                        <Input
-                          type="text"
-                          id="membresia-endereco"
-                          name="endereco"
-                          value={membresiaFormData.endereco}
-                          onChange={handleMembresiaFormChange}
-                          required
-                          className="form-input"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <Label htmlFor="membresia-cidade">Cidade</Label>
-                        <Input
-                          type="text"
-                          id="membresia-cidade"
-                          name="cidade"
-                          value={membresiaFormData.cidade}
-                          onChange={handleMembresiaFormChange}
-                          required
-                          className="form-input"
-                        />
-                      </div>
-                    </div>
-
                     <div className="form-actions">
                       <Button 
                         type="submit" 
@@ -1635,9 +1654,27 @@ const Integracao = () => {
                             <TableRow key={aluno.id}>
                               <TableCell>
                                 <div>
-                                  <strong>{aluno.nomeCompleto}</strong>
+                                  <strong>{aluno.nomeCompleto || '-'}</strong>
                                   <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                    Matrícula: {new Date(aluno.dataMatricula).toLocaleDateString('pt-BR')}
+                                    Matrícula: {aluno.dataMatricula ? (() => {
+                                      try {
+                                        const date = new Date(aluno.dataMatricula);
+                                        if (!isNaN(date.getTime())) {
+                                          return date.toLocaleDateString('pt-BR');
+                                        }
+                                        // Se não conseguir converter, tenta formatar manualmente
+                                        if (typeof aluno.dataMatricula === 'string') {
+                                          const dateStr = aluno.dataMatricula.split('T')[0];
+                                          const [year, month, day] = dateStr.split('-');
+                                          if (year && month && day) {
+                                            return `${day}/${month}/${year}`;
+                                          }
+                                        }
+                                        return aluno.dataMatricula;
+                                      } catch (e) {
+                                        return aluno.dataMatricula || '-';
+                                      }
+                                    })() : '-'}
                                   </div>
                                 </div>
                               </TableCell>
@@ -1680,7 +1717,7 @@ const Integracao = () => {
 
             <TabsContent value="listar-membros" className="integracao-tabs-content">
               <div className="tab-content-wrapper">
-                <h2>Listar Membros</h2>
+                <h2>Alunos Membresia</h2>
                 <ListarMembros alunosMembresia={alunosMembresia} />
               </div>
             </TabsContent>
@@ -1688,20 +1725,14 @@ const Integracao = () => {
             <TabsContent value="analytics" className="integracao-tabs-content">
               <div className="tab-content-wrapper">
                 <h2>Análises e Estatísticas</h2>
-                <Analytics 
-                  alunosMembresia={alunosMembresia}
-                  mockNovosConvertidosParaMembresia={mockNovosConvertidosParaMembresia}
-                />
+                <Analytics />
               </div>
             </TabsContent>
 
             <TabsContent value="relatorios" className="integracao-tabs-content">
               <div className="tab-content-wrapper">
                 <h2>Relatório</h2>
-                <RelatorioForm />
-                <div className="relatorios-section">
-                  <RelatoriosGerados />
-                </div>
+                <RelatorioFormWrapper />
               </div>
             </TabsContent>
           </Tabs>
@@ -1971,19 +2002,32 @@ const NovosConvertidosTable = () => {
 
 // Componente de Listagem de Membros
 const ListarMembros = ({ alunosMembresia }) => {
+  const { toast } = useToast();
   const [filters, setFilters] = useState({
     search: '',
     dataMatricula: '',
     aulasConcluidas: '',
     aulasNaoFeitas: '',
-    cidade: ''
+    estagio: 'Aluno' // Default: Aluno
   });
+  const [loadingTornarMembro, setLoadingTornarMembro] = useState({});
+  const [tornarMembroDialogOpen, setTornarMembroDialogOpen] = useState(false);
+  const [alunoParaTornarMembro, setAlunoParaTornarMembro] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
   // Filtrar dados
   const filteredData = useMemo(() => {
     return alunosMembresia.filter(aluno => {
+      // Filtro por estágio (Aluno = "Em Membresia", Membro = "Membro")
+      const estagioAtual = aluno.estagioAtual || 'Em Membresia';
+      let matchEstagio = true;
+      if (filters.estagio === 'Aluno') {
+        matchEstagio = estagioAtual === 'Em Membresia';
+      } else if (filters.estagio === 'Membro') {
+        matchEstagio = estagioAtual === 'Membro';
+      }
+      
       // Filtro por nome
       const matchSearch = !filters.search || 
         aluno.nomeCompleto.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -2010,11 +2054,7 @@ const ListarMembros = ({ alunosMembresia }) => {
         matchAulasNaoFeitas = aulasNaoFeitasCount >= minNaoFeitas;
       }
       
-      // Filtro por cidade
-      const matchCidade = !filters.cidade || 
-        aluno.cidade.toLowerCase().includes(filters.cidade.toLowerCase());
-      
-      return matchSearch && matchData && matchAulasConcluidas && matchAulasNaoFeitas && matchCidade;
+      return matchEstagio && matchSearch && matchData && matchAulasConcluidas && matchAulasNaoFeitas;
     });
   }, [alunosMembresia, filters]);
 
@@ -2044,6 +2084,216 @@ const ListarMembros = ({ alunosMembresia }) => {
     return aluno.aulas.filter(a => !a.concluida).length;
   };
 
+  // Abrir dialog de confirmação para tornar membro
+  const handleTornarMembroClick = (aluno) => {
+    if (!aluno.pessoaId) {
+      toast({
+        title: 'Erro',
+        description: 'ID da pessoa não encontrado.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setAlunoParaTornarMembro(aluno);
+    setTornarMembroDialogOpen(true);
+  };
+
+  // Função para tornar membro (após confirmação)
+  const handleConfirmTornarMembro = async () => {
+    if (!alunoParaTornarMembro || !alunoParaTornarMembro.pessoaId) {
+      toast({
+        title: 'Erro',
+        description: 'ID da pessoa não encontrado.',
+        variant: 'destructive',
+      });
+      setTornarMembroDialogOpen(false);
+      return;
+    }
+
+    setLoadingTornarMembro(prev => ({ ...prev, [alunoParaTornarMembro.id]: true }));
+
+    try {
+      // Buscar dados da pessoa primeiro
+      const pessoaResponse = await api.get(`/pessoas/${alunoParaTornarMembro.pessoaId}`);
+      const pessoa = pessoaResponse.data.pessoa || pessoaResponse.data;
+
+      // Extrair nome e sobrenome
+      let nome = pessoa.nome;
+      let sobrenome = pessoa.sobrenome;
+
+      // Se não tiver nome/sobrenome, tentar extrair do nomeCompleto do aluno
+      if (!nome || !nome.trim() || !sobrenome || !sobrenome.trim()) {
+        if (alunoParaTornarMembro.nomeCompleto) {
+          const partesNome = alunoParaTornarMembro.nomeCompleto.trim().split(/\s+/);
+          if (partesNome.length > 0) {
+            nome = nome || partesNome[0] || '';
+            sobrenome = sobrenome || partesNome.slice(1).join(' ') || '';
+          }
+        }
+      }
+
+      // Verificar se nome existe (obrigatório)
+      if (!nome || !nome.trim()) {
+        throw new Error('Nome é obrigatório para promover a membro. Por favor, verifique os dados da pessoa.');
+      }
+      
+      // Verificar se sobrenome existe (obrigatório pelo backend)
+      if (!sobrenome || !sobrenome.trim()) {
+        // Se ainda não tiver sobrenome, tentar usar o nome completo como sobrenome
+        // ou usar um valor padrão
+        if (alunoParaTornarMembro.nomeCompleto && alunoParaTornarMembro.nomeCompleto.trim()) {
+          const partesNome = alunoParaTornarMembro.nomeCompleto.trim().split(/\s+/);
+          if (partesNome.length > 1) {
+            sobrenome = partesNome.slice(1).join(' ');
+          } else {
+            // Se não tiver sobrenome, usar o próprio nome como sobrenome (fallback)
+            sobrenome = nome;
+          }
+        } else {
+          // Último recurso: usar o nome como sobrenome
+          sobrenome = nome;
+        }
+      }
+
+      // Integrar visitante mudando estágio para "Membro"
+      await api.post('/integracao/integrar-visitante', {
+        pessoaId: alunoParaTornarMembro.pessoaId,
+        novoEstagio: 'Membro',
+        observacoes: 'Promovido a membro após conclusão do curso de membresia',
+        nome: nome.trim(),
+        sobrenome: sobrenome.trim(),
+        email: pessoa.email || null,
+        telefone: pessoa.telefone || null,
+        dataNascimento: pessoa.dataNascimento || null,
+        sexo: pessoa.sexo || null,
+        estadoCivil: pessoa.estadoCivil || null,
+        cep: pessoa.cep || null,
+        rua: pessoa.rua || null,
+        numero: pessoa.numero || null,
+        complemento: pessoa.complemento || null,
+        bairro: pessoa.bairro || null,
+        cidade: pessoa.cidade || null,
+        estado: pessoa.estado || null
+      });
+
+      toast({
+        title: 'Sucesso',
+        description: `${alunoParaTornarMembro.nomeCompleto} foi promovido a membro com sucesso!`,
+      });
+
+      setTornarMembroDialogOpen(false);
+      setAlunoParaTornarMembro(null);
+      
+      // Recarregar matrículas para atualizar o estágio
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao tornar membro:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || error.message || 'Erro ao promover a membro. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingTornarMembro(prev => ({ ...prev, [alunoParaTornarMembro.id]: false }));
+    }
+  };
+
+  // Função para reverter membro (voltar para "Em Membresia")
+  const handleReverterMembro = async () => {
+    if (!alunoParaTornarMembro || !alunoParaTornarMembro.pessoaId) {
+      toast({
+        title: 'Erro',
+        description: 'ID da pessoa não encontrado.',
+        variant: 'destructive',
+      });
+      setTornarMembroDialogOpen(false);
+      return;
+    }
+
+    setLoadingTornarMembro(prev => ({ ...prev, [alunoParaTornarMembro.id]: true }));
+
+    try {
+      // Buscar dados da pessoa primeiro
+      const pessoaResponse = await api.get(`/pessoas/${alunoParaTornarMembro.pessoaId}`);
+      const pessoa = pessoaResponse.data.pessoa || pessoaResponse.data;
+
+      // Extrair nome e sobrenome
+      let nome = pessoa.nome;
+      let sobrenome = pessoa.sobrenome;
+
+      // Se não tiver nome/sobrenome, tentar extrair do nomeCompleto do aluno
+      if (!nome || !nome.trim() || !sobrenome || !sobrenome.trim()) {
+        if (alunoParaTornarMembro.nomeCompleto) {
+          const partesNome = alunoParaTornarMembro.nomeCompleto.trim().split(/\s+/);
+          if (partesNome.length > 0) {
+            nome = nome || partesNome[0] || '';
+            sobrenome = sobrenome || partesNome.slice(1).join(' ') || '';
+          }
+        }
+      }
+
+      // Verificar se nome existe (obrigatório)
+      if (!nome || !nome.trim()) {
+        throw new Error('Nome é obrigatório para reverter membro. Por favor, verifique os dados da pessoa.');
+      }
+      
+      // Verificar se sobrenome existe (obrigatório pelo backend)
+      if (!sobrenome || !sobrenome.trim()) {
+        if (alunoParaTornarMembro.nomeCompleto && alunoParaTornarMembro.nomeCompleto.trim()) {
+          const partesNome = alunoParaTornarMembro.nomeCompleto.trim().split(/\s+/);
+          if (partesNome.length > 1) {
+            sobrenome = partesNome.slice(1).join(' ');
+          } else {
+            sobrenome = nome;
+          }
+        } else {
+          sobrenome = nome;
+        }
+      }
+
+      // Integrar visitante mudando estágio de "Membro" para "Em Membresia"
+      await api.post('/integracao/integrar-visitante', {
+        pessoaId: alunoParaTornarMembro.pessoaId,
+        novoEstagio: 'Em Membresia',
+        observacoes: 'Revertido de membro para aluno de membresia',
+        nome: nome.trim(),
+        sobrenome: sobrenome.trim(),
+        email: pessoa.email || null,
+        telefone: pessoa.telefone || null,
+        dataNascimento: pessoa.dataNascimento || null,
+        sexo: pessoa.sexo || null,
+        estadoCivil: pessoa.estadoCivil || null,
+        cep: pessoa.cep || null,
+        rua: pessoa.rua || null,
+        numero: pessoa.numero || null,
+        complemento: pessoa.complemento || null,
+        bairro: pessoa.bairro || null,
+        cidade: pessoa.cidade || null,
+        estado: pessoa.estado || null
+      });
+
+      toast({
+        title: 'Sucesso',
+        description: `${alunoParaTornarMembro.nomeCompleto} foi revertido para aluno de membresia com sucesso!`,
+      });
+
+      setTornarMembroDialogOpen(false);
+      setAlunoParaTornarMembro(null);
+      
+      // Recarregar matrículas para atualizar o estágio
+      window.location.reload();
+    } catch (error) {
+      console.error('Erro ao reverter membro:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || error.message || 'Erro ao reverter membro. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingTornarMembro(prev => ({ ...prev, [alunoParaTornarMembro.id]: false }));
+    }
+  };
+
   // Páginas para exibição
   const pagesToShow = useMemo(() => {
     const pages = [];
@@ -2071,7 +2321,20 @@ const ListarMembros = ({ alunosMembresia }) => {
     <div className="visitantes-table-container">
       {/* Área de Filtros */}
       <div className="filters-section">
-        <div className="filters-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: '16px' }}>
+        <div className="filters-row" style={{ gridTemplateColumns: '1fr 2fr 1fr 1fr 1fr', gap: '16px' }}>
+          <div className="filter-group">
+            <Label htmlFor="estagio-membros">Estágio</Label>
+            <select
+              id="estagio-membros"
+              value={filters.estagio}
+              onChange={(e) => handleFilterChange('estagio', e.target.value)}
+              className="form-select"
+            >
+              <option value="Aluno">Aluno</option>
+              <option value="Membro">Membro</option>
+            </select>
+          </div>
+
           <div className="filter-group">
             <Label htmlFor="search-membros">Buscar</Label>
             <div className="search-input-wrapper">
@@ -2131,18 +2394,6 @@ const ListarMembros = ({ alunosMembresia }) => {
               <option value="5">5 (todas)</option>
             </select>
           </div>
-
-          <div className="filter-group">
-            <Label htmlFor="cidade-membros">Cidade</Label>
-            <Input
-              type="text"
-              id="cidade-membros"
-              placeholder="Digite a cidade..."
-              value={filters.cidade}
-              onChange={(e) => handleFilterChange('cidade', e.target.value)}
-              className="form-input"
-            />
-          </div>
         </div>
       </div>
 
@@ -2155,7 +2406,6 @@ const ListarMembros = ({ alunosMembresia }) => {
               <TableHead>Email</TableHead>
               <TableHead>Telefone</TableHead>
               <TableHead>Data Matrícula</TableHead>
-              <TableHead>Cidade</TableHead>
               <TableHead style={{ textAlign: 'center' }}>Aulas Concluídas</TableHead>
               <TableHead style={{ textAlign: 'center' }}>Aulas Não Feitas</TableHead>
               <TableHead style={{ textAlign: 'center' }}>Progresso</TableHead>
@@ -2164,6 +2414,7 @@ const ListarMembros = ({ alunosMembresia }) => {
               <TableHead style={{ textAlign: 'center' }}>Aula 3</TableHead>
               <TableHead style={{ textAlign: 'center' }}>Aula 4</TableHead>
               <TableHead style={{ textAlign: 'center' }}>Aula 5</TableHead>
+              <TableHead style={{ textAlign: 'center' }}>Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -2186,10 +2437,9 @@ const ListarMembros = ({ alunosMembresia }) => {
                     <TableCell>
                       <strong>{aluno.nomeCompleto}</strong>
                     </TableCell>
-                    <TableCell>{aluno.email}</TableCell>
-                    <TableCell>{aluno.telefone}</TableCell>
+                    <TableCell>{aluno.email || '-'}</TableCell>
+                    <TableCell>{aluno.telefone || '-'}</TableCell>
                     <TableCell>{formatDate(aluno.dataMatricula)}</TableCell>
-                    <TableCell>{aluno.cidade}</TableCell>
                     <TableCell style={{ textAlign: 'center' }}>
                       <span style={{ 
                         color: '#22c55e', 
@@ -2257,6 +2507,36 @@ const ListarMembros = ({ alunosMembresia }) => {
                         </div>
                       </TableCell>
                     ))}
+                    <TableCell style={{ textAlign: 'center' }}>
+                      {aluno.estagioAtual === 'Membro' ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleTornarMembroClick(aluno)}
+                          disabled={loadingTornarMembro[aluno.id]}
+                          style={{
+                            minWidth: '120px',
+                            backgroundColor: '#fef2f2',
+                            borderColor: '#fecaca',
+                            color: '#dc2626'
+                          }}
+                        >
+                          {loadingTornarMembro[aluno.id] ? 'Processando...' : 'Reverter'}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleTornarMembroClick(aluno)}
+                          disabled={loadingTornarMembro[aluno.id]}
+                          style={{
+                            minWidth: '120px'
+                          }}
+                        >
+                          {loadingTornarMembro[aluno.id] ? 'Processando...' : 'Tornar Membro'}
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -2330,12 +2610,56 @@ const ListarMembros = ({ alunosMembresia }) => {
           </div>
         </div>
       )}
+
+      {/* Dialog de confirmação para tornar/reverter membro */}
+      <AlertDialog open={tornarMembroDialogOpen} onOpenChange={setTornarMembroDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {alunoParaTornarMembro?.estagioAtual === 'Membro' 
+                ? 'Confirmar reversão para aluno' 
+                : 'Confirmar promoção a membro'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {alunoParaTornarMembro?.estagioAtual === 'Membro' ? (
+                <>
+                  Tem certeza que deseja reverter <strong>{alunoParaTornarMembro?.nomeCompleto || 'este membro'}</strong> para aluno de membresia? 
+                  Esta ação alterará o estágio espiritual da pessoa de "Membro" para "Em Membresia".
+                </>
+              ) : (
+                <>
+                  Tem certeza que deseja promover <strong>{alunoParaTornarMembro?.nomeCompleto || 'este aluno'}</strong> a membro? 
+                  Esta ação alterará o estágio espiritual da pessoa para "Membro".
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setTornarMembroDialogOpen(false);
+              setAlunoParaTornarMembro(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={alunoParaTornarMembro?.estagioAtual === 'Membro' ? handleReverterMembro : handleConfirmTornarMembro}
+              disabled={loadingTornarMembro[alunoParaTornarMembro?.id]}
+              className={alunoParaTornarMembro?.estagioAtual === 'Membro' 
+                ? "bg-red-600 hover:bg-red-700 text-white" 
+                : "bg-blue-600 hover:bg-blue-700 text-white"}
+            >
+              {loadingTornarMembro[alunoParaTornarMembro?.id] ? 'Processando...' : 'Confirmar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
 
 // Componente de Analytics
-const Analytics = ({ alunosMembresia, mockNovosConvertidosParaMembresia }) => {
+const Analytics = () => {
+  const { toast } = useToast();
   const hoje = new Date();
   const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
@@ -2345,106 +2669,70 @@ const Analytics = ({ alunosMembresia, mockNovosConvertidosParaMembresia }) => {
     dataFim: ultimoDiaMes.toISOString().split('T')[0]
   });
 
-  // Calcular estatísticas baseadas no período
-  const estatisticas = useMemo(() => {
-    // Filtrar novos convertidos por período (simulado - usando data de criação)
-    const novosConvertidosNoPeriodo = mockNovosConvertidosParaMembresia.filter(nc => {
-      // Simulação: considerar todos como no período atual
-      return true;
-    });
+  const [estatisticas, setEstatisticas] = useState({
+    totalNovosConvertidos: 0,
+    totalAlunosMembresia: 0,
+    alunosComTodasAulas: 0,
+    alunosComAlgumaAula: 0,
+    alunosSemAulas: 0,
+    totalAulasConcluidas: 0,
+    totalAulasNaoConcluidas: 0,
+    taxaConclusao: 0,
+    topCidades: [],
+    alunosPorProgresso: {
+      completo: 0,
+      parcial: 0,
+      nenhum: 0
+    },
+    porMes: []
+  });
 
-    // Filtrar alunos de membresia por período
-    const alunosNoPeriodo = alunosMembresia.filter(aluno => {
-      const dataMatricula = new Date(aluno.dataMatricula);
-      const inicio = new Date(periodoFiltro.dataInicio);
-      const fim = new Date(periodoFiltro.dataFim);
-      return dataMatricula >= inicio && dataMatricula <= fim;
-    });
+  const [loading, setLoading] = useState(false);
 
-    // Estatísticas de novos convertidos
-    const totalNovosConvertidos = novosConvertidosNoPeriodo.length;
-
-    // Estatísticas de alunos de membresia
-    const totalAlunosMembresia = alunosNoPeriodo.length;
-    const alunosComTodasAulas = alunosNoPeriodo.filter(aluno => 
-      aluno.aulas.every(a => a.concluida)
-    ).length;
-    const alunosComAlgumaAula = alunosNoPeriodo.filter(aluno => 
-      aluno.aulas.some(a => a.concluida)
-    ).length;
-    const alunosSemAulas = alunosNoPeriodo.filter(aluno => 
-      aluno.aulas.every(a => !a.concluida)
-    ).length;
-
-    // Calcular total de aulas concluídas
-    const totalAulasConcluidas = alunosNoPeriodo.reduce((total, aluno) => {
-      return total + aluno.aulas.filter(a => a.concluida).length;
-    }, 0);
-
-    // Calcular total de aulas não concluídas
-    const totalAulasNaoConcluidas = alunosNoPeriodo.reduce((total, aluno) => {
-      return total + aluno.aulas.filter(a => !a.concluida).length;
-    }, 0);
-
-    // Taxa de conclusão
-    const taxaConclusao = totalAlunosMembresia > 0 
-      ? ((totalAulasConcluidas / (totalAlunosMembresia * 5)) * 100).toFixed(1)
-      : 0;
-
-    // Estatísticas por cidade
-    const porCidade = {};
-    alunosNoPeriodo.forEach(aluno => {
-      if (!porCidade[aluno.cidade]) {
-        porCidade[aluno.cidade] = 0;
+  // Carregar estatísticas da API
+  const loadEstatisticas = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (periodoFiltro.dataInicio) {
+        params.dataInicio = periodoFiltro.dataInicio;
       }
-      porCidade[aluno.cidade]++;
-    });
-    const topCidades = Object.entries(porCidade)
-      .map(([cidade, quantidade]) => ({ cidade, quantidade }))
-      .sort((a, b) => b.quantidade - a.quantidade)
-      .slice(0, 5);
+      if (periodoFiltro.dataFim) {
+        params.dataFim = periodoFiltro.dataFim;
+      }
 
-    // Estatísticas de progresso
-    const alunosPorProgresso = {
-      completo: alunosComTodasAulas,
-      parcial: alunosComAlgumaAula - alunosComTodasAulas,
-      nenhum: alunosSemAulas
-    };
+      const response = await api.get('/integracao/analytics', { params });
+      setEstatisticas(response.data);
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar estatísticas. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // Estatísticas por mês (últimos 6 meses)
-    const porMes = Array.from({ length: 6 }, (_, i) => {
-      const data = new Date();
-      data.setMonth(data.getMonth() - (5 - i));
-      const mes = data.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-      const inicioMes = new Date(data.getFullYear(), data.getMonth(), 1);
-      const fimMes = new Date(data.getFullYear(), data.getMonth() + 1, 0);
-      
-      const alunosMes = alunosMembresia.filter(aluno => {
-        const dataMatricula = new Date(aluno.dataMatricula);
-        return dataMatricula >= inicioMes && dataMatricula <= fimMes;
-      }).length;
-
-      return { mes, quantidade: alunosMes };
-    });
-
-    return {
-      totalNovosConvertidos,
-      totalAlunosMembresia,
-      alunosComTodasAulas,
-      alunosComAlgumaAula,
-      alunosSemAulas,
-      totalAulasConcluidas,
-      totalAulasNaoConcluidas,
-      taxaConclusao,
-      topCidades,
-      alunosPorProgresso,
-      porMes
-    };
-  }, [alunosMembresia, mockNovosConvertidosParaMembresia, periodoFiltro]);
+  // Carregar estatísticas quando o período mudar
+  useEffect(() => {
+    loadEstatisticas();
+  }, [periodoFiltro.dataInicio, periodoFiltro.dataFim]);
 
   const handlePeriodoChange = (name, value) => {
     setPeriodoFiltro(prev => ({ ...prev, [name]: value }));
   };
+
+  if (loading) {
+    return (
+      <div className="analytics-container">
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p>Carregando estatísticas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="analytics-container">
@@ -2721,9 +3009,41 @@ const Analytics = ({ alunosMembresia, mockNovosConvertidosParaMembresia }) => {
   );
 };
 
+// Componente Wrapper para Relatório (gerencia estado de edição)
+const RelatorioFormWrapper = () => {
+  const [editingId, setEditingId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleEdit = (id) => {
+    setEditingId(id);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSaveSuccess = () => {
+    setEditingId(null);
+    setRefreshKey(prev => prev + 1); // Força atualização da lista
+  };
+
+  return (
+    <>
+      <RelatorioForm 
+        editingId={editingId} 
+        onCancelEdit={handleCancelEdit}
+        onSaveSuccess={handleSaveSuccess}
+      />
+      <div className="relatorios-section">
+        <RelatoriosGerados onEdit={handleEdit} refreshKey={refreshKey} />
+      </div>
+    </>
+  );
+};
+
 // Componente de Formulário de Relatório
-const RelatorioForm = () => {
-  const meses = [
+const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
+  const meses = useMemo(() => [
     { value: '01', label: 'Janeiro' },
     { value: '02', label: 'Fevereiro' },
     { value: '03', label: 'Março' },
@@ -2736,18 +3056,59 @@ const RelatorioForm = () => {
     { value: '10', label: 'Outubro' },
     { value: '11', label: 'Novembro' },
     { value: '12', label: 'Dezembro' }
-  ];
+  ], []);
 
-  const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
-  const mesAtualLabel = meses.find(m => m.value === mesAtual)?.label || 'Janeiro';
+  const mesAtual = useMemo(() => String(new Date().getMonth() + 1).padStart(2, '0'), []);
 
   const [formData, setFormData] = useState({
     nomeMinisterio: 'Ministério Integração',
     mesReferencia: mesAtual,
     conteudo: ''
   });
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [loadingRelatorio, setLoadingRelatorio] = useState(false);
+
+  // Carregar relatório quando editingId mudar
+  useEffect(() => {
+    if (editingId) {
+      const carregarRelatorio = async () => {
+        setLoadingRelatorio(true);
+        try {
+          const response = await api.get(`/relatorios/${editingId}`);
+          const relatorio = response.data.relatorio;
+          
+          // Converter nome do mês para número
+          const mesEncontrado = meses.find(m => m.label === relatorio.mesReferencia);
+          const mesValue = mesEncontrado ? mesEncontrado.value : mesAtual;
+          
+          setFormData({
+            nomeMinisterio: relatorio.nomeMinisterio,
+            mesReferencia: mesValue,
+            conteudo: relatorio.conteudo
+          });
+        } catch (error) {
+          toast({
+            title: 'Erro',
+            description: 'Erro ao carregar relatório. Tente novamente.',
+            variant: 'destructive',
+          });
+          if (onCancelEdit) onCancelEdit();
+        } finally {
+          setLoadingRelatorio(false);
+        }
+      };
+
+      carregarRelatorio();
+    } else {
+      // Resetar formulário quando não estiver editando
+      setFormData({
+        nomeMinisterio: 'Ministério Integração',
+        mesReferencia: mesAtual,
+        conteudo: ''
+      });
+    }
+  }, [editingId, mesAtual, meses, onCancelEdit, toast]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -2767,24 +3128,42 @@ const RelatorioForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      // Aqui você fará a chamada à API quando estiver pronta
-      // const response = await api.post('/relatorios', formData);
-      
-      // Simulação de sucesso
-      setTimeout(() => {
-        setMessage({ type: 'success', text: 'Relatório enviado com sucesso!' });
+      if (editingId) {
+        // Atualizar relatório existente
+        await api.put(`/relatorios/${editingId}`, formData);
+        
+        toast({
+          title: 'Sucesso!',
+          description: 'Relatório atualizado com sucesso!',
+        });
+        
+        onSaveSuccess();
+      } else {
+        // Criar novo relatório
+        await api.post('/relatorios', formData);
+        
+        toast({
+          title: 'Sucesso!',
+          description: 'Relatório criado com sucesso!',
+        });
+
         setFormData({
           nomeMinisterio: 'Ministério Integração',
           mesReferencia: mesAtual,
           conteudo: ''
         });
-        setLoading(false);
-      }, 1000);
+      }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao enviar relatório. Tente novamente.' });
+      const errorMessage = error.response?.data?.message || 
+        (editingId ? 'Erro ao atualizar relatório. Tente novamente.' : 'Erro ao criar relatório. Tente novamente.');
+      toast({
+        title: 'Erro',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -2813,14 +3192,19 @@ const RelatorioForm = () => {
     'link', 'image', 'video',
   ];
 
+  if (loadingRelatorio) {
+    return <div className="text-center p-8">Carregando relatório...</div>;
+  }
+
   return (
     <form onSubmit={handleSubmit} className="relatorio-form">
-      {message.text && (
-        <div className={`form-message ${message.type}`}>
-          {message.text}
+      {editingId && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            <strong>Modo de Edição:</strong> Você está editando um relatório existente.
+          </p>
         </div>
       )}
-
       <div className="form-row form-row-2">
         <div className="form-group">
           <Label htmlFor="nomeMinisterio">Nome do Ministério</Label>
@@ -2872,12 +3256,26 @@ const RelatorioForm = () => {
       </div>
 
       <div className="form-actions">
+        {editingId && (
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={onCancelEdit}
+            className="cancel-button"
+            disabled={loading}
+          >
+            Cancelar Edição
+          </Button>
+        )}
         <Button 
           type="submit" 
           className="submit-button"
           disabled={loading}
         >
-          {loading ? 'Enviando...' : 'Enviar Relatório'}
+          {loading 
+            ? (editingId ? 'Atualizando...' : 'Enviando...') 
+            : (editingId ? 'Atualizar Relatório' : 'Enviar Relatório')
+          }
         </Button>
       </div>
     </form>
@@ -2885,47 +3283,69 @@ const RelatorioForm = () => {
 };
 
 // Componente de Lista de Relatórios Gerados
-const RelatoriosGerados = () => {
-  // Dados mockados de relatórios
-  const relatorios = useMemo(() => {
-    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const relatoriosList = [];
-    
-    for (let i = 0; i < 12; i++) {
-      const data = new Date();
-      data.setMonth(data.getMonth() - i);
-      const mes = meses[data.getMonth()];
-      const ano = data.getFullYear();
+const RelatoriosGerados = ({ onEdit, refreshKey }) => {
+  const { toast } = useToast();
+  const [relatorios, setRelatorios] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const buscarRelatorios = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/relatorios', {
+          params: {
+            nomeMinisterio: 'Ministério Integração'
+          }
+        });
+        setRelatorios(response.data.relatorios);
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar relatórios. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    buscarRelatorios();
+  }, [toast, refreshKey]);
+
+  const handleDownload = async (relatorio) => {
+    try {
+      const response = await api.get(`/relatorios/${relatorio.id}/download`, {
+        responseType: 'blob'
+      });
       
-      relatoriosList.push({
-        id: i + 1,
-        nomeMinisterio: 'Ministério Integração',
-        mesReferencia: mes,
-        anoReferencia: ano,
-        dataGeracao: data.toLocaleDateString('pt-BR'),
-        tamanho: `${Math.floor(Math.random() * 500) + 100} KB`
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Relatorio_${relatorio.nomeMinisterio}_${relatorio.mesReferencia}_${relatorio.anoReferencia}.html`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      toast({
+        title: 'Sucesso!',
+        description: 'Relatório baixado com sucesso!',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao baixar relatório. Tente novamente.',
+        variant: 'destructive',
       });
     }
-    
-    return relatoriosList;
-  }, []);
-
-  const handleDownload = (relatorio) => {
-    // Simulação de download
-    const link = document.createElement('a');
-    link.href = '#'; // Aqui você colocaria a URL real do PDF
-    link.download = `Relatorio_${relatorio.nomeMinisterio}_${relatorio.mesReferencia}_${relatorio.anoReferencia}.pdf`;
-    // link.click(); // Descomente quando tiver a URL real
-    
-    // Por enquanto, apenas um alerta
-    alert(`Download do relatório: ${relatorio.nomeMinisterio} - ${relatorio.mesReferencia}/${relatorio.anoReferencia}`);
   };
 
   return (
     <div className="relatorios-gerados-container">
       <h3 className="relatorios-gerados-title">Relatórios Gerados</h3>
       
-      {relatorios.length === 0 ? (
+      {loading ? (
+        <div className="text-center p-8">Carregando relatórios...</div>
+      ) : relatorios.length === 0 ? (
         <div className="relatorios-empty">
           <p>Nenhum relatório gerado ainda.</p>
         </div>
@@ -2946,15 +3366,26 @@ const RelatoriosGerados = () => {
                     <span className="relatorio-item-tamanho">{relatorio.tamanho}</span>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownload(relatorio)}
-                  className="relatorio-download-button"
-                >
-                  <Download className="download-icon" />
-                  <span>Download PDF</span>
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEdit && onEdit(relatorio.id)}
+                    className="relatorio-edit-button"
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    <span>Editar</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownload(relatorio)}
+                    className="relatorio-download-button"
+                  >
+                    <Download className="download-icon" />
+                    <span>Download</span>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

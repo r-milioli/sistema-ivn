@@ -423,7 +423,8 @@ async function listarMatriculasMembresia(req, res) {
         m.concluido,
         CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) as nome_completo,
         p.email,
-        p.telefone
+        p.telefone,
+        p.estagio_atual
       FROM matriculas_membresia m
       INNER JOIN pessoas p ON m.pessoa_id = p.id
     `;
@@ -471,8 +472,17 @@ async function listarMatriculasMembresia(req, res) {
           [matricula.id]
         );
 
-        return {
-          ...matricula,
+        // Garantir que todos os campos sejam retornados, mesmo se null
+        const matriculaData = {
+          id: matricula.id,
+          pessoa_id: matricula.pessoa_id,
+          data_matricula: matricula.data_matricula,
+          data_conclusao: matricula.data_conclusao,
+          concluido: matricula.concluido,
+          nome_completo: matricula.nome_completo || null,
+          email: matricula.email || null,
+          telefone: matricula.telefone || null,
+          estagio_atual: matricula.estagio_atual || null,
           aulas: aulasResult.rows.map(aula => ({
             numero: aula.aula_numero,
             concluida: aula.concluida,
@@ -480,6 +490,8 @@ async function listarMatriculasMembresia(req, res) {
             observacoes: aula.observacoes
           }))
         };
+
+        return matriculaData;
       })
     );
 
@@ -928,6 +940,196 @@ async function listarNovosConvertidos(req, res) {
   }
 }
 
+/**
+ * Obter estatísticas de analytics
+ * Retorna estatísticas sobre novos convertidos, alunos de membresia, aulas, etc.
+ */
+async function obterEstatisticasAnalytics(req, res) {
+  try {
+    const { dataInicio, dataFim } = req.query;
+
+    // Valores padrão: mês atual
+    const hoje = new Date();
+    const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const ultimoDiaMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+
+    const inicio = dataInicio ? new Date(dataInicio) : primeiroDiaMes;
+    const fim = dataFim ? new Date(dataFim) : ultimoDiaMes;
+    
+    // Ajustar para incluir o dia inteiro
+    fim.setHours(23, 59, 59, 999);
+
+    // 1. Total de novos convertidos no período
+    const novosConvertidosQuery = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM conversoes c
+       INNER JOIN pessoas p ON c.pessoa_id = p.id
+       WHERE DATE(c.data_conversao) >= $1 AND DATE(c.data_conversao) <= $2
+         AND p.ativo = TRUE`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const totalNovosConvertidos = parseInt(novosConvertidosQuery.rows[0].total);
+
+    // 2. Total de alunos de membresia no período
+    const alunosMembresiaQuery = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM matriculas_membresia m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const totalAlunosMembresia = parseInt(alunosMembresiaQuery.rows[0].total);
+
+    // 3. Estatísticas de aulas
+    // Total de aulas concluídas e não concluídas
+    const aulasTotaisQuery = await pool.query(
+      `SELECT 
+         COUNT(CASE WHEN a.concluida = TRUE THEN 1 END) as total_aulas_concluidas,
+         COUNT(CASE WHEN a.concluida = FALSE THEN 1 END) as total_aulas_nao_concluidas
+       FROM matriculas_membresia m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       INNER JOIN aulas_membresia a ON m.id = a.matricula_id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+
+    const totalAulasConcluidas = parseInt(aulasTotaisQuery.rows[0].total_aulas_concluidas) || 0;
+    const totalAulasNaoConcluidas = parseInt(aulasTotaisQuery.rows[0].total_aulas_nao_concluidas) || 0;
+
+    // Alunos com todas as aulas concluídas
+    const todasAulasQuery = await pool.query(
+      `SELECT COUNT(DISTINCT m.id) as total
+       FROM matriculas_membresia m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE
+         AND (
+           SELECT COUNT(*) 
+           FROM aulas_membresia a 
+           WHERE a.matricula_id = m.id AND a.concluida = TRUE
+         ) = 5`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const alunosComTodasAulas = parseInt(todasAulasQuery.rows[0].total) || 0;
+
+    // Alunos com alguma aula concluída
+    const algumaAulaQuery = await pool.query(
+      `SELECT COUNT(DISTINCT m.id) as total
+       FROM matriculas_membresia m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE
+         AND EXISTS (
+           SELECT 1 
+           FROM aulas_membresia a 
+           WHERE a.matricula_id = m.id AND a.concluida = TRUE
+         )`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const alunosComAlgumaAula = parseInt(algumaAulaQuery.rows[0].total) || 0;
+
+    // Alunos sem aulas concluídas
+    const semAulasQuery = await pool.query(
+      `SELECT COUNT(DISTINCT m.id) as total
+       FROM matriculas_membresia m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE
+         AND NOT EXISTS (
+           SELECT 1 
+           FROM aulas_membresia a 
+           WHERE a.matricula_id = m.id AND a.concluida = TRUE
+         )`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const alunosSemAulas = parseInt(semAulasQuery.rows[0].total) || 0;
+
+    // Taxa de conclusão
+    const totalAulasPossiveis = totalAlunosMembresia * 5;
+    const taxaConclusao = totalAulasPossiveis > 0 
+      ? ((totalAulasConcluidas / totalAulasPossiveis) * 100).toFixed(1)
+      : '0.0';
+
+    // 4. Estatísticas por cidade (top 5)
+    const cidadesQuery = await pool.query(
+      `SELECT 
+         p.cidade,
+         COUNT(DISTINCT m.id) as quantidade
+       FROM matriculas_membresia m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE
+         AND p.cidade IS NOT NULL
+         AND p.cidade != ''
+       GROUP BY p.cidade
+       ORDER BY quantidade DESC
+       LIMIT 5`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const topCidades = cidadesQuery.rows.map(row => ({
+      cidade: row.cidade,
+      quantidade: parseInt(row.quantidade)
+    }));
+
+    // 5. Estatísticas por mês (últimos 6 meses)
+    const porMes = [];
+    for (let i = 5; i >= 0; i--) {
+      const data = new Date();
+      data.setMonth(data.getMonth() - i);
+      const inicioMes = new Date(data.getFullYear(), data.getMonth(), 1);
+      const fimMes = new Date(data.getFullYear(), data.getMonth() + 1, 0);
+      
+      const mesQuery = await pool.query(
+        `SELECT COUNT(*) as quantidade
+         FROM matriculas_membresia m
+         INNER JOIN pessoas p ON m.pessoa_id = p.id
+         WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+           AND p.ativo = TRUE`,
+        [inicioMes.toISOString().split('T')[0], fimMes.toISOString().split('T')[0]]
+      );
+
+      const mesNome = data.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+      porMes.push({
+        mes: mesNome,
+        quantidade: parseInt(mesQuery.rows[0].quantidade)
+      });
+    }
+
+    // 6. Alunos por progresso
+    const alunosPorProgresso = {
+      completo: alunosComTodasAulas,
+      parcial: alunosComAlgumaAula - alunosComTodasAulas,
+      nenhum: alunosSemAulas
+    };
+
+    res.json({
+      totalNovosConvertidos,
+      totalAlunosMembresia,
+      alunosComTodasAulas,
+      alunosComAlgumaAula,
+      alunosSemAulas,
+      totalAulasConcluidas,
+      totalAulasNaoConcluidas,
+      taxaConclusao: parseFloat(taxaConclusao),
+      topCidades,
+      alunosPorProgresso,
+      porMes,
+      periodo: {
+        dataInicio: inicio.toISOString().split('T')[0],
+        dataFim: fim.toISOString().split('T')[0]
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao obter estatísticas de analytics:', error);
+    res.status(500).json({
+      message: 'Erro ao obter estatísticas',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   integrarVisitante,
   registrarConversao,
@@ -937,5 +1139,6 @@ module.exports = {
   atualizarStatusAula,
   adicionarPessoaMinisterio,
   listarPessoasMinisterios,
-  listarNovosConvertidos
+  listarNovosConvertidos,
+  obterEstatisticasAnalytics
 };

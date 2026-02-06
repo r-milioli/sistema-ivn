@@ -123,4 +123,26 @@ const listarNovosConvertidosValidation = [
 
 router.get('/novos-convertidos', listarNovosConvertidosValidation, handleValidationErrors, integracaoController.listarNovosConvertidos);
 
+// Validações para analytics
+const analyticsValidation = [
+  query('dataInicio')
+    .optional()
+    .custom((value) => {
+      if (!value || value === '') return true;
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      return dateRegex.test(value);
+    })
+    .withMessage('Data de início deve estar no formato YYYY-MM-DD'),
+  query('dataFim')
+    .optional()
+    .custom((value) => {
+      if (!value || value === '') return true;
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      return dateRegex.test(value);
+    })
+    .withMessage('Data de fim deve estar no formato YYYY-MM-DD')
+];
+
+router.get('/analytics', analyticsValidation, handleValidationErrors, integracaoController.obterEstatisticasAnalytics);
+
 module.exports = router;
