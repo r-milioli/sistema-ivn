@@ -39,7 +39,7 @@ const Recepcao = () => {
   const [formData, setFormData] = useState({
     recepcionadoPor: user?.nome || '',
     diaVisita: getCurrentDateTime(),
-    nomeCompleto: '',
+    nomeCompleto: '', // Mantido para compatibilidade, será separado no backend
     dataNascimento: '',
     whatsapp: '',
     email: '',
@@ -178,7 +178,7 @@ const Recepcao = () => {
                     </div>
                   </div>
 
-                  <div className="form-row">
+                  <div className="form-row form-row-2">
                     <div className="form-group">
                       <Label htmlFor="dataNascimento">Data de nascimento</Label>
                       <Input
@@ -187,15 +187,12 @@ const Recepcao = () => {
                         name="dataNascimento"
                         value={formData.dataNascimento}
                         onChange={handleChange}
-                        required
                         className="form-input"
                       />
                     </div>
-                  </div>
 
-                  <div className="form-row form-row-2">
                     <div className="form-group">
-                      <Label htmlFor="whatsapp">WhatsApp</Label>
+                      <Label htmlFor="whatsapp">WhatsApp *</Label>
                       <Input
                         type="tel"
                         id="whatsapp"
@@ -207,7 +204,9 @@ const Recepcao = () => {
                         className="form-input"
                       />
                     </div>
+                  </div>
 
+                  <div className="form-row">
                     <div className="form-group">
                       <Label htmlFor="email">Email</Label>
                       <Input
@@ -217,7 +216,6 @@ const Recepcao = () => {
                         value={formData.email}
                         onChange={handleChange}
                         placeholder="email@exemplo.com"
-                        required
                         className="form-input"
                       />
                     </div>

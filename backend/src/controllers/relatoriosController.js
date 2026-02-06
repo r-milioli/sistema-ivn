@@ -26,16 +26,29 @@ async function criarRelatorio(req, res) {
     // Obter ano atual
     const anoReferencia = new Date().getFullYear();
 
-    // Inserir relatório
+    // Buscar ministerio_id pelo nome (ou criar se não existir - opcional)
+    let ministerioId = null;
+    if (nomeMinisterio) {
+      const ministerioResult = await pool.query(
+        'SELECT id FROM ministerios WHERE nome ILIKE $1 LIMIT 1',
+        [`%${nomeMinisterio}%`]
+      );
+      if (ministerioResult.rows.length > 0) {
+        ministerioId = ministerioResult.rows[0].id;
+      }
+    }
+
+    // Inserir relatório (schema jornada única: usa titulo e ministerio_id)
     const result = await pool.query(
       `INSERT INTO relatorios (
-        nome_ministerio, mes_referencia, ano_referencia, conteudo, criado_por
+        titulo, ministerio_id, mes_referencia, ano_referencia, conteudo, criado_por
       )
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, nome_ministerio, mes_referencia, ano_referencia, 
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, titulo, ministerio_id, mes_referencia, ano_referencia, 
                 conteudo, criado_por, criado_em, atualizado_em`,
       [
-        nomeMinisterio,
+        nomeMinisterio, // Usado como titulo
+        ministerioId,
         mesReferencia.padStart(2, '0'),
         anoReferencia,
         conteudo,
@@ -47,7 +60,10 @@ async function criarRelatorio(req, res) {
 
     res.status(201).json({
       message: 'Relatório criado com sucesso',
-      relatorio
+      relatorio: {
+        ...relatorio,
+        nomeMinisterio: relatorio.titulo // Mantém compatibilidade com frontend
+      }
     });
   } catch (error) {
     console.error('Erro ao criar relatório:', error);
@@ -66,20 +82,22 @@ async function listarRelatorios(req, res) {
     const pageSizeNum = parseInt(pageSize);
     const offset = (pageNum - 1) * pageSizeNum;
 
-    // Construir query base
+    // Construir query base (schema jornada única - usa titulo e ministerio_id)
     let query = `
       SELECT 
         r.id,
-        r.nome_ministerio,
+        r.titulo as nome_ministerio,
+        COALESCE(m.nome, r.titulo) as nome_ministerio_display,
         r.mes_referencia,
         r.ano_referencia,
         r.arquivo_pdf_path,
         r.tamanho_arquivo,
-        u.nome as criado_por_nome,
+        CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) as criado_por_nome,
         r.criado_em,
         r.atualizado_em
       FROM relatorios r
-      LEFT JOIN usuarios u ON r.criado_por = u.id
+      LEFT JOIN pessoas p ON r.criado_por = p.id
+      LEFT JOIN ministerios m ON r.ministerio_id = m.id
       WHERE 1=1
     `;
     
@@ -88,7 +106,7 @@ async function listarRelatorios(req, res) {
 
     // Aplicar filtros
     if (nomeMinisterio) {
-      query += ` AND r.nome_ministerio ILIKE $${paramIndex}`;
+      query += ` AND (r.titulo ILIKE $${paramIndex} OR m.nome ILIKE $${paramIndex})`;
       queryParams.push(`%${nomeMinisterio}%`);
       paramIndex++;
     }
@@ -105,9 +123,38 @@ async function listarRelatorios(req, res) {
       paramIndex++;
     }
 
-    // Contar total de registros
-    const countQuery = query.replace(/SELECT[\s\S]*?FROM/, 'SELECT COUNT(*) as total FROM');
-    const countResult = await pool.query(countQuery, queryParams);
+    // Contar total de registros (query separada para garantir correção)
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM relatorios r
+      LEFT JOIN pessoas p ON r.criado_por = p.id
+      LEFT JOIN ministerios m ON r.ministerio_id = m.id
+      WHERE 1=1
+    `;
+    
+    // Aplicar os mesmos filtros na query de contagem
+    const countParams = [];
+    let countParamIndex = 1;
+    
+    if (nomeMinisterio) {
+      countQuery += ` AND (r.titulo ILIKE $${countParamIndex} OR m.nome ILIKE $${countParamIndex})`;
+      countParams.push(`%${nomeMinisterio}%`);
+      countParamIndex++;
+    }
+    
+    if (mesReferencia) {
+      countQuery += ` AND r.mes_referencia = $${countParamIndex}`;
+      countParams.push(mesReferencia.padStart(2, '0'));
+      countParamIndex++;
+    }
+    
+    if (anoReferencia) {
+      countQuery += ` AND r.ano_referencia = $${countParamIndex}`;
+      countParams.push(parseInt(anoReferencia));
+      countParamIndex++;
+    }
+    
+    const countResult = await pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
 
     // Adicionar ordenação e paginação
@@ -123,7 +170,7 @@ async function listarRelatorios(req, res) {
     
     const relatorios = result.rows.map(row => ({
       id: row.id,
-      nomeMinisterio: row.nome_ministerio,
+      nomeMinisterio: row.nome_ministerio_display || row.nome_ministerio,
       mesReferencia: meses[parseInt(row.mes_referencia) - 1] || row.mes_referencia,
       anoReferencia: row.ano_referencia,
       dataGeracao: new Date(row.criado_em).toLocaleDateString('pt-BR'),
@@ -157,18 +204,20 @@ async function obterRelatorioPorId(req, res) {
     const result = await pool.query(
       `SELECT 
         r.id,
-        r.nome_ministerio,
+        r.titulo as nome_ministerio,
+        COALESCE(m.nome, r.titulo) as nome_ministerio_display,
         r.mes_referencia,
         r.ano_referencia,
         r.conteudo,
         r.arquivo_pdf_path,
         r.tamanho_arquivo,
-        u.nome as criado_por_nome,
+        CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) as criado_por_nome,
         r.criado_por,
         r.criado_em,
         r.atualizado_em
       FROM relatorios r
-      LEFT JOIN usuarios u ON r.criado_por = u.id
+      LEFT JOIN pessoas p ON r.criado_por = p.id
+      LEFT JOIN ministerios m ON r.ministerio_id = m.id
       WHERE r.id = $1`,
       [id]
     );
@@ -184,7 +233,7 @@ async function obterRelatorioPorId(req, res) {
     res.json({
       relatorio: {
         id: relatorio.id,
-        nomeMinisterio: relatorio.nome_ministerio,
+        nomeMinisterio: relatorio.nome_ministerio_display || relatorio.nome_ministerio,
         mesReferencia: meses[parseInt(relatorio.mes_referencia) - 1] || relatorio.mes_referencia,
         anoReferencia: relatorio.ano_referencia,
         conteudo: relatorio.conteudo,
@@ -245,19 +294,33 @@ async function atualizarRelatorio(req, res) {
     // Obter ano atual
     const anoReferencia = new Date().getFullYear();
 
-    // Atualizar relatório
+    // Buscar ministerio_id pelo nome (ou criar se não existir - opcional)
+    let ministerioId = null;
+    if (nomeMinisterio) {
+      const ministerioResult = await pool.query(
+        'SELECT id FROM ministerios WHERE nome ILIKE $1 LIMIT 1',
+        [`%${nomeMinisterio}%`]
+      );
+      if (ministerioResult.rows.length > 0) {
+        ministerioId = ministerioResult.rows[0].id;
+      }
+    }
+
+    // Atualizar relatório (schema jornada única: usa titulo e ministerio_id)
     const result = await pool.query(
       `UPDATE relatorios 
-       SET nome_ministerio = $1, 
-           mes_referencia = $2, 
-           ano_referencia = $3, 
-           conteudo = $4,
+       SET titulo = $1,
+           ministerio_id = $2,
+           mes_referencia = $3, 
+           ano_referencia = $4, 
+           conteudo = $5,
            atualizado_em = CURRENT_TIMESTAMP
-       WHERE id = $5
-       RETURNING id, nome_ministerio, mes_referencia, ano_referencia, 
+       WHERE id = $6
+       RETURNING id, titulo, ministerio_id, mes_referencia, ano_referencia, 
                  conteudo, criado_por, criado_em, atualizado_em`,
       [
-        nomeMinisterio,
+        nomeMinisterio, // Usado como titulo
+        ministerioId,
         mesReferencia.padStart(2, '0'),
         anoReferencia,
         conteudo,
@@ -286,14 +349,16 @@ async function downloadRelatorio(req, res) {
 
     const result = await pool.query(
       `SELECT 
-        id,
-        nome_ministerio,
-        mes_referencia,
-        ano_referencia,
-        conteudo,
-        arquivo_pdf_path
-      FROM relatorios
-      WHERE id = $1`,
+        r.id,
+        r.titulo as nome_ministerio,
+        COALESCE(m.nome, r.titulo) as nome_ministerio_display,
+        r.mes_referencia,
+        r.ano_referencia,
+        r.conteudo,
+        r.arquivo_pdf_path
+      FROM relatorios r
+      LEFT JOIN ministerios m ON r.ministerio_id = m.id
+      WHERE r.id = $1`,
       [id]
     );
 
@@ -302,6 +367,7 @@ async function downloadRelatorio(req, res) {
     }
 
     const relatorio = result.rows[0];
+    const nomeMinisterio = relatorio.nome_ministerio_display || relatorio.nome_ministerio;
 
     // Se tiver arquivo PDF, redirecionar para ele
     if (relatorio.arquivo_pdf_path) {
@@ -312,7 +378,7 @@ async function downloadRelatorio(req, res) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="relatorio_${relatorio.nome_ministerio}_${relatorio.mes_referencia}_${relatorio.ano_referencia}.html"`
+      `attachment; filename="relatorio_${nomeMinisterio}_${relatorio.mes_referencia}_${relatorio.ano_referencia}.html"`
     );
     
     res.send(relatorio.conteudo);

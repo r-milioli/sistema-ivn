@@ -62,7 +62,28 @@ const MainLayout = ({ children }) => {
             <div className="header-left">
               <SidebarTrigger className="menu-button" />
               <Link to="/dashboard" className="header-logo">
-                <h1>Sistema IVN</h1>
+                <img 
+                  src="/images/logo.png" 
+                  alt="Sistema IVN" 
+                  className="logo-image"
+                  onError={(e) => {
+                    // Fallback para texto se a imagem não existir
+                    e.target.style.display = 'none';
+                    const fallback = e.target.nextElementSibling;
+                    if (fallback) {
+                      fallback.style.display = 'block';
+                    }
+                  }}
+                  onLoad={(e) => {
+                    // Garantir que a imagem está visível e o fallback escondido
+                    e.target.style.display = 'block';
+                    const fallback = e.target.nextElementSibling;
+                    if (fallback) {
+                      fallback.style.display = 'none';
+                    }
+                  }}
+                />
+                <h1 className="logo-fallback">Sistema IVN</h1>
               </Link>
             </div>
             

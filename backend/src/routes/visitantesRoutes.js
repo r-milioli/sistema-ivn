@@ -5,15 +5,32 @@ const visitantesController = require('../controllers/visitantesController');
 const authMiddleware = require('../middleware/authMiddleware');
 const handleValidationErrors = require('../middleware/validationMiddleware');
 
-// Validações para cadastro
+// Validações para cadastro (schema jornada única - campos opcionais ajustados)
 const cadastrarValidation = [
   body('nomeCompleto').trim().notEmpty().withMessage('Nome completo é obrigatório'),
-  body('dataNascimento').isISO8601().withMessage('Data de nascimento inválida'),
+  body('dataNascimento')
+    .optional({ values: 'falsy' })
+    .custom((value) => {
+      if (!value || value === '') return true; // Aceita vazio
+      // Validar formato de data (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(value)) return false;
+      const date = new Date(value);
+      return date instanceof Date && !isNaN(date);
+    })
+    .withMessage('Data de nascimento inválida'),
   body('whatsapp').trim().notEmpty().withMessage('WhatsApp é obrigatório'),
-  body('email').isEmail().withMessage('Email inválido'),
+  body('email')
+    .optional({ values: 'falsy' })
+    .custom((value) => {
+      if (!value || value === '') return true; // Aceita vazio
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return emailRegex.test(value);
+    })
+    .withMessage('Email inválido'),
   body('bairro').trim().notEmpty().withMessage('Bairro é obrigatório'),
   body('cidade').trim().notEmpty().withMessage('Cidade é obrigatória'),
-  body('comoConheceu').isIn(['familia-amigo', 'google', 'redesocial', 'passei-frente'])
+  body('comoConheceu').isIn(['familia-amigo', 'google', 'redesocial', 'passei-frente', 'outros'])
     .withMessage('Valor inválido para comoConheceu'),
 ];
 
