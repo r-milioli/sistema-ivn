@@ -34,21 +34,35 @@ async function cadastrarVisitante(req, res) {
       pedidoOracao
     } = req.body;
 
-    // Validações básicas
-    if (!nomeCompleto || !whatsapp || !bairro || !cidade || !comoConheceu) {
+    // Validações básicas - apenas nome e bairro são obrigatórios
+    if (!nomeCompleto || !nomeCompleto.trim()) {
       await client.query('ROLLBACK');
       return res.status(400).json({ 
-        message: 'Campos obrigatórios: nomeCompleto, whatsapp, bairro, cidade, comoConheceu' 
+        message: 'Nome completo é obrigatório' 
       });
     }
 
-    // Validar enum comoConheceu
-    if (!COMO_CONHECEU_VALIDOS.includes(comoConheceu)) {
+    if (!bairro || !bairro.trim()) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        message: 'Bairro é obrigatório' 
+      });
+    }
+
+    // Validar enum comoConheceu apenas se fornecido
+    if (comoConheceu && comoConheceu.trim() && !COMO_CONHECEU_VALIDOS.includes(comoConheceu)) {
       await client.query('ROLLBACK');
       return res.status(400).json({ 
         message: 'Valor inválido para comoConheceu. Valores válidos: familia-amigo, google, redesocial, passei-frente, outros' 
       });
     }
+
+    // Função helper para converter valores vazios em null
+    const emptyToNull = (v) => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'string' && v.trim() === '') return null;
+      return v;
+    };
 
     // Separar nome e sobrenome
     const nomeParts = nomeCompleto.trim().split(' ');
@@ -67,7 +81,7 @@ async function cadastrarVisitante(req, res) {
       }
     }
 
-    if (!pessoaId && whatsapp) {
+    if (!pessoaId && whatsapp && whatsapp.trim()) {
       const pessoaCheck = await client.query(
         'SELECT id FROM pessoas WHERE telefone = $1 OR whatsapp = $1',
         [whatsapp]
@@ -112,15 +126,15 @@ async function cadastrarVisitante(req, res) {
         [
           nome,
           sobrenome,
-          dataNascimento || null,
-          whatsapp,
-          whatsapp,
-          email || null,
+          emptyToNull(dataNascimento),
+          emptyToNull(whatsapp),
+          emptyToNull(whatsapp),
+          emptyToNull(email),
           bairro,
-          cidade,
+          emptyToNull(cidade),
           'Visitante',
           dataVisita,
-          comoConheceu
+          emptyToNull(comoConheceu)
         ]
       );
       pessoaId = pessoaResult.rows[0].id;
@@ -131,7 +145,7 @@ async function cadastrarVisitante(req, res) {
          VALUES ($1, NULL, 'Visitante', $2, $3)`,
         [
           pessoaId,
-          `Primeira visita - conheceu por: ${comoConheceu}`,
+          `Primeira visita${comoConheceu ? ` - conheceu por: ${comoConheceu}` : ''}`,
           recepcionadoPorId
         ]
       );

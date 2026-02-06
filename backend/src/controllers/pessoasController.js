@@ -10,13 +10,38 @@ const ESTAGIOS_VALIDOS = [
 const COMO_CONHECEU_VALIDOS = ['familia-amigo', 'google', 'redesocial', 'passei-frente', 'outros'];
 
 function mapRowToPessoa(row) {
+  // Formatar data de nascimento para YYYY-MM-DD se existir
+  let dataNascimentoFormatada = null;
+  if (row.data_nascimento) {
+    if (row.data_nascimento instanceof Date) {
+      const year = row.data_nascimento.getFullYear();
+      const month = String(row.data_nascimento.getMonth() + 1).padStart(2, '0');
+      const day = String(row.data_nascimento.getDate()).padStart(2, '0');
+      dataNascimentoFormatada = `${year}-${month}-${day}`;
+    } else if (typeof row.data_nascimento === 'string') {
+      // Se já for string, verificar se está no formato correto
+      if (row.data_nascimento.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        dataNascimentoFormatada = row.data_nascimento;
+      } else {
+        // Tentar converter
+        const date = new Date(row.data_nascimento);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          dataNascimentoFormatada = `${year}-${month}-${day}`;
+        }
+      }
+    }
+  }
+
   return {
     id: row.id,
     nome: row.nome,
     sobrenome: row.sobrenome,
     sexo: row.sexo,
     estadoCivil: row.estado_civil,
-    dataNascimento: row.data_nascimento,
+    dataNascimento: dataNascimentoFormatada,
     telefone: row.telefone,
     email: row.email,
     whatsapp: row.whatsapp,

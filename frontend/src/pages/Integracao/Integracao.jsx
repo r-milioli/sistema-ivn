@@ -18,13 +18,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../hooks/use-toast';
+import api from '../../services/api';
 import './Integracao.css';
+
+const VIA_CEP_URL = 'https://viacep.com.br/ws';
 
 const Integracao = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   // Estados para pesquisa
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVisitante, setSelectedVisitante] = useState(null);
+  const [pessoasBusca, setPessoasBusca] = useState([]);
 
   // Estados para formulário
   const [formData, setFormData] = useState({
@@ -49,6 +55,28 @@ const Integracao = () => {
   const [fotoPerfilPreview, setFotoPerfilPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Buscar pessoas da API
+  const buscarPessoasAPI = async (query) => {
+    if (!query || query.trim().length < 2) {
+      setPessoasBusca([]);
+      return;
+    }
+
+    try {
+      const response = await api.get('/pessoas', {
+        params: {
+          page: 1,
+          pageSize: 20,
+          search: query
+        }
+      });
+      setPessoasBusca(response.data.pessoas || []);
+    } catch (error) {
+      console.error('Erro ao buscar pessoas:', error);
+      setPessoasBusca([]);
+    }
+  };
 
   // Lista mockada de visitantes - TODO: Substituir por chamada à API
   const [visitantes] = useState([
@@ -108,45 +136,53 @@ const Integracao = () => {
     }
   ]);
 
-  // Filtrar visitantes
+  // Filtrar visitantes (usando resultado da API)
   const filteredVisitantes = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    
-    const query = searchQuery.toLowerCase();
-    return visitantes.filter(visitante => {
-      const nomeCompleto = `${visitante.nome} ${visitante.sobrenome}`.toLowerCase();
-      const email = visitante.email?.toLowerCase() || '';
-      const telefone = visitante.telefone?.replace(/\D/g, '') || '';
-      const searchQueryClean = query.replace(/\D/g, '');
+    return pessoasBusca.filter(pessoa => {
+      const nomeCompleto = `${pessoa.nome} ${pessoa.sobrenome || ''}`.toLowerCase();
+      const email = pessoa.email?.toLowerCase() || '';
+      const telefone = pessoa.telefone?.replace(/\D/g, '') || '';
+      const searchQueryClean = searchQuery.toLowerCase().replace(/\D/g, '');
       
-      return nomeCompleto.includes(query) ||
-             email.includes(query) ||
+      return nomeCompleto.includes(searchQuery.toLowerCase()) ||
+             email.includes(searchQuery.toLowerCase()) ||
              telefone.includes(searchQueryClean);
     });
-  }, [searchQuery, visitantes]);
+  }, [searchQuery, pessoasBusca]);
+
+  // Buscar pessoas quando searchQuery mudar
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      buscarPessoasAPI(searchQuery);
+    }, 300); // Debounce de 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
 
   // Preencher formulário quando visitante for selecionado
-  const handleSelectVisitante = (visitante) => {
-    setSelectedVisitante(visitante);
+  const handleSelectVisitante = (pessoa) => {
+    setSelectedVisitante(pessoa);
+    // O backend já retorna dataNascimento no formato YYYY-MM-DD ou null
     setFormData({
-      nome: visitante.nome || '',
-      sobrenome: visitante.sobrenome || '',
-      email: visitante.email || '',
-      telefone: visitante.telefone || '',
-      dataNascimento: visitante.dataNascimento || '',
-      sexo: visitante.sexo || '',
-      estadoCivil: visitante.estadoCivil || '',
-      cep: visitante.cep || '',
-      rua: visitante.rua || '',
-      numero: visitante.numero || '',
-      complemento: visitante.complemento || '',
-      bairro: visitante.bairro || '',
-      cidade: visitante.cidade || '',
-      estado: visitante.estado || '',
+      nome: pessoa.nome || '',
+      sobrenome: pessoa.sobrenome || '',
+      email: pessoa.email || '',
+      telefone: pessoa.telefone || '',
+      dataNascimento: pessoa.dataNascimento || '',
+      sexo: pessoa.sexo || '',
+      estadoCivil: pessoa.estadoCivil || '',
+      cep: pessoa.cep || '',
+      rua: pessoa.rua || '',
+      numero: pessoa.numero || '',
+      complemento: pessoa.complemento || '',
+      bairro: pessoa.bairro || '',
+      cidade: pessoa.cidade || '',
+      estado: pessoa.estado || '',
       novoEstagio: '',
       fotoPerfil: null
     });
-    setFotoPerfilPreview(visitante.fotoPerfil || null);
+    setFotoPerfilPreview(pessoa.fotoPerfil || null);
     setSearchQuery('');
     setMessage({ type: '', text: '' });
   };
@@ -157,6 +193,48 @@ const Integracao = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  // ViaCEP: busca endereço pelo CEP e preenche o formulário
+  const fetchViaCep = async (cep) => {
+    try {
+      const cepLimpo = cep.replace(/\D/g, '');
+      if (cepLimpo.length !== 8) return null;
+      
+      const res = await fetch(`${VIA_CEP_URL}/${cepLimpo}/json/`);
+      const data = await res.json();
+      if (data.erro) return null;
+      return {
+        rua: data.logradouro || '',
+        bairro: data.bairro || '',
+        cidade: data.localidade || '',
+        estado: data.uf || ''
+      };
+    } catch (err) {
+      return null;
+    }
+  };
+
+  const handleCepBlur = async (e) => {
+    const cep = e.target.value || '';
+    const cepLimpo = cep.replace(/\D/g, '');
+    
+    if (cepLimpo.length === 8) {
+      const endereco = await fetchViaCep(cep);
+      if (endereco) {
+        setFormData(prev => ({ ...prev, ...endereco }));
+        toast({ 
+          title: 'CEP encontrado', 
+          description: 'Endereço preenchido automaticamente.' 
+        });
+      } else {
+        toast({ 
+          title: 'CEP não encontrado', 
+          description: 'Verifique o número e tente novamente.', 
+          variant: 'destructive' 
+        });
+      }
+    }
   };
 
   const handleFotoChange = (e) => {
@@ -217,33 +295,106 @@ const Integracao = () => {
     setMessage({ type: '', text: '' });
   };
 
+  // Função para converter arquivo para base64
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ type: '', text: '' });
 
     if (!selectedVisitante) {
-      setMessage({ type: 'error', text: 'Por favor, selecione um visitante para integrar.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione um visitante para integrar.',
+        variant: 'destructive',
+      });
       setLoading(false);
       return;
     }
 
     if (!formData.novoEstagio) {
-      setMessage({ type: 'error', text: 'Por favor, selecione o novo estágio do usuário.' });
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione o novo estágio do usuário.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.nome || !formData.nome.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'Nome é obrigatório.',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.sobrenome || !formData.sobrenome.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'Sobrenome é obrigatório.',
+        variant: 'destructive',
+      });
       setLoading(false);
       return;
     }
 
     try {
-      // Simulação de integração - TODO: Substituir por chamada real à API
-      setTimeout(() => {
-        setMessage({ type: 'success', text: 'Visitante integrado com sucesso!' });
-        setLoading(false);
-        // Limpar formulário após sucesso
-        handleClearSelection();
-      }, 1000);
+      // Converter foto para base64 se houver
+      let fotoPerfilBase64 = null;
+      if (formData.fotoPerfil) {
+        fotoPerfilBase64 = await fileToBase64(formData.fotoPerfil);
+      }
+
+      // Preparar payload - sempre enviar todos os campos, null quando vazios
+      await api.post('/integracao/integrar-visitante', {
+        pessoaId: selectedVisitante.id,
+        novoEstagio: formData.novoEstagio,
+        observacoes: `Integração realizada via sistema`,
+        // Nome e sobrenome são obrigatórios
+        nome: formData.nome,
+        sobrenome: formData.sobrenome,
+        // Demais campos opcionais - null quando vazios
+        email: formData.email && formData.email.trim() ? formData.email.trim() : null,
+        telefone: formData.telefone && formData.telefone.trim() ? formData.telefone.trim() : null,
+        dataNascimento: formData.dataNascimento && formData.dataNascimento.trim() ? formData.dataNascimento.trim() : null,
+        sexo: formData.sexo && formData.sexo.trim() ? formData.sexo.trim() : null,
+        estadoCivil: formData.estadoCivil && formData.estadoCivil.trim() ? formData.estadoCivil.trim() : null,
+        cep: formData.cep || null,
+        rua: formData.rua || null,
+        numero: formData.numero || null,
+        complemento: formData.complemento || null,
+        bairro: formData.bairro || null,
+        cidade: formData.cidade || null,
+        estado: formData.estado || null,
+        fotoPerfil: fotoPerfilBase64 || null
+      });
+      
+      toast({
+        title: 'Sucesso',
+        description: 'Visitante integrado com sucesso!',
+      });
+      
+      // Limpar formulário após sucesso
+      handleClearSelection();
     } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao integrar visitante. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao integrar visitante. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -298,27 +449,124 @@ const Integracao = () => {
     setLoadingNovoConvertido(true);
     setMessageNovoConvertido({ type: '', text: '' });
 
+    // Validação: apenas nome e bairro são obrigatórios
+    if (!novoConvertidoFormData.nomeCompleto || !novoConvertidoFormData.nomeCompleto.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'Nome completo é obrigatório.',
+        variant: 'destructive',
+      });
+      setLoadingNovoConvertido(false);
+      return;
+    }
+
+    if (!novoConvertidoFormData.bairro || !novoConvertidoFormData.bairro.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'Bairro é obrigatório.',
+        variant: 'destructive',
+      });
+      setLoadingNovoConvertido(false);
+      return;
+    }
+
+    // Primeiro, cadastrar como visitante - enviar null para campos vazios
     try {
-      // Simulação de criação - TODO: Substituir por chamada real à API
-      // O estágio será automaticamente definido como "Novo Convertido"
-      setTimeout(() => {
-        setMessageNovoConvertido({ type: 'success', text: 'Novo convertido cadastrado com sucesso!' });
-        setNovoConvertidoFormData({
-          recepcionadoPor: user?.nome || '',
-          diaVisita: getCurrentDateTime(),
-          nomeCompleto: '',
-          dataNascimento: '',
-          whatsapp: '',
-          email: '',
-          bairro: '',
-          cidade: '',
-          comoConheceu: '',
-          pedidoOracao: ''
+      const visitanteResponse = await api.post('/visitantes', {
+        nomeCompleto: novoConvertidoFormData.nomeCompleto.trim(),
+        dataNascimento: novoConvertidoFormData.dataNascimento && novoConvertidoFormData.dataNascimento.trim() ? novoConvertidoFormData.dataNascimento.trim() : null,
+        whatsapp: novoConvertidoFormData.whatsapp && novoConvertidoFormData.whatsapp.trim() ? novoConvertidoFormData.whatsapp.trim() : null,
+        email: novoConvertidoFormData.email && novoConvertidoFormData.email.trim() ? novoConvertidoFormData.email.trim() : null,
+        bairro: novoConvertidoFormData.bairro.trim(),
+        cidade: novoConvertidoFormData.cidade && novoConvertidoFormData.cidade.trim() ? novoConvertidoFormData.cidade.trim() : null,
+        comoConheceu: novoConvertidoFormData.comoConheceu && novoConvertidoFormData.comoConheceu.trim() ? novoConvertidoFormData.comoConheceu.trim() : null,
+        pedidoOracao: novoConvertidoFormData.pedidoOracao && novoConvertidoFormData.pedidoOracao.trim() ? novoConvertidoFormData.pedidoOracao.trim() : null,
+        diaVisita: novoConvertidoFormData.diaVisita || new Date().toISOString()
+      });
+
+      // Verificar a estrutura da resposta e obter pessoaId
+      // O backend retorna pessoa_id (snake_case)
+      let pessoaId = null;
+      if (visitanteResponse.data && visitanteResponse.data.visitante) {
+        pessoaId = visitanteResponse.data.visitante.pessoa_id || visitanteResponse.data.visitante.pessoaId;
+      } else if (visitanteResponse.data && visitanteResponse.data.pessoaId) {
+        pessoaId = visitanteResponse.data.pessoaId;
+      } else if (visitanteResponse.data && visitanteResponse.data.pessoa_id) {
+        pessoaId = visitanteResponse.data.pessoa_id;
+      }
+
+      // Validar se pessoaId foi obtido
+      if (!pessoaId) {
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível obter o ID da pessoa cadastrada.',
+          variant: 'destructive',
         });
         setLoadingNovoConvertido(false);
-      }, 1000);
+        return;
+      }
+
+      // Garantir que pessoaId seja um número inteiro
+      pessoaId = parseInt(pessoaId, 10);
+      if (isNaN(pessoaId) || pessoaId <= 0) {
+        toast({
+          title: 'Erro',
+          description: 'ID da pessoa inválido.',
+          variant: 'destructive',
+        });
+        setLoadingNovoConvertido(false);
+        return;
+      }
+
+      // Converter diaVisita (datetime-local) para ISO 8601
+      // Se diaVisita não estiver preenchido, usar data/hora atual
+      let dataConversaoISO = new Date().toISOString();
+      if (novoConvertidoFormData.diaVisita && novoConvertidoFormData.diaVisita.trim()) {
+        try {
+          // Converter datetime-local (YYYY-MM-DDTHH:mm) para ISO 8601
+          const dateTimeLocal = novoConvertidoFormData.diaVisita.trim();
+          const date = new Date(dateTimeLocal);
+          if (!isNaN(date.getTime())) {
+            dataConversaoISO = date.toISOString();
+          }
+        } catch (error) {
+          console.error('Erro ao converter data:', error);
+          // Usar data/hora atual como fallback
+        }
+      }
+
+      // Depois, registrar a conversão
+      await api.post('/integracao/conversoes', {
+        pessoaId: pessoaId,
+        dataConversao: dataConversaoISO,
+        localConversao: 'Culto',
+        testemunho: `Novo convertido cadastrado via sistema`
+      });
+
+      toast({
+        title: 'Sucesso',
+        description: 'Novo convertido cadastrado com sucesso!',
+      });
+
+      setNovoConvertidoFormData({
+        recepcionadoPor: user?.nome || '',
+        diaVisita: getCurrentDateTime(),
+        nomeCompleto: '',
+        dataNascimento: '',
+        whatsapp: '',
+        email: '',
+        bairro: '',
+        cidade: '',
+        comoConheceu: '',
+        pedidoOracao: ''
+      });
     } catch (error) {
-      setMessageNovoConvertido({ type: 'error', text: 'Erro ao cadastrar novo convertido. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao cadastrar novo convertido. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoadingNovoConvertido(false);
     }
   };
@@ -338,6 +586,68 @@ const Integracao = () => {
   const [alunosMembresia, setAlunosMembresia] = useState([]);
   const [loadingMembresia, setLoadingMembresia] = useState(false);
   const [messageMembresia, setMessageMembresia] = useState({ type: '', text: '' });
+  const [novosConvertidosBusca, setNovosConvertidosBusca] = useState([]);
+  const [currentPageMembresia, setCurrentPageMembresia] = useState(1);
+  const [pageSizeMembresia, setPageSizeMembresia] = useState(10);
+  const [totalMatriculas, setTotalMatriculas] = useState(0);
+
+  // Carregar matrículas
+  const loadMatriculas = async () => {
+    try {
+      const response = await api.get('/integracao/membresia/matriculas', {
+        params: {
+          page: currentPageMembresia,
+          pageSize: pageSizeMembresia
+        }
+      });
+      setAlunosMembresia(response.data.matriculas || []);
+      setTotalMatriculas(response.data.pagination.total);
+    } catch (error) {
+      console.error('Erro ao carregar matrículas:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar matrículas. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Carregar matrículas quando página mudar
+  useEffect(() => {
+    loadMatriculas();
+  }, [currentPageMembresia, pageSizeMembresia]);
+
+  // Buscar novos convertidos da API
+  const buscarNovosConvertidosAPI = async (query) => {
+    if (!query || query.trim().length < 2) {
+      setNovosConvertidosBusca([]);
+      return;
+    }
+
+    try {
+      const response = await api.get('/pessoas', {
+        params: {
+          page: 1,
+          pageSize: 20,
+          search: query,
+          estagio: 'Novo Convertido'
+        }
+      });
+      setNovosConvertidosBusca(response.data.pessoas || []);
+    } catch (error) {
+      console.error('Erro ao buscar novos convertidos:', error);
+      setNovosConvertidosBusca([]);
+    }
+  };
+
+  // Buscar novos convertidos quando searchQuery mudar
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      buscarNovosConvertidosAPI(membresiaSearchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [membresiaSearchQuery]);
 
   // Lista mockada de novos convertidos para pesquisa
   const mockNovosConvertidosParaMembresia = useMemo(() => {
@@ -358,26 +668,23 @@ const Integracao = () => {
     return novosConvertidos;
   }, []);
 
-  // Filtrar novos convertidos para pesquisa
+  // Filtrar novos convertidos para pesquisa (usando resultado da API)
   const filteredNovosConvertidos = useMemo(() => {
     if (!membresiaSearchQuery.trim()) return [];
-    return mockNovosConvertidosParaMembresia.filter(nc =>
-      nc.nomeCompleto.toLowerCase().includes(membresiaSearchQuery.toLowerCase()) ||
-      nc.email.toLowerCase().includes(membresiaSearchQuery.toLowerCase()) ||
-      nc.telefone.includes(membresiaSearchQuery)
-    ).slice(0, 5);
-  }, [membresiaSearchQuery, mockNovosConvertidosParaMembresia]);
+    if (!novosConvertidosBusca || !Array.isArray(novosConvertidosBusca)) return [];
+    return novosConvertidosBusca.slice(0, 5);
+  }, [membresiaSearchQuery, novosConvertidosBusca]);
 
   // Selecionar novo convertido e preencher formulário
-  const handleSelectNovoConvertido = (novoConvertido) => {
-    setSelectedNovoConvertido(novoConvertido);
+  const handleSelectNovoConvertido = (pessoa) => {
+    setSelectedNovoConvertido(pessoa);
     setMembresiaFormData({
-      nomeCompleto: novoConvertido.nomeCompleto,
-      email: novoConvertido.email,
-      telefone: novoConvertido.telefone,
-      dataNascimento: novoConvertido.dataNascimento,
-      endereco: novoConvertido.endereco,
-      cidade: novoConvertido.cidade,
+      nomeCompleto: `${pessoa.nome} ${pessoa.sobrenome || ''}`.trim(),
+      email: pessoa.email || '',
+      telefone: pessoa.telefone || '',
+      dataNascimento: pessoa.data_nascimento || '',
+      endereco: `${pessoa.rua || ''} ${pessoa.numero || ''}`.trim(),
+      cidade: pessoa.cidade || '',
       dataMatricula: new Date().toISOString().split('T')[0]
     });
     setMembresiaSearchQuery('');
@@ -413,56 +720,67 @@ const Integracao = () => {
     setLoadingMembresia(true);
     setMessageMembresia({ type: '', text: '' });
 
+    if (!selectedNovoConvertido) {
+      toast({
+        title: 'Erro',
+        description: 'Por favor, selecione um novo convertido para matricular.',
+        variant: 'destructive',
+      });
+      setLoadingMembresia(false);
+      return;
+    }
+
     try {
-      // Simulação de criação - TODO: Substituir por chamada real à API
-      setTimeout(() => {
-        const novoAluno = {
-          id: alunosMembresia.length + 1,
-          nomeCompleto: membresiaFormData.nomeCompleto,
-          email: membresiaFormData.email,
-          telefone: membresiaFormData.telefone,
-          dataNascimento: membresiaFormData.dataNascimento,
-          endereco: membresiaFormData.endereco,
-          cidade: membresiaFormData.cidade,
-          dataMatricula: membresiaFormData.dataMatricula,
-          aulas: [
-            { numero: 1, concluida: false, dataConclusao: null },
-            { numero: 2, concluida: false, dataConclusao: null },
-            { numero: 3, concluida: false, dataConclusao: null },
-            { numero: 4, concluida: false, dataConclusao: null },
-            { numero: 5, concluida: false, dataConclusao: null }
-          ]
-        };
-        setAlunosMembresia(prev => [...prev, novoAluno]);
-        setMessageMembresia({ type: 'success', text: 'Matrícula realizada com sucesso!' });
-        handleClearMembresiaSelection();
-        setLoadingMembresia(false);
-      }, 1000);
+      const response = await api.post('/integracao/membresia/matricular', {
+        pessoaId: selectedNovoConvertido.id,
+        dataMatricula: membresiaFormData.dataMatricula
+      });
+
+      toast({
+        title: 'Sucesso',
+        description: 'Matrícula realizada com sucesso!',
+      });
+
+      // Recarregar matrículas
+      await loadMatriculas();
+      handleClearMembresiaSelection();
     } catch (error) {
-      setMessageMembresia({ type: 'error', text: 'Erro ao realizar matrícula. Tente novamente.' });
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao realizar matrícula. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
       setLoadingMembresia(false);
     }
   };
 
   // Marcar/desmarcar aula
-  const handleToggleAula = (alunoId, aulaNumero) => {
-    setAlunosMembresia(prev => prev.map(aluno => {
-      if (aluno.id === alunoId) {
-        const updatedAulas = aluno.aulas.map(a => {
-          if (a.numero === aulaNumero) {
-            const novaConcluida = !a.concluida;
-            return {
-              ...a,
-              concluida: novaConcluida,
-              dataConclusao: novaConcluida ? new Date().toISOString().split('T')[0] : null
-            };
-          }
-          return a;
-        });
-        return { ...aluno, aulas: updatedAulas };
-      }
-      return aluno;
-    }));
+  const handleToggleAula = async (matriculaId, aulaNumero) => {
+    try {
+      // Buscar estado atual da aula
+      const matricula = alunosMembresia.find(m => m.id === matriculaId);
+      const aula = matricula?.aulas.find(a => a.numero === parseInt(aulaNumero));
+      const novaConcluida = !aula?.concluida;
+
+      await api.put(`/integracao/membresia/matriculas/${matriculaId}/aulas/${aulaNumero}`, {
+        concluida: novaConcluida
+      });
+
+      toast({
+        title: 'Sucesso',
+        description: `Aula ${aulaNumero} ${novaConcluida ? 'marcada como concluída' : 'desmarcada'} com sucesso!`,
+      });
+
+      // Recarregar matrículas
+      await loadMatriculas();
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao atualizar status da aula. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -559,7 +877,7 @@ const Integracao = () => {
                         <div className="selected-person">
                           <div className="selected-person-info">
                             <div className="selected-person-name">
-                              {selectedVisitante.nome} {selectedVisitante.sobrenome}
+                              {selectedVisitante.nome} {selectedVisitante.sobrenome || ''}
                             </div>
                             <div className="selected-person-details">
                               {selectedVisitante.email && <span>{selectedVisitante.email}</span>}
@@ -689,7 +1007,6 @@ const Integracao = () => {
                           value={formData.email}
                           onChange={handleChange}
                           placeholder="email@exemplo.com"
-                          required
                           className="form-input"
                         />
                       </div>
@@ -702,7 +1019,6 @@ const Integracao = () => {
                           value={formData.telefone}
                           onChange={handleChange}
                           placeholder="(00) 00000-0000"
-                          required
                           className="form-input"
                         />
                       </div>
@@ -767,9 +1083,14 @@ const Integracao = () => {
                           name="cep"
                           value={formData.cep}
                           onChange={handleChange}
+                          onBlur={handleCepBlur}
                           placeholder="00000-000"
                           className="form-input"
+                          maxLength={9}
                         />
+                        <span className="cep-hint" style={{ fontSize: '0.875rem', color: '#666', marginTop: '4px', display: 'block' }}>
+                          Digite o CEP e saia do campo para preencher o endereço automaticamente
+                        </span>
                       </div>
                     </div>
 
@@ -904,7 +1225,7 @@ const Integracao = () => {
                           <option value="">Selecione o novo estágio</option>
                           <option value="Novo Convertido">Novo Convertido</option>
                         </select>
-                        <p className="field-hint">Estágio atual: {selectedVisitante.estagio}</p>
+                        <p className="field-hint">Estágio atual: {selectedVisitante.estagio_atual || 'Visitante'}</p>
                       </div>
                     </div>
 
@@ -968,7 +1289,6 @@ const Integracao = () => {
                         name="diaVisita"
                         value={novoConvertidoFormData.diaVisita}
                         onChange={handleNovoConvertidoChange}
-                        required
                         className="form-input"
                       />
                     </div>
@@ -976,7 +1296,7 @@ const Integracao = () => {
 
                   <div className="form-row">
                     <div className="form-group">
-                      <Label htmlFor="novo-convertido-nomeCompleto">Nome completo</Label>
+                      <Label htmlFor="novo-convertido-nomeCompleto">Nome completo *</Label>
                       <Input
                         type="text"
                         id="novo-convertido-nomeCompleto"
@@ -990,7 +1310,7 @@ const Integracao = () => {
                     </div>
                   </div>
 
-                  <div className="form-row">
+                  <div className="form-row form-row-2">
                     <div className="form-group">
                       <Label htmlFor="novo-convertido-dataNascimento">Data de nascimento</Label>
                       <Input
@@ -999,13 +1319,10 @@ const Integracao = () => {
                         name="dataNascimento"
                         value={novoConvertidoFormData.dataNascimento}
                         onChange={handleNovoConvertidoChange}
-                        required
                         className="form-input"
                       />
                     </div>
-                  </div>
 
-                  <div className="form-row form-row-2">
                     <div className="form-group">
                       <Label htmlFor="novo-convertido-whatsapp">WhatsApp</Label>
                       <Input
@@ -1015,11 +1332,12 @@ const Integracao = () => {
                         value={novoConvertidoFormData.whatsapp}
                         onChange={handleNovoConvertidoChange}
                         placeholder="(00) 00000-0000"
-                        required
                         className="form-input"
                       />
                     </div>
+                  </div>
 
+                  <div className="form-row">
                     <div className="form-group">
                       <Label htmlFor="novo-convertido-email">Email</Label>
                       <Input
@@ -1029,7 +1347,6 @@ const Integracao = () => {
                         value={novoConvertidoFormData.email}
                         onChange={handleNovoConvertidoChange}
                         placeholder="email@exemplo.com"
-                        required
                         className="form-input"
                       />
                     </div>
@@ -1037,7 +1354,7 @@ const Integracao = () => {
 
                   <div className="form-row form-row-2">
                     <div className="form-group">
-                      <Label htmlFor="novo-convertido-bairro">Bairro</Label>
+                      <Label htmlFor="novo-convertido-bairro">Bairro *</Label>
                       <Input
                         type="text"
                         id="novo-convertido-bairro"
@@ -1059,7 +1376,6 @@ const Integracao = () => {
                         value={novoConvertidoFormData.cidade}
                         onChange={handleNovoConvertidoChange}
                         placeholder="Digite a cidade"
-                        required
                         className="form-input"
                       />
                     </div>
@@ -1073,14 +1389,14 @@ const Integracao = () => {
                         name="comoConheceu"
                         value={novoConvertidoFormData.comoConheceu}
                         onChange={handleNovoConvertidoChange}
-                        required
                         className="form-select"
                       >
-                        <option value="">Selecione uma opção</option>
+                        <option value="">Selecione uma opção (opcional)</option>
                         <option value="familia-amigo">Família/Amigo</option>
                         <option value="google">Google</option>
                         <option value="redesocial">Rede Social</option>
                         <option value="passei-frente">Passei em frente</option>
+                        <option value="outros">Outros</option>
                       </select>
                     </div>
                   </div>
@@ -1406,66 +1722,62 @@ const getCurrentDate = () => {
 
 // Componente de Tabela de Novos Convertidos
 const NovosConvertidosTable = () => {
+  const { toast } = useToast();
   const [filters, setFilters] = useState({
     search: '',
-    dataVisita: getCurrentDate(),
+    dataVisita: '',
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [novosConvertidos, setNovosConvertidos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
 
-  // Dados mockados
-  const mockNovosConvertidos = useMemo(() => {
-    const novosConvertidos = [];
-    const nomes = ['João Silva', 'Maria Santos', 'Pedro Oliveira', 'Ana Costa', 'Carlos Souza', 'Juliana Lima', 'Roberto Alves', 'Fernanda Rocha', 'Lucas Pereira', 'Beatriz Ferreira', 'Rafael Martins', 'Camila Rodrigues', 'Gabriel Dias', 'Larissa Gomes', 'Thiago Barbosa'];
-    const bairros = ['Centro', 'Jardim América', 'Vila Nova', 'Bela Vista', 'São José', 'Parque Industrial', 'Alto da Boa Vista'];
-    const cidades = ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Curitiba', 'Porto Alegre'];
-    const comoConheceu = ['Família/Amigo', 'Google', 'Rede Social', 'Passei em frente'];
-    const recepcionistas = ['João Admin', 'Maria Admin', 'Pedro Admin'];
+  // Carregar novos convertidos da API
+  const loadNovosConvertidos = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: currentPage,
+        pageSize: pageSize,
+      };
 
-    for (let i = 1; i <= 50; i++) {
-      const dataVisita = new Date();
-      dataVisita.setDate(dataVisita.getDate() - Math.floor(Math.random() * 30));
-      const hora = String(Math.floor(Math.random() * 24)).padStart(2, '0');
-      const minuto = String(Math.floor(Math.random() * 60)).padStart(2, '0');
-      
-      novosConvertidos.push({
-        id: i,
-        recepcionadoPor: recepcionistas[Math.floor(Math.random() * recepcionistas.length)],
-        diaVisita: `${dataVisita.getFullYear()}-${String(dataVisita.getMonth() + 1).padStart(2, '0')}-${String(dataVisita.getDate()).padStart(2, '0')}T${hora}:${minuto}`,
-        nomeCompleto: nomes[Math.floor(Math.random() * nomes.length)],
-        dataNascimento: `${1980 + Math.floor(Math.random() * 40)}-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
-        whatsapp: `(11) ${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 9000) + 1000}`,
-        email: `novoconvertido${i}@exemplo.com`,
-        bairro: bairros[Math.floor(Math.random() * bairros.length)],
-        cidade: cidades[Math.floor(Math.random() * cidades.length)],
-        comoConheceu: comoConheceu[Math.floor(Math.random() * comoConheceu.length)],
-        pedidoOracao: i % 3 === 0 ? 'Pedido de oração para saúde da família' : i % 3 === 1 ? 'Oração pela paz mundial' : 'Agradecimento pelas bênçãos recebidas',
-        estagio: 'Novo Convertido'
+      if (filters.search) {
+        params.search = filters.search;
+      }
+
+      if (filters.dataVisita) {
+        params.dataVisita = filters.dataVisita;
+      }
+
+      const response = await api.get('/integracao/novos-convertidos', { params });
+      setNovosConvertidos(response.data.novosConvertidos || []);
+      setTotal(response.data.pagination?.total || 0);
+    } catch (error) {
+      console.error('Erro ao carregar novos convertidos:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar novos convertidos. Tente novamente.',
+        variant: 'destructive',
       });
+      setNovosConvertidos([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
     }
-    return novosConvertidos;
-  }, []);
+  };
 
-  // Filtrar dados
-  const filteredData = useMemo(() => {
-    return mockNovosConvertidos.filter(novoConvertido => {
-      const matchSearch = !filters.search || 
-        novoConvertido.nomeCompleto.toLowerCase().includes(filters.search.toLowerCase()) ||
-        novoConvertido.email.toLowerCase().includes(filters.search.toLowerCase()) ||
-        novoConvertido.whatsapp.includes(filters.search);
-      
-      const novoConvertidoDate = novoConvertido.diaVisita.split('T')[0];
-      const matchDate = !filters.dataVisita || novoConvertidoDate === filters.dataVisita;
-      
-      return matchSearch && matchDate;
-    });
-  }, [mockNovosConvertidos, filters]);
+  // Carregar dados quando filtros ou paginação mudarem
+  useEffect(() => {
+    loadNovosConvertidos();
+  }, [currentPage, pageSize, filters.search, filters.dataVisita]);
 
-  // Paginação
-  const totalPages = Math.ceil(filteredData.length / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedData = filteredData.slice(startIndex, endIndex);
+  // Dados já vêm paginados da API, então filteredData = novosConvertidos
+  const filteredData = novosConvertidos;
+
+  // Paginação - já vem paginado da API
+  const totalPages = Math.ceil(total / pageSize);
+  const paginatedData = filteredData;
 
   const handleFilterChange = (name, value) => {
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -1554,31 +1866,33 @@ const NovosConvertidosTable = () => {
               <TableHead>Bairro</TableHead>
               <TableHead>Cidade</TableHead>
               <TableHead>Como conheceu</TableHead>
-              <TableHead>Pedido de oração</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedData.length === 0 ? (
+            {loading ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center">
+                <TableCell colSpan={9} className="text-center">
+                  Carregando...
+                </TableCell>
+              </TableRow>
+            ) : paginatedData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center">
                   Nenhum novo convertido encontrado
                 </TableCell>
               </TableRow>
             ) : (
               paginatedData.map((novoConvertido) => (
                 <TableRow key={novoConvertido.id}>
-                  <TableCell>{novoConvertido.recepcionadoPor}</TableCell>
-                  <TableCell>{formatDate(novoConvertido.diaVisita)}</TableCell>
-                  <TableCell>{novoConvertido.nomeCompleto}</TableCell>
-                  <TableCell>{formatDate(novoConvertido.dataNascimento)}</TableCell>
-                  <TableCell>{novoConvertido.whatsapp}</TableCell>
-                  <TableCell>{novoConvertido.email}</TableCell>
-                  <TableCell>{novoConvertido.bairro}</TableCell>
-                  <TableCell>{novoConvertido.cidade}</TableCell>
-                  <TableCell>{novoConvertido.comoConheceu}</TableCell>
-                  <TableCell className="max-w-xs truncate" title={novoConvertido.pedidoOracao}>
-                    {novoConvertido.pedidoOracao || '-'}
-                  </TableCell>
+                  <TableCell>{novoConvertido.recepcionadoPor || '-'}</TableCell>
+                  <TableCell>{novoConvertido.primeiraVisita ? formatDate(novoConvertido.primeiraVisita) : '-'}</TableCell>
+                  <TableCell>{novoConvertido.nomeCompleto || `${novoConvertido.nome} ${novoConvertido.sobrenome || ''}`.trim()}</TableCell>
+                  <TableCell>{novoConvertido.dataNascimento ? formatDate(novoConvertido.dataNascimento) : '-'}</TableCell>
+                  <TableCell>{novoConvertido.whatsapp || novoConvertido.telefone || '-'}</TableCell>
+                  <TableCell>{novoConvertido.email || '-'}</TableCell>
+                  <TableCell>{novoConvertido.bairro || '-'}</TableCell>
+                  <TableCell>{novoConvertido.cidade || '-'}</TableCell>
+                  <TableCell>{novoConvertido.comoConheceu || '-'}</TableCell>
                 </TableRow>
               ))
             )}
@@ -1587,11 +1901,11 @@ const NovosConvertidosTable = () => {
       </div>
 
       {/* Paginação */}
-      {filteredData.length > pageSize && (
+      {total > 0 && (
         <div className="pagination-section">
           <div className="pagination-info">
             <span>
-              Mostrando {startIndex + 1} a {Math.min(endIndex, filteredData.length)} de {filteredData.length} novos convertidos
+              Mostrando {((currentPage - 1) * pageSize) + 1} a {Math.min(currentPage * pageSize, total)} de {total} novos convertidos
             </span>
             <div className="page-size-selector">
               <Label htmlFor="pageSize-novos-convertidos">Linhas por página:</Label>

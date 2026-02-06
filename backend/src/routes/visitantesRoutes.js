@@ -5,11 +5,11 @@ const visitantesController = require('../controllers/visitantesController');
 const authMiddleware = require('../middleware/authMiddleware');
 const handleValidationErrors = require('../middleware/validationMiddleware');
 
-// Validações para cadastro (schema jornada única - campos opcionais ajustados)
+// Validações para cadastro (schema jornada única - apenas nome e bairro obrigatórios)
 const cadastrarValidation = [
   body('nomeCompleto').trim().notEmpty().withMessage('Nome completo é obrigatório'),
   body('dataNascimento')
-    .optional({ values: 'falsy' })
+    .optional({ checkFalsy: true })
     .custom((value) => {
       if (!value || value === '') return true; // Aceita vazio
       // Validar formato de data (YYYY-MM-DD)
@@ -19,9 +19,13 @@ const cadastrarValidation = [
       return date instanceof Date && !isNaN(date);
     })
     .withMessage('Data de nascimento inválida'),
-  body('whatsapp').trim().notEmpty().withMessage('WhatsApp é obrigatório'),
+  body('whatsapp')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isString()
+    .withMessage('WhatsApp deve ser uma string'),
   body('email')
-    .optional({ values: 'falsy' })
+    .optional({ checkFalsy: true })
     .custom((value) => {
       if (!value || value === '') return true; // Aceita vazio
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,9 +33,20 @@ const cadastrarValidation = [
     })
     .withMessage('Email inválido'),
   body('bairro').trim().notEmpty().withMessage('Bairro é obrigatório'),
-  body('cidade').trim().notEmpty().withMessage('Cidade é obrigatória'),
-  body('comoConheceu').isIn(['familia-amigo', 'google', 'redesocial', 'passei-frente', 'outros'])
+  body('cidade')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isString()
+    .withMessage('Cidade deve ser uma string'),
+  body('comoConheceu')
+    .optional({ checkFalsy: true })
+    .isIn(['familia-amigo', 'google', 'redesocial', 'passei-frente', 'outros'])
     .withMessage('Valor inválido para comoConheceu'),
+  body('pedidoOracao')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isString()
+    .withMessage('Pedido de oração deve ser uma string'),
 ];
 
 // Validações para listagem
