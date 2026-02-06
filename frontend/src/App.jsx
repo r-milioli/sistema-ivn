@@ -14,6 +14,7 @@ import GestaoPessoas from './pages/GestaoPessoas/GestaoPessoas';
 import Configuracoes from './pages/Configuracoes/Configuracoes';
 import Integracao from './pages/Integracao/Integracao';
 import Eventos from './pages/Eventos/Eventos';
+import Membresia from './pages/Membresia/Membresia';
 
 // Componente para redirecionar usuários autenticados
 const PublicRoute = ({ children }) => {
@@ -119,6 +120,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Eventos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/membresia"
+        element={
+          <ProtectedRoute>
+            <Membresia />
           </ProtectedRoute>
         }
       />

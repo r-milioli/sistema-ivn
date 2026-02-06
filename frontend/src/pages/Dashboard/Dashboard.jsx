@@ -35,7 +35,11 @@ import {
   Drama,
   Mic,
   HeartPulse,
-  UserCog
+  UserCog,
+  Droplet,
+  UserCheck,
+  FileText,
+  Server
 } from 'lucide-react';
 import MainLayout from '../../components/Layout/MainLayout';
 import './Dashboard.css';
@@ -218,6 +222,26 @@ const Dashboard = () => {
       icon: Mic, 
       label: 'Coral', 
       path: '/coral'
+    },
+    { 
+      icon: Droplet, 
+      label: 'Batismo', 
+      path: '/batismo'
+    },
+    { 
+      icon: UserCheck, 
+      label: 'Membresia', 
+      path: '/membresia'
+    },
+    { 
+      icon: FileText, 
+      label: 'Relatório', 
+      path: '/relatorio'
+    },
+    { 
+      icon: Server, 
+      label: 'Config System', 
+      path: '/config-system'
     },
   ];
 
