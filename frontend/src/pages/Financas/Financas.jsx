@@ -64,8 +64,8 @@ const Financas = () => {
   const [relatorioData, setRelatorioData] = useState([]);
   const [totalRelatorio, setTotalRelatorio] = useState(0);
   
-  // Lista de usuários
-  const [usuarios, setUsuarios] = useState([]);
+  // Lista de pessoas (para seleção de doadores)
+  const [pessoas, setPessoas] = useState([]);
 
   // Lista de ministérios
   const [ministerios, setMinisterios] = useState([]);
@@ -97,13 +97,19 @@ const Financas = () => {
         // Carregar saídas
         await loadSaidas();
 
-        // Carregar usuários (endpoint temporário - pode precisar criar)
+        // Carregar pessoas (para seleção de doadores)
         try {
-          // Por enquanto, vamos usar uma lista vazia e preencher quando necessário
-          // TODO: Criar endpoint para listar usuários
-          setUsuarios([]);
+          const pessoasResponse = await api.get('/pessoas', {
+            params: { page: 1, pageSize: 1000 } // Buscar muitas pessoas para o dropdown
+          });
+          setPessoas(pessoasResponse.data.pessoas || []);
         } catch (error) {
-          console.error('Erro ao carregar usuários:', error);
+          console.error('Erro ao carregar pessoas:', error);
+          toast({
+            title: 'Aviso',
+            description: 'Erro ao carregar lista de pessoas. Você ainda pode cadastrar entradas.',
+            variant: 'destructive',
+          });
         }
 
         // Carregar ministérios (endpoint temporário - pode precisar criar)
@@ -902,10 +908,10 @@ const Financas = () => {
                             onChange={handleNovaEntradaChange}
                             className="form-select"
                           >
-                            <option value="">Selecione um autor</option>
-                            {usuarios.map(usuario => (
-                              <option key={usuario.id} value={usuario.id}>
-                                {usuario.nome}
+                            <option value="">Selecione um doador</option>
+                            {pessoas.map(pessoa => (
+                              <option key={pessoa.id} value={pessoa.id}>
+                                {pessoa.nome} {pessoa.sobrenome || ''}
                               </option>
                             ))}
                           </select>
@@ -925,10 +931,11 @@ const Financas = () => {
                             <Label>Autores adicionados:</Label>
                             <div className="autores-tags">
                               {novaEntradaForm.autores.map(autorId => {
-                                const autor = usuarios.find(u => u.id.toString() === autorId.toString());
+                                const pessoa = pessoas.find(p => p.id.toString() === autorId.toString());
+                                const nomeCompleto = pessoa ? `${pessoa.nome} ${pessoa.sobrenome || ''}`.trim() : null;
                                 return (
                                   <div key={autorId} className="autor-tag">
-                                    <span>{autor?.nome || `ID: ${autorId}`}</span>
+                                    <span>{nomeCompleto || `ID: ${autorId}`}</span>
                                     <button
                                       type="button"
                                       onClick={() => handleRemoverAutor(autorId)}

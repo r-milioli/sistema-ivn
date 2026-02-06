@@ -116,14 +116,14 @@ async function obterRelatorioFinanceiro(req, res) {
         e.tipo_pagamento::text as tipo_pagamento,
         e.criado_em,
         COALESCE(
-          NULLIF(string_agg(DISTINCT u.nome || ' ' || COALESCE(u.sobrenome, ''), ', '), ''),
+          NULLIF(string_agg(DISTINCT p.nome || ' ' || COALESCE(p.sobrenome, ''), ', '), ''),
           'N/A'
         ) as descricao,
         NULL::text as ministerio_nome,
         NULL::text as comprovante_nome
       FROM entradas_financeiras e
-      LEFT JOIN entrada_autores ea ON e.id = ea.entrada_id
-      LEFT JOIN usuarios u ON ea.usuario_id = u.id
+      LEFT JOIN entrada_doadores ed ON e.id = ed.entrada_id
+      LEFT JOIN pessoas p ON ed.pessoa_id = p.id
       WHERE 1=1
     `;
     
@@ -178,8 +178,8 @@ async function obterRelatorioFinanceiro(req, res) {
         queryEntradas += ` AND (
           e.categoria ILIKE $${paramIndexEntradas} OR
           e.valor::text ILIKE $${paramIndexEntradas} OR
-          u.nome ILIKE $${paramIndexEntradas} OR
-          u.sobrenome ILIKE $${paramIndexEntradas}
+          p.nome ILIKE $${paramIndexEntradas} OR
+          p.sobrenome ILIKE $${paramIndexEntradas}
         )`;
         paramsEntradas.push(`%${search}%`);
         paramIndexEntradas++;

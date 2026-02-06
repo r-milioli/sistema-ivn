@@ -58,46 +58,46 @@ async function criarEntrada(req, res) {
     // Processar autores (se houver)
     const autoresIds = autores && Array.isArray(autores) ? autores.map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
 
-    // Inserir entrada financeira
+    // Inserir entrada financeira (schema jornada única: registrado_por referencia pessoas)
     const entradaResult = await pool.query(
       `INSERT INTO entradas_financeiras (
-        categoria, valor, data_entrada, turno, tipo_pagamento, criado_por
+        categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, categoria, valor, data_entrada, turno, tipo_pagamento, criado_por, criado_em`,
+      RETURNING id, categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por, criado_em`,
       [categoria, valorNum, dataEntrada, turno, tipoPagamento, userId]
     );
 
     const entrada = entradaResult.rows[0];
 
-    // Inserir autores da entrada (apenas se houver autores)
-    let autoresNomes = { rows: [] };
+    // Inserir doadores da entrada (apenas se houver autores) - schema jornada única: entrada_doadores com pessoa_id
+    let doadoresNomes = { rows: [] };
     if (autoresIds && autoresIds.length > 0) {
-      // Verificar se os autores (usuários) existem
-      const usuariosCheck = await pool.query(
-        'SELECT id FROM usuarios WHERE id = ANY($1::int[])',
+      // Verificar se os doadores (pessoas) existem
+      const pessoasCheck = await pool.query(
+        'SELECT id FROM pessoas WHERE id = ANY($1::int[])',
         [autoresIds]
       );
 
-      if (usuariosCheck.rows.length !== autoresIds.length) {
+      if (pessoasCheck.rows.length !== autoresIds.length) {
         return res.status(400).json({ 
-          message: 'Um ou mais autores não foram encontrados' 
+          message: 'Um ou mais doadores não foram encontrados' 
         });
       }
 
-      // Inserir autores da entrada
-      for (const autorId of autoresIds) {
+      // Inserir doadores da entrada
+      for (const pessoaId of autoresIds) {
         await pool.query(
-          'INSERT INTO entrada_autores (entrada_id, usuario_id) VALUES ($1, $2)',
-          [entrada.id, autorId]
+          'INSERT INTO entrada_doadores (entrada_id, pessoa_id) VALUES ($1, $2)',
+          [entrada.id, pessoaId]
         );
       }
 
-      // Buscar nomes dos autores para retornar
-      autoresNomes = await pool.query(
-        `SELECT u.id, u.nome || ' ' || COALESCE(u.sobrenome, '') as nome_completo
-         FROM usuarios u
-         WHERE u.id = ANY($1::int[])`,
+      // Buscar nomes dos doadores para retornar
+      doadoresNomes = await pool.query(
+        `SELECT p.id, p.nome || ' ' || COALESCE(p.sobrenome, '') as nome_completo
+         FROM pessoas p
+         WHERE p.id = ANY($1::int[])`,
         [autoresIds]
       );
     }
@@ -105,8 +105,15 @@ async function criarEntrada(req, res) {
     res.status(201).json({
       message: 'Entrada financeira criada com sucesso',
       entrada: {
-        ...entrada,
-        autores: autoresNomes.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
+        id: entrada.id,
+        categoria: entrada.categoria,
+        valor: parseFloat(entrada.valor),
+        dataEntrada: entrada.data_entrada,
+        turno: entrada.turno,
+        tipoPagamento: entrada.tipo_pagamento,
+        registradoPor: entrada.registrado_por,
+        criadoEm: entrada.criado_em,
+        autores: doadoresNomes.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
       }
     });
   } catch (error) {
@@ -135,7 +142,7 @@ async function listarEntradas(req, res) {
         e.data_entrada,
         e.turno,
         e.tipo_pagamento,
-        e.criado_por,
+        e.registrado_por,
         e.criado_em,
         e.atualizado_em
       FROM entradas_financeiras e
@@ -176,14 +183,14 @@ async function listarEntradas(req, res) {
     // Executar query
     const result = await pool.query(query, queryParams);
 
-    // Buscar autores para cada entrada
+    // Buscar doadores para cada entrada (schema jornada única)
     const entradasComAutores = await Promise.all(
       result.rows.map(async (entrada) => {
-        const autoresResult = await pool.query(
-          `SELECT u.id, u.nome || ' ' || COALESCE(u.sobrenome, '') as nome_completo
-           FROM entrada_autores ea
-           JOIN usuarios u ON ea.usuario_id = u.id
-           WHERE ea.entrada_id = $1`,
+        const doadoresResult = await pool.query(
+          `SELECT p.id, p.nome || ' ' || COALESCE(p.sobrenome, '') as nome_completo
+           FROM entrada_doadores ed
+           JOIN pessoas p ON ed.pessoa_id = p.id
+           WHERE ed.entrada_id = $1`,
           [entrada.id]
         );
 
@@ -194,11 +201,11 @@ async function listarEntradas(req, res) {
           dataEntrada: entrada.data_entrada,
           turno: entrada.turno,
           tipoPagamento: entrada.tipo_pagamento,
-          criadoPor: entrada.criado_por,
+          registradoPor: entrada.registrado_por,
           criadoEm: entrada.criado_em,
           atualizadoEm: entrada.atualizado_em,
-          autores: autoresResult.rows.map(a => ({ id: a.id, nome: a.nome_completo })),
-          autoresNomes: autoresResult.rows.map(a => a.nome_completo).join(', ')
+          autores: doadoresResult.rows.map(a => ({ id: a.id, nome: a.nome_completo })),
+          autoresNomes: doadoresResult.rows.map(a => a.nome_completo).join(', ')
         };
       })
     );
@@ -233,7 +240,7 @@ async function obterEntradaPorId(req, res) {
         e.data_entrada,
         e.turno,
         e.tipo_pagamento,
-        e.criado_por,
+        e.registrado_por,
         e.criado_em,
         e.atualizado_em
       FROM entradas_financeiras e
@@ -247,20 +254,27 @@ async function obterEntradaPorId(req, res) {
 
     const entrada = result.rows[0];
 
-    // Buscar autores
-    const autoresResult = await pool.query(
-      `SELECT u.id, u.nome || ' ' || COALESCE(u.sobrenome, '') as nome_completo
-       FROM entrada_autores ea
-       JOIN usuarios u ON ea.usuario_id = u.id
-       WHERE ea.entrada_id = $1`,
+    // Buscar doadores (schema jornada única)
+    const doadoresResult = await pool.query(
+      `SELECT p.id, p.nome || ' ' || COALESCE(p.sobrenome, '') as nome_completo
+       FROM entrada_doadores ed
+       JOIN pessoas p ON ed.pessoa_id = p.id
+       WHERE ed.entrada_id = $1`,
       [id]
     );
 
     res.json({
       entrada: {
-        ...entrada,
+        id: entrada.id,
+        categoria: entrada.categoria,
         valor: parseFloat(entrada.valor),
-        autores: autoresResult.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
+        dataEntrada: entrada.data_entrada,
+        turno: entrada.turno,
+        tipoPagamento: entrada.tipo_pagamento,
+        registradoPor: entrada.registrado_por,
+        criadoEm: entrada.criado_em,
+        atualizadoEm: entrada.atualizado_em,
+        autores: doadoresResult.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
       }
     });
   } catch (error) {
@@ -311,7 +325,7 @@ async function atualizarEntrada(req, res) {
 
     // Verificar se a entrada existe e se o usuário tem permissão
     const entradaExistente = await pool.query(
-      'SELECT criado_por FROM entradas_financeiras WHERE id = $1',
+      'SELECT registrado_por FROM entradas_financeiras WHERE id = $1',
       [id]
     );
 
@@ -320,25 +334,25 @@ async function atualizarEntrada(req, res) {
     }
 
     // Verificar se o usuário é o criador (ou admin - pode ser implementado depois)
-    if (entradaExistente.rows[0].criado_por !== userId) {
+    if (entradaExistente.rows[0].registrado_por !== userId) {
       return res.status(403).json({ 
         message: 'Você não tem permissão para editar esta entrada' 
       });
     }
 
-    // Processar autores (se houver)
-    const autoresIds = autores && Array.isArray(autores) ? autores.map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
+    // Processar doadores (se houver) - schema jornada única
+    const doadoresIds = autores && Array.isArray(autores) ? autores.map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
     
-    // Verificar se os autores existem (apenas se houver autores)
-    if (autoresIds.length > 0) {
-      const usuariosCheck = await pool.query(
-        'SELECT id FROM usuarios WHERE id = ANY($1::int[])',
-        [autoresIds]
+    // Verificar se os doadores existem (apenas se houver doadores)
+    if (doadoresIds.length > 0) {
+      const pessoasCheck = await pool.query(
+        'SELECT id FROM pessoas WHERE id = ANY($1::int[])',
+        [doadoresIds]
       );
 
-      if (usuariosCheck.rows.length !== autoresIds.length) {
+      if (pessoasCheck.rows.length !== doadoresIds.length) {
         return res.status(400).json({ 
-          message: 'Um ou mais autores não foram encontrados' 
+          message: 'Um ou mais doadores não foram encontrados' 
         });
       }
     }
@@ -353,38 +367,45 @@ async function atualizarEntrada(req, res) {
            tipo_pagamento = $5,
            atualizado_em = CURRENT_TIMESTAMP
        WHERE id = $6
-       RETURNING id, categoria, valor, data_entrada, turno, tipo_pagamento, criado_por, criado_em, atualizado_em`,
+       RETURNING id, categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por, criado_em, atualizado_em`,
       [categoria, valorNum, dataEntrada, turno, tipoPagamento, id]
     );
 
-    // Remover autores antigos e adicionar novos
-    await pool.query('DELETE FROM entrada_autores WHERE entrada_id = $1', [id]);
+    // Remover doadores antigos e adicionar novos (schema jornada única)
+    await pool.query('DELETE FROM entrada_doadores WHERE entrada_id = $1', [id]);
     
-    // Inserir novos autores (apenas se houver)
-    let autoresNomes = { rows: [] };
-    if (autoresIds.length > 0) {
-      for (const autorId of autoresIds) {
+    // Inserir novos doadores (apenas se houver)
+    let doadoresNomes = { rows: [] };
+    if (doadoresIds.length > 0) {
+      for (const pessoaId of doadoresIds) {
         await pool.query(
-          'INSERT INTO entrada_autores (entrada_id, usuario_id) VALUES ($1, $2)',
-          [id, autorId]
+          'INSERT INTO entrada_doadores (entrada_id, pessoa_id) VALUES ($1, $2)',
+          [id, pessoaId]
         );
       }
 
-      // Buscar nomes dos autores
-      autoresNomes = await pool.query(
-        `SELECT u.id, u.nome || ' ' || COALESCE(u.sobrenome, '') as nome_completo
-         FROM usuarios u
-         WHERE u.id = ANY($1::int[])`,
-        [autoresIds]
+      // Buscar nomes dos doadores
+      doadoresNomes = await pool.query(
+        `SELECT p.id, p.nome || ' ' || COALESCE(p.sobrenome, '') as nome_completo
+         FROM pessoas p
+         WHERE p.id = ANY($1::int[])`,
+        [doadoresIds]
       );
     }
 
     res.json({
       message: 'Entrada financeira atualizada com sucesso',
       entrada: {
-        ...result.rows[0],
+        id: result.rows[0].id,
+        categoria: result.rows[0].categoria,
         valor: parseFloat(result.rows[0].valor),
-        autores: autoresNomes.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
+        dataEntrada: result.rows[0].data_entrada,
+        turno: result.rows[0].turno,
+        tipoPagamento: result.rows[0].tipo_pagamento,
+        registradoPor: result.rows[0].registrado_por,
+        criadoEm: result.rows[0].criado_em,
+        atualizadoEm: result.rows[0].atualizado_em,
+        autores: doadoresNomes.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
       }
     });
   } catch (error) {
@@ -403,7 +424,7 @@ async function deletarEntrada(req, res) {
 
     // Verificar se a entrada existe e se o usuário tem permissão
     const entradaExistente = await pool.query(
-      'SELECT criado_por FROM entradas_financeiras WHERE id = $1',
+      'SELECT registrado_por FROM entradas_financeiras WHERE id = $1',
       [id]
     );
 
@@ -412,7 +433,7 @@ async function deletarEntrada(req, res) {
     }
 
     // Verificar se o usuário é o criador (ou admin)
-    if (entradaExistente.rows[0].criado_por !== userId) {
+    if (entradaExistente.rows[0].registrado_por !== userId) {
       return res.status(403).json({ 
         message: 'Você não tem permissão para deletar esta entrada' 
       });

@@ -80,13 +80,13 @@ async function criarSaida(req, res) {
       comprovantePath = `/uploads/comprovantes/${req.file.filename}`;
     }
 
-    // Inserir saída financeira
+    // Inserir saída financeira (schema jornada única: registrado_por referencia pessoas)
     const result = await pool.query(
       `INSERT INTO saidas_financeiras (
-        valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, criado_por
+        valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, registrado_por
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, criado_por, criado_em, atualizado_em`,
+      RETURNING id, valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, registrado_por, criado_em, atualizado_em`,
       [valorNum, dataSaida, motivo.trim(), parseInt(ministerio), comprovanteNome, comprovantePath, userId]
     );
 
@@ -141,7 +141,7 @@ async function listarSaidas(req, res) {
         s.ministerio_id,
         s.comprovante_nome,
         s.comprovante_path,
-        s.criado_por,
+        s.registrado_por,
         s.criado_em,
         s.atualizado_em,
         m.nome as ministerio_nome
@@ -193,7 +193,7 @@ async function listarSaidas(req, res) {
       ministerioId: row.ministerio_id,
       comprovanteNome: row.comprovante_nome,
       comprovantePath: row.comprovante_path,
-      criadoPor: row.criado_por,
+      registradoPor: row.registrado_por,
       criadoEm: row.criado_em,
       atualizadoEm: row.atualizado_em
     }));
@@ -229,7 +229,7 @@ async function obterSaidaPorId(req, res) {
         s.ministerio_id,
         s.comprovante_nome,
         s.comprovante_path,
-        s.criado_por,
+        s.registrado_por,
         s.criado_em,
         s.atualizado_em,
         m.nome as ministerio_nome
@@ -291,7 +291,7 @@ async function atualizarSaida(req, res) {
 
     // Verificar se a saída existe e se o usuário tem permissão
     const saidaExistente = await pool.query(
-      'SELECT criado_por, comprovante_path FROM saidas_financeiras WHERE id = $1',
+      'SELECT registrado_por, comprovante_path FROM saidas_financeiras WHERE id = $1',
       [id]
     );
 
@@ -300,7 +300,7 @@ async function atualizarSaida(req, res) {
     }
 
     // Verificar se o usuário é o criador
-    if (saidaExistente.rows[0].criado_por !== userId) {
+    if (saidaExistente.rows[0].registrado_por !== userId) {
       return res.status(403).json({ 
         message: 'Você não tem permissão para editar esta saída' 
       });
@@ -347,7 +347,7 @@ async function atualizarSaida(req, res) {
            comprovante_path = $6,
            atualizado_em = CURRENT_TIMESTAMP
        WHERE id = $7
-       RETURNING id, valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, criado_por, criado_em, atualizado_em`,
+       RETURNING id, valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, registrado_por, criado_em, atualizado_em`,
       [valorNum, dataSaida, motivo.trim(), parseInt(ministerio), comprovanteNome, comprovantePath, id]
     );
 
@@ -381,7 +381,7 @@ async function deletarSaida(req, res) {
 
     // Verificar se a saída existe e se o usuário tem permissão
     const saidaExistente = await pool.query(
-      'SELECT criado_por, comprovante_path FROM saidas_financeiras WHERE id = $1',
+      'SELECT registrado_por, comprovante_path FROM saidas_financeiras WHERE id = $1',
       [id]
     );
 
@@ -390,7 +390,7 @@ async function deletarSaida(req, res) {
     }
 
     // Verificar se o usuário é o criador
-    if (saidaExistente.rows[0].criado_por !== userId) {
+    if (saidaExistente.rows[0].registrado_por !== userId) {
       return res.status(403).json({ 
         message: 'Você não tem permissão para deletar esta saída' 
       });
