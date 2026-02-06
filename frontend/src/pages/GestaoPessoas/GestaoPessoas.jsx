@@ -15,6 +15,16 @@ import {
 import { Users, Edit, Search, List, Trash2, ChevronLeft, ChevronRight, UserCog, Plus, X } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/alert-dialog';
 import './GestaoPessoas.css';
 
 // Formulário de pessoa (fora do componente para evitar re-render a cada digitação)
@@ -217,6 +227,8 @@ const GestaoPessoas = () => {
 
   // Estados para lista de pessoas
   const [activeTab, setActiveTab] = useState('gestao-pessoas');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pessoaParaExcluir, setPessoaParaExcluir] = useState(null);
   const [listFilters, setListFilters] = useState({
     search: '',
     cidade: '',
@@ -568,27 +580,37 @@ const GestaoPessoas = () => {
     setActiveTab('editar-pessoas');
   };
 
-  // Função para excluir pessoa
-  const handleDeletePerson = async (id) => {
-    if (window.confirm('Tem certeza que deseja excluir esta pessoa?')) {
-      try {
-        await api.delete(`/pessoas/${id}`);
-        toast({
-          title: 'Sucesso',
-          description: 'Pessoa excluída com sucesso!',
-        });
-        // Se a pessoa excluída estava selecionada, limpar seleção
-        if (selectedPerson?.id === id) {
-          handleClearSelection();
-        }
-        await loadPessoas();
-      } catch (error) {
-        toast({
-          title: 'Erro',
-          description: error.response?.data?.message || 'Erro ao excluir pessoa. Tente novamente.',
-          variant: 'destructive',
-        });
+  // Abrir dialog de exclusão
+  const handleDeleteClick = (id) => {
+    setPessoaParaExcluir(id);
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirmar exclusão
+  const handleConfirmDelete = async () => {
+    if (!pessoaParaExcluir) return;
+
+    try {
+      await api.delete(`/pessoas/${pessoaParaExcluir}`);
+      toast({
+        title: 'Sucesso',
+        description: 'Pessoa excluída com sucesso!',
+      });
+      // Se a pessoa excluída estava selecionada, limpar seleção
+      if (selectedPerson?.id === pessoaParaExcluir) {
+        handleClearSelection();
       }
+      setDeleteDialogOpen(false);
+      setPessoaParaExcluir(null);
+      await loadPessoas();
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao excluir pessoa. Tente novamente.',
+        variant: 'destructive',
+      });
+      setDeleteDialogOpen(false);
+      setPessoaParaExcluir(null);
     }
   };
 
@@ -1067,7 +1089,7 @@ const GestaoPessoas = () => {
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleDeletePerson(pessoa.id)}
+                                    onClick={() => handleDeleteClick(pessoa.id)}
                                     className="action-button delete-button"
                                   >
                                     <Trash2 className="action-icon" />
@@ -1472,6 +1494,32 @@ const GestaoPessoas = () => {
           </Tabs>
         </div>
       </main>
+
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDialogOpen(false);
+              setPessoaParaExcluir(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 };

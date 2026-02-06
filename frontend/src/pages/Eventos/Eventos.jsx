@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Button } from '../../components/ui/button';
@@ -16,13 +16,25 @@ import {
 import { Calendar, ChevronLeft, ChevronRight, Plus, Edit, Trash2, FileText, Download } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { useToast } from '../../hooks/use-toast';
+import api from '../../services/api';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/alert-dialog';
 import './Eventos.css';
 
 const Eventos = () => {
+  const { toast } = useToast();
   const [viewMode, setViewMode] = useState('month'); // 'week', 'month', 'year'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
 
   // Estados para formulário de novo evento
   const [eventoForm, setEventoForm] = useState({
@@ -35,59 +47,77 @@ const Eventos = () => {
   });
   const [editingEventId, setEditingEventId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
-
-  // Eventos mockados para visualização
-  const [eventos, setEventos] = useState([
-    {
-      id: 1,
-      titulo: 'Culto de Oração',
-      descricao: 'Culto de oração semanal',
-      data: '2024-12-15',
-      hora: '19:00',
-      local: 'Templo Principal',
-      tipo: 'Culto'
-    },
-    {
-      id: 2,
-      titulo: 'Reunião de Jovens',
-      descricao: 'Encontro semanal do ministério de jovens',
-      data: '2024-12-18',
-      hora: '20:00',
-      local: 'Salão de Jovens',
-      tipo: 'Reunião'
-    },
-    {
-      id: 3,
-      titulo: 'Escola Bíblica Dominical',
-      descricao: 'Aulas da EBD',
-      data: '2024-12-22',
-      hora: '09:00',
-      local: 'Salas de Aula',
-      tipo: 'Ensino'
-    },
-    {
-      id: 4,
-      titulo: 'Culto de Celebração',
-      descricao: 'Culto dominical de celebração',
-      data: '2024-12-22',
-      hora: '19:00',
-      local: 'Templo Principal',
-      tipo: 'Culto'
-    },
-    {
-      id: 5,
-      titulo: 'Reunião de Casais',
-      descricao: 'Encontro do ministério de casais',
-      data: '2024-12-20',
-      hora: '19:30',
-      local: 'Salão de Eventos',
-      tipo: 'Reunião'
-    }
-  ]);
+  const [loadingEventos, setLoadingEventos] = useState(false);
+  const [eventos, setEventos] = useState([]); // Eventos para o calendário (todos)
+  const [eventosTabela, setEventosTabela] = useState([]); // Eventos para a tabela (paginados)
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0
+  });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [eventoParaExcluir, setEventoParaExcluir] = useState(null);
 
   // Tipos de eventos
   const tiposEventos = ['Culto', 'Reunião', 'Ensino', 'Evento Especial', 'Treinamento', 'Outro'];
+
+  // Carregar eventos (todos para o calendário, paginados para a tabela)
+  const loadEventos = async (forCalendar = false) => {
+    setLoadingEventos(true);
+    try {
+      if (forCalendar) {
+        // Carregar todos os eventos para o calendário (usar limite máximo permitido: 100)
+        const response = await api.get('/eventos', { 
+          params: { page: 1, pageSize: 100 } 
+        });
+        let allEventos = [...(response.data.eventos || [])];
+        
+        // Se houver mais páginas, carregar todas
+        if (response.data.pagination && response.data.pagination.totalPages > 1) {
+          for (let page = 2; page <= response.data.pagination.totalPages; page++) {
+            const nextResponse = await api.get('/eventos', {
+              params: { page, pageSize: 100 }
+            });
+            allEventos.push(...(nextResponse.data.eventos || []));
+          }
+        }
+        setEventos(allEventos);
+      } else {
+        // Carregar eventos paginados para a tabela
+        const response = await api.get('/eventos', {
+          params: { page: pagination.page, pageSize: pagination.pageSize }
+        });
+        setEventosTabela(response.data.eventos || []);
+        if (response.data.pagination) {
+          setPagination(prev => ({
+            ...prev,
+            ...response.data.pagination
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar eventos:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar eventos. Tente novamente.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingEventos(false);
+    }
+  };
+
+  // Carregar todos os eventos ao montar o componente (para o calendário)
+  useEffect(() => {
+    loadEventos(true); // Carregar todos os eventos para o calendário
+    loadEventos(false); // Carregar eventos paginados para a tabela
+  }, []);
+
+  // Carregar eventos paginados quando a página da tabela mudar
+  useEffect(() => {
+    loadEventos(false);
+  }, [pagination.page]);
 
   // Manipular mudanças no formulário
   const handleFormChange = (e) => {
@@ -109,40 +139,40 @@ const Eventos = () => {
       tipo: 'Culto'
     });
     setEditingEventId(null);
-    setMessage({ type: '', text: '' });
   };
 
   // Submeter formulário (adicionar ou editar)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      // Simulação de API - TODO: Substituir por chamada real
-      setTimeout(() => {
-        if (editingEventId) {
-          // Editar evento existente
-          setEventos(eventos.map(evento => 
-            evento.id === editingEventId 
-              ? { ...eventoForm, id: editingEventId }
-              : evento
-          ));
-          setMessage({ type: 'success', text: 'Evento atualizado com sucesso!' });
-        } else {
-          // Adicionar novo evento
-          const novoEvento = {
-            ...eventoForm,
-            id: eventos.length > 0 ? Math.max(...eventos.map(e => e.id)) + 1 : 1
-          };
-          setEventos([...eventos, novoEvento]);
-          setMessage({ type: 'success', text: 'Evento cadastrado com sucesso!' });
-        }
-        clearForm();
-        setLoading(false);
-      }, 1000);
+      if (editingEventId) {
+        // Editar evento existente
+        await api.put(`/eventos/${editingEventId}`, eventoForm);
+        toast({
+          title: 'Sucesso',
+          description: 'Evento atualizado com sucesso!',
+        });
+      } else {
+        // Adicionar novo evento
+        await api.post('/eventos', eventoForm);
+        toast({
+          title: 'Sucesso',
+          description: 'Evento cadastrado com sucesso!',
+        });
+      }
+      clearForm();
+      loadEventos(true); // Recarregar todos os eventos para o calendário
+      loadEventos(false); // Recarregar eventos paginados para a tabela
     } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao salvar evento. Tente novamente.' });
+      console.error('Erro ao salvar evento:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao salvar evento. Tente novamente.',
+        variant: 'destructive'
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -151,26 +181,49 @@ const Eventos = () => {
   const handleEdit = (evento) => {
     setEventoForm({
       titulo: evento.titulo,
-      descricao: evento.descricao,
+      descricao: evento.descricao || '',
       data: evento.data,
       hora: evento.hora,
       local: evento.local,
       tipo: evento.tipo
     });
     setEditingEventId(evento.id);
-    setMessage({ type: '', text: '' });
     // Scroll para o formulário
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Excluir evento
-  const handleDelete = (eventoId) => {
-    if (window.confirm('Tem certeza que deseja excluir este evento?')) {
-      setEventos(eventos.filter(e => e.id !== eventoId));
-      if (editingEventId === eventoId) {
+  // Abrir dialog de exclusão
+  const handleDeleteClick = (eventoId) => {
+    setEventoParaExcluir(eventoId);
+    setDeleteDialogOpen(true);
+  };
+
+  // Confirmar exclusão
+  const handleConfirmDelete = async () => {
+    if (!eventoParaExcluir) return;
+
+    try {
+      await api.delete(`/eventos/${eventoParaExcluir}`);
+      toast({
+        title: 'Sucesso',
+        description: 'Evento excluído com sucesso!',
+      });
+      if (editingEventId === eventoParaExcluir) {
         clearForm();
       }
-      setMessage({ type: 'success', text: 'Evento excluído com sucesso!' });
+      setDeleteDialogOpen(false);
+      setEventoParaExcluir(null);
+      loadEventos(true); // Recarregar todos os eventos para o calendário
+      loadEventos(false); // Recarregar eventos paginados para a tabela
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao excluir evento. Tente novamente.',
+        variant: 'destructive'
+      });
+      setDeleteDialogOpen(false);
+      setEventoParaExcluir(null);
     }
   };
 
@@ -258,7 +311,13 @@ const Eventos = () => {
   // Obter eventos do dia
   const getEventsForDate = (date) => {
     const dateStr = formatDate(date);
-    return eventos.filter(evento => evento.data === dateStr);
+    // Normalizar a data do evento (pode vir como string ISO ou apenas data)
+    return eventos.filter(evento => {
+      if (!evento.data) return false;
+      // Se a data vier como string ISO (com hora), pegar apenas a parte da data
+      const eventoData = evento.data.split('T')[0];
+      return eventoData === dateStr;
+    });
   };
 
   // Obter eventos do mês
@@ -335,39 +394,24 @@ const Eventos = () => {
               <div
                 key={index}
                 className={`calendar-month-day-cell ${!isCurrent ? 'other-month' : ''} ${isToday(day) ? 'today' : ''}`}
-                onClick={() => {
-                  if (isCurrent) {
-                    // Criar novo evento neste dia
-                    const newEvent = {
-                      id: eventos.length + 1,
-                      titulo: 'Novo Evento',
-                      descricao: '',
-                      data: formatDate(day),
-                      hora: '19:00',
-                      local: '',
-                      tipo: 'Culto'
-                    };
-                    setEventos([...eventos, newEvent]);
-                    setSelectedEvent(newEvent);
-                    setIsEditing(true);
-                  }
-                }}
               >
                 <div className="calendar-day-number">{day.getDate()}</div>
                 <div className="calendar-day-events">
-                  {dayEvents.slice(0, 3).map(evento => (
+                  {dayEvents.slice(0, 2).map(evento => (
                     <div
                       key={evento.id}
-                      className="calendar-event-dot"
+                      className="calendar-event-title"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedEvent(evento);
                       }}
-                      title={evento.titulo}
-                    />
+                      title={`${evento.hora} - ${evento.titulo}`}
+                    >
+                      <span className="event-title-text">{evento.titulo}</span>
+                    </div>
                   ))}
-                  {dayEvents.length > 3 && (
-                    <div className="calendar-event-more">+{dayEvents.length - 3}</div>
+                  {dayEvents.length > 2 && (
+                    <div className="calendar-event-more">+{dayEvents.length - 2} mais</div>
                   )}
                 </div>
               </div>
@@ -392,8 +436,23 @@ const Eventos = () => {
               </div>
               <div className="calendar-year-month-events">
                 {monthEvents.length > 0 ? (
-                  <div className="calendar-year-events-count">
-                    {monthEvents.length} evento{monthEvents.length !== 1 ? 's' : ''}
+                  <div className="calendar-year-events-list">
+                    {monthEvents.map(evento => (
+                      <div
+                        key={evento.id}
+                        className="calendar-year-event-item"
+                        onClick={() => setSelectedEvent(evento)}
+                        title={`${evento.data} ${evento.hora} - ${evento.titulo}`}
+                      >
+                        <div className="calendar-year-event-date">
+                          {new Date(evento.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </div>
+                        <div className="calendar-year-event-info">
+                          <div className="calendar-year-event-time">{evento.hora}</div>
+                          <div className="calendar-year-event-title">{evento.titulo}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="calendar-year-no-events">Sem eventos</div>
@@ -507,31 +566,12 @@ const Eventos = () => {
                   {viewMode === 'year' && renderYearView()}
                 </div>
 
-                {/* Painel de detalhes do evento */}
+                {/* Painel de detalhes do evento - Apenas visualização (página pública) */}
                 {selectedEvent && (
                   <div className="event-details-panel">
                     <div className="event-details-header">
                       <h3>{selectedEvent.titulo}</h3>
                       <div className="event-details-actions">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setIsEditing(!isEditing);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setEventos(eventos.filter(e => e.id !== selectedEvent.id));
-                            setSelectedEvent(null);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -542,102 +582,26 @@ const Eventos = () => {
                       </div>
                     </div>
                     <div className="event-details-content">
-                      {isEditing ? (
-                        <div className="event-edit-form">
-                          <div className="form-group">
-                            <label>Título</label>
-                            <input
-                              type="text"
-                              value={selectedEvent.titulo}
-                              onChange={(e) => {
-                                const updated = { ...selectedEvent, titulo: e.target.value };
-                                setSelectedEvent(updated);
-                                setEventos(eventos.map(e => e.id === selectedEvent.id ? updated : e));
-                              }}
-                              className="form-input"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Data</label>
-                            <input
-                              type="date"
-                              value={selectedEvent.data}
-                              onChange={(e) => {
-                                const updated = { ...selectedEvent, data: e.target.value };
-                                setSelectedEvent(updated);
-                                setEventos(eventos.map(e => e.id === selectedEvent.id ? updated : e));
-                              }}
-                              className="form-input"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Hora</label>
-                            <input
-                              type="time"
-                              value={selectedEvent.hora}
-                              onChange={(e) => {
-                                const updated = { ...selectedEvent, hora: e.target.value };
-                                setSelectedEvent(updated);
-                                setEventos(eventos.map(e => e.id === selectedEvent.id ? updated : e));
-                              }}
-                              className="form-input"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Local</label>
-                            <input
-                              type="text"
-                              value={selectedEvent.local}
-                              onChange={(e) => {
-                                const updated = { ...selectedEvent, local: e.target.value };
-                                setSelectedEvent(updated);
-                                setEventos(eventos.map(e => e.id === selectedEvent.id ? updated : e));
-                              }}
-                              className="form-input"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Descrição</label>
-                            <textarea
-                              value={selectedEvent.descricao}
-                              onChange={(e) => {
-                                const updated = { ...selectedEvent, descricao: e.target.value };
-                                setSelectedEvent(updated);
-                                setEventos(eventos.map(e => e.id === selectedEvent.id ? updated : e));
-                              }}
-                              className="form-textarea"
-                              rows="4"
-                            />
-                          </div>
-                          <Button
-                            onClick={() => setIsEditing(false)}
-                            className="submit-button"
-                          >
-                            Salvar
-                          </Button>
+                      <div className="event-details-info">
+                        <div className="event-info-item">
+                          <strong>Data:</strong> {new Date(selectedEvent.data).toLocaleDateString('pt-BR')}
                         </div>
-                      ) : (
-                        <div className="event-details-info">
-                          <div className="event-info-item">
-                            <strong>Data:</strong> {new Date(selectedEvent.data).toLocaleDateString('pt-BR')}
-                          </div>
-                          <div className="event-info-item">
-                            <strong>Hora:</strong> {selectedEvent.hora}
-                          </div>
-                          <div className="event-info-item">
-                            <strong>Local:</strong> {selectedEvent.local}
-                          </div>
-                          <div className="event-info-item">
-                            <strong>Tipo:</strong> {selectedEvent.tipo}
-                          </div>
-                          {selectedEvent.descricao && (
-                            <div className="event-info-item">
-                              <strong>Descrição:</strong>
-                              <p>{selectedEvent.descricao}</p>
-                            </div>
-                          )}
+                        <div className="event-info-item">
+                          <strong>Hora:</strong> {selectedEvent.hora}
                         </div>
-                      )}
+                        <div className="event-info-item">
+                          <strong>Local:</strong> {selectedEvent.local}
+                        </div>
+                        <div className="event-info-item">
+                          <strong>Tipo:</strong> {selectedEvent.tipo}
+                        </div>
+                        {selectedEvent.descricao && (
+                          <div className="event-info-item">
+                            <strong>Descrição:</strong>
+                            <p>{selectedEvent.descricao}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -650,12 +614,6 @@ const Eventos = () => {
                 
                 {/* Formulário */}
                 <form onSubmit={handleSubmit} className="evento-form">
-                  {message.text && (
-                    <div className={`form-message ${message.type}`}>
-                      {message.text}
-                    </div>
-                  )}
-
                   <div className="form-row">
                     <div className="form-group">
                       <Label htmlFor="titulo">Título do Evento</Label>
@@ -774,72 +732,132 @@ const Eventos = () => {
                 {/* Tabela de Eventos */}
                 <div style={{ marginTop: '48px' }}>
                   <h2 style={{ marginBottom: '24px' }}>Todos os Eventos</h2>
-                  <div className="table-wrapper">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Título</TableHead>
-                          <TableHead>Data</TableHead>
-                          <TableHead>Hora</TableHead>
-                          <TableHead>Local</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead style={{ textAlign: 'center' }}>Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {eventos.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={7} className="text-center">
-                              Nenhum evento cadastrado ainda.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          eventos.map((evento) => (
-                            <TableRow key={evento.id}>
-                              <TableCell>
-                                <strong>{evento.titulo}</strong>
-                              </TableCell>
-                              <TableCell>{formatDateDisplay(evento.data)}</TableCell>
-                              <TableCell>{evento.hora}</TableCell>
-                              <TableCell>{evento.local}</TableCell>
-                              <TableCell>{evento.tipo}</TableCell>
-                              <TableCell className="max-w-xs truncate" title={evento.descricao}>
-                                {evento.descricao || '-'}
-                              </TableCell>
-                              <TableCell style={{ textAlign: 'center' }}>
-                                <div className="table-actions">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleEdit(evento)}
-                                    className="action-button edit-button"
-                                  >
-                                    <Edit className="action-icon" />
-                                    Editar
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleDelete(evento.id)}
-                                    className="action-button delete-button"
-                                  >
-                                    <Trash2 className="action-icon" />
-                                    Excluir
-                                  </Button>
-                                </div>
-                              </TableCell>
+                  {loadingEventos ? (
+                    <div className="text-center" style={{ padding: '40px' }}>
+                      Carregando eventos...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="table-wrapper">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Título</TableHead>
+                              <TableHead>Data</TableHead>
+                              <TableHead>Hora</TableHead>
+                              <TableHead>Local</TableHead>
+                              <TableHead>Tipo</TableHead>
+                              <TableHead>Descrição</TableHead>
+                              <TableHead style={{ textAlign: 'center' }}>Ações</TableHead>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                          </TableHeader>
+                          <TableBody>
+                            {eventosTabela.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center">
+                                  Nenhum evento cadastrado ainda.
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              eventosTabela.map((evento) => (
+                                <TableRow key={evento.id}>
+                                  <TableCell>
+                                    <strong>{evento.titulo}</strong>
+                                  </TableCell>
+                                  <TableCell>{formatDateDisplay(evento.data)}</TableCell>
+                                  <TableCell>{evento.hora}</TableCell>
+                                  <TableCell>{evento.local}</TableCell>
+                                  <TableCell>{evento.tipo}</TableCell>
+                                  <TableCell className="max-w-xs truncate" title={evento.descricao}>
+                                    {evento.descricao || '-'}
+                                  </TableCell>
+                                  <TableCell style={{ textAlign: 'center' }}>
+                                    <div className="table-actions">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEdit(evento)}
+                                        className="action-button edit-button"
+                                      >
+                                        <Edit className="action-icon" />
+                                        Editar
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleDeleteClick(evento.id)}
+                                        className="action-button delete-button"
+                                      >
+                                        <Trash2 className="action-icon" />
+                                        Excluir
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {/* Paginação */}
+                      {pagination.totalPages > 1 && (
+                        <div className="pagination" style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                            disabled={pagination.page === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Anterior
+                          </Button>
+                          <span>
+                            Página {pagination.page} de {pagination.totalPages} ({pagination.total} eventos)
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                            disabled={pagination.page >= pagination.totalPages}
+                          >
+                            Próxima
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </TabsContent>
+
+            {/* Dialog de confirmação de exclusão */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir este evento? Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => {
+                    setDeleteDialogOpen(false);
+                    setEventoParaExcluir(null);
+                  }}>
+                    Cancelar
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleConfirmDelete}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <TabsContent value="relatorios" className="eventos-tabs-content">
               <div className="tab-content-wrapper">

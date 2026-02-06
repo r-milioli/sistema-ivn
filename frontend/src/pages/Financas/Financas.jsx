@@ -9,6 +9,16 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Heart, Gift, Receipt, Calculator, ArrowUpCircle, ArrowDownCircle, Plus, X, PlusCircle, Edit, Trash2, ChevronLeft, ChevronRight, MinusCircle, Paperclip, FileText, Search } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/alert-dialog';
 import './Financas.css';
 
 const Financas = () => {
@@ -70,6 +80,12 @@ const Financas = () => {
   // Lista de ministérios
   const [ministerios, setMinisterios] = useState([]);
   
+  // Estados para dialogs de exclusão
+  const [deleteEntradaDialogOpen, setDeleteEntradaDialogOpen] = useState(false);
+  const [entradaParaExcluir, setEntradaParaExcluir] = useState(null);
+  const [deleteSaidaDialogOpen, setDeleteSaidaDialogOpen] = useState(false);
+  const [saidaParaExcluir, setSaidaParaExcluir] = useState(null);
+  
   const [metrics, setMetrics] = useState({
     totalEntradas: 0,
     totalSaidas: 0,
@@ -82,14 +98,24 @@ const Financas = () => {
   });
   const [loadingMetrics, setLoadingMetrics] = useState(true);
 
+  // Carregar métricas
+  const loadMetrics = async () => {
+    try {
+      const metricsResponse = await api.get('/financas/metricas');
+      setMetrics(metricsResponse.data);
+      setLoadingMetrics(false);
+    } catch (error) {
+      console.error('Erro ao carregar métricas:', error);
+      setLoadingMetrics(false);
+    }
+  };
+
   // Carregar dados iniciais
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         // Carregar métricas
-        const metricsResponse = await api.get('/financas/metricas');
-        setMetrics(metricsResponse.data);
-        setLoadingMetrics(false);
+        await loadMetrics();
 
         // Carregar entradas
         await loadEntradas();
@@ -354,6 +380,7 @@ const Financas = () => {
       setEditandoId(null);
       await loadEntradas();
       await loadRelatorio();
+      await loadMetrics(); // Atualizar métricas após criar/editar entrada
     } catch (error) {
       toast({
         title: 'Erro',
@@ -390,35 +417,47 @@ const Financas = () => {
     }
   };
 
-  const handleDeletarEntrada = async (id) => {
-    if (window.confirm('Tem certeza que deseja deletar esta entrada?')) {
-      try {
-        await api.delete(`/financas/entradas/${id}`);
-        toast({
-          title: 'Sucesso',
-          description: 'Entrada deletada com sucesso!',
-        });
-        await loadEntradas();
-        await loadRelatorio();
-        if (editandoId === id) {
-          setEditandoId(null);
-          setNovaEntradaForm({
-            categoria: '',
-            autores: [],
-            autorSelecionado: '',
-            valor: '',
-            dataEntrada: new Date().toISOString().split('T')[0],
-            turno: '',
-            tipoPagamento: ''
-          });
-        }
-      } catch (error) {
-        toast({
-          title: 'Erro',
-          description: error.response?.data?.message || 'Erro ao deletar entrada. Tente novamente.',
-          variant: 'destructive',
+  // Abrir dialog de exclusão de entrada
+  const handleDeleteEntradaClick = (id) => {
+    setEntradaParaExcluir(id);
+    setDeleteEntradaDialogOpen(true);
+  };
+
+  // Confirmar exclusão de entrada
+  const handleConfirmDeleteEntrada = async () => {
+    if (!entradaParaExcluir) return;
+
+    try {
+      await api.delete(`/financas/entradas/${entradaParaExcluir}`);
+      toast({
+        title: 'Sucesso',
+        description: 'Entrada deletada com sucesso!',
+      });
+      await loadEntradas();
+      await loadRelatorio();
+      await loadMetrics(); // Atualizar métricas após exclusão de entrada
+      if (editandoId === entradaParaExcluir) {
+        setEditandoId(null);
+        setNovaEntradaForm({
+          categoria: '',
+          autores: [],
+          autorSelecionado: '',
+          valor: '',
+          dataEntrada: new Date().toISOString().split('T')[0],
+          turno: '',
+          tipoPagamento: ''
         });
       }
+      setDeleteEntradaDialogOpen(false);
+      setEntradaParaExcluir(null);
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao deletar entrada. Tente novamente.',
+        variant: 'destructive',
+      });
+      setDeleteEntradaDialogOpen(false);
+      setEntradaParaExcluir(null);
     }
   };
 
@@ -559,6 +598,7 @@ const Financas = () => {
       if (fileInput) fileInput.value = '';
       await loadSaidas();
       await loadRelatorio();
+      await loadMetrics(); // Atualizar métricas após criar/editar saída
     } catch (error) {
       toast({
         title: 'Erro',
@@ -594,36 +634,48 @@ const Financas = () => {
     }
   };
 
-  const handleDeletarSaida = async (id) => {
-    if (window.confirm('Tem certeza que deseja deletar esta saída?')) {
-      try {
-        await api.delete(`/financas/saidas/${id}`);
-        toast({
-          title: 'Sucesso',
-          description: 'Saída deletada com sucesso!',
+  // Abrir dialog de exclusão de saída
+  const handleDeleteSaidaClick = (id) => {
+    setSaidaParaExcluir(id);
+    setDeleteSaidaDialogOpen(true);
+  };
+
+  // Confirmar exclusão de saída
+  const handleConfirmDeleteSaida = async () => {
+    if (!saidaParaExcluir) return;
+
+    try {
+      await api.delete(`/financas/saidas/${saidaParaExcluir}`);
+      toast({
+        title: 'Sucesso',
+        description: 'Saída deletada com sucesso!',
+      });
+      await loadSaidas();
+      await loadRelatorio();
+      await loadMetrics(); // Atualizar métricas após exclusão de saída
+      if (editandoSaidaId === saidaParaExcluir) {
+        setEditandoSaidaId(null);
+        setNovaSaidaForm({
+          valor: '',
+          dataSaida: new Date().toISOString().split('T')[0],
+          motivo: '',
+          ministerio: '',
+          comprovante: null,
+          comprovanteNome: ''
         });
-        await loadSaidas();
-        await loadRelatorio();
-        if (editandoSaidaId === id) {
-          setEditandoSaidaId(null);
-          setNovaSaidaForm({
-            valor: '',
-            dataSaida: new Date().toISOString().split('T')[0],
-            motivo: '',
-            ministerio: '',
-            comprovante: null,
-            comprovanteNome: ''
-          });
-          const fileInput = document.getElementById('comprovante');
-          if (fileInput) fileInput.value = '';
-        }
-      } catch (error) {
-        toast({
-          title: 'Erro',
-          description: error.response?.data?.message || 'Erro ao deletar saída. Tente novamente.',
-          variant: 'destructive',
-        });
+        const fileInput = document.getElementById('comprovante');
+        if (fileInput) fileInput.value = '';
       }
+      setDeleteSaidaDialogOpen(false);
+      setSaidaParaExcluir(null);
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao deletar saída. Tente novamente.',
+        variant: 'destructive',
+      });
+      setDeleteSaidaDialogOpen(false);
+      setSaidaParaExcluir(null);
     }
   };
 
@@ -1115,7 +1167,7 @@ const Financas = () => {
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => handleDeletarEntrada(entrada.id)}
+                                        onClick={() => handleDeleteEntradaClick(entrada.id)}
                                         className="action-button delete-button"
                                       >
                                         <Trash2 className="action-icon" />
@@ -1419,7 +1471,7 @@ const Financas = () => {
                                           type="button"
                                           variant="outline"
                                           size="sm"
-                                          onClick={() => handleDeletarSaida(saida.id)}
+                                          onClick={() => handleDeleteSaidaClick(saida.id)}
                                           className="action-button delete-button"
                                         >
                                           <Trash2 className="action-icon" />
@@ -1722,6 +1774,58 @@ const Financas = () => {
           </Tabs>
         </div>
       </main>
+
+      {/* Dialog de confirmação de exclusão de entrada */}
+      <AlertDialog open={deleteEntradaDialogOpen} onOpenChange={setDeleteEntradaDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteEntradaDialogOpen(false);
+              setEntradaParaExcluir(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteEntrada}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação de exclusão de saída */}
+      <AlertDialog open={deleteSaidaDialogOpen} onOpenChange={setDeleteSaidaDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta saída? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteSaidaDialogOpen(false);
+              setSaidaParaExcluir(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteSaida}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 };
