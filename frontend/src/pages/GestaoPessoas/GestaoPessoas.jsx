@@ -668,11 +668,41 @@ const GestaoPessoas = () => {
     try {
       const response = await api.get(`/pessoas/${pessoa.id}/atribuicoes`);
       const atribuicao = response.data.atribuicao;
+      
+      // Garantir que sempre seja array de números (IDs)
+      let ministeriosLiderArray = [];
+      if (atribuicao.ministeriosLider) {
+        if (Array.isArray(atribuicao.ministeriosLider)) {
+          ministeriosLiderArray = atribuicao.ministeriosLider.map(m => {
+            if (typeof m === 'object' && m !== null && m.id !== undefined) {
+              return Number(m.id);
+            }
+            return Number(m);
+          }).filter(id => !isNaN(id));
+        } else if (typeof atribuicao.ministeriosLider === 'number') {
+          ministeriosLiderArray = [Number(atribuicao.ministeriosLider)];
+        }
+      }
+      
+      let ministeriosParticipanteArray = [];
+      if (atribuicao.ministeriosParticipante) {
+        if (Array.isArray(atribuicao.ministeriosParticipante)) {
+          ministeriosParticipanteArray = atribuicao.ministeriosParticipante.map(m => {
+            if (typeof m === 'object' && m !== null && m.id !== undefined) {
+              return Number(m.id);
+            }
+            return Number(m);
+          }).filter(id => !isNaN(id));
+        } else if (typeof atribuicao.ministeriosParticipante === 'number') {
+          ministeriosParticipanteArray = [Number(atribuicao.ministeriosParticipante)];
+        }
+      }
+      
       setAtribuicaoFormData({
         cargoEclesiastico: atribuicao.cargoEclesiastico || '',
-        estagiosUsuario: atribuicao.estagiosUsuario || [],
-        ministeriosLider: atribuicao.ministeriosLider?.map(m => m.id) || [],
-        ministeriosParticipante: atribuicao.ministeriosParticipante?.map(m => m.id) || [],
+        estagiosUsuario: Array.isArray(atribuicao.estagiosUsuario) ? atribuicao.estagiosUsuario : [],
+        ministeriosLider: ministeriosLiderArray,
+        ministeriosParticipante: ministeriosParticipanteArray,
         tipoUsuario: atribuicao.tipoUsuario || 'Usuario'
       });
     } catch (error) {
@@ -702,35 +732,32 @@ const GestaoPessoas = () => {
 
   const handleAdicionarEstagio = () => {
     if (estagioSelecionado && !atribuicaoFormData.estagiosUsuario.includes(estagioSelecionado)) {
-      setAtribuicaoFormData(prev => {
-        const estagios = [...prev.estagiosUsuario, estagioSelecionado];
-        return {
-          ...prev,
-          estagiosUsuario: estagios,
-          // Limpar ministérios se não for mais líder ou participante
-          ministeriosLider: estagios.includes('Líder') ? prev.ministeriosLider : [],
-          ministeriosParticipante: estagios.includes('Participante de Ministério') ? prev.ministeriosParticipante : []
-        };
-      });
+      setAtribuicaoFormData(prev => ({
+        ...prev,
+        estagiosUsuario: [...prev.estagiosUsuario, estagioSelecionado]
+      }));
       setEstagioSelecionado('');
     }
   };
 
   const handleRemoverEstagio = (estagio) => {
-    setAtribuicaoFormData(prev => {
-      const estagios = prev.estagiosUsuario.filter(e => e !== estagio);
-      return {
-        ...prev,
-        estagiosUsuario: estagios,
-        // Limpar ministérios se não for mais líder ou participante
-        ministeriosLider: estagios.includes('Líder') ? prev.ministeriosLider : [],
-        ministeriosParticipante: estagios.includes('Participante de Ministério') ? prev.ministeriosParticipante : []
-      };
-    });
+    setAtribuicaoFormData(prev => ({
+      ...prev,
+      estagiosUsuario: prev.estagiosUsuario.filter(e => e !== estagio)
+    }));
   };
 
   const handleAdicionarMinisterioLider = () => {
     if (ministerioLiderSelecionado && !atribuicaoFormData.ministeriosLider.includes(Number(ministerioLiderSelecionado))) {
+      // Verificar se já não é participante deste ministério
+      if (atribuicaoFormData.ministeriosParticipante.includes(Number(ministerioLiderSelecionado))) {
+        toast({
+          title: 'Aviso',
+          description: 'Esta pessoa já é participante deste ministério. Remova da lista de participantes primeiro.',
+          variant: 'destructive',
+        });
+        return;
+      }
       setAtribuicaoFormData(prev => ({
         ...prev,
         ministeriosLider: [...prev.ministeriosLider, Number(ministerioLiderSelecionado)]
@@ -748,6 +775,15 @@ const GestaoPessoas = () => {
 
   const handleAdicionarMinisterioParticipante = () => {
     if (ministerioParticipanteSelecionado && !atribuicaoFormData.ministeriosParticipante.includes(Number(ministerioParticipanteSelecionado))) {
+      // Verificar se já não é líder deste ministério
+      if (atribuicaoFormData.ministeriosLider.includes(Number(ministerioParticipanteSelecionado))) {
+        toast({
+          title: 'Aviso',
+          description: 'Esta pessoa já é líder deste ministério. Remova da lista de líderes primeiro.',
+          variant: 'destructive',
+        });
+        return;
+      }
       setAtribuicaoFormData(prev => ({
         ...prev,
         ministeriosParticipante: [...prev.ministeriosParticipante, Number(ministerioParticipanteSelecionado)]
@@ -787,38 +823,63 @@ const GestaoPessoas = () => {
       return;
     }
 
-    if (atribuicaoFormData.estagiosUsuario.includes('Líder') && atribuicaoFormData.ministeriosLider.length === 0) {
-      toast({
-        title: 'Erro',
-        description: 'Por favor, selecione pelo menos um ministério para líder.',
-        variant: 'destructive',
-      });
-      setLoadingAtribuicao(false);
-      return;
-    }
-
-    if (atribuicaoFormData.estagiosUsuario.includes('Participante de Ministério') && atribuicaoFormData.ministeriosParticipante.length === 0) {
-      toast({
-        title: 'Erro',
-        description: 'Por favor, selecione pelo menos um ministério para participante.',
-        variant: 'destructive',
-      });
-      setLoadingAtribuicao(false);
-      return;
-    }
+    // Garantir que ministeriosLider e ministeriosParticipante sejam arrays de números
+    const dadosParaEnviar = {
+      ...atribuicaoFormData,
+      ministeriosLider: Array.isArray(atribuicaoFormData.ministeriosLider) 
+        ? atribuicaoFormData.ministeriosLider.map(id => Number(id)).filter(id => !isNaN(id))
+        : [],
+      ministeriosParticipante: Array.isArray(atribuicaoFormData.ministeriosParticipante)
+        ? atribuicaoFormData.ministeriosParticipante.map(id => Number(id)).filter(id => !isNaN(id))
+        : []
+    };
 
     try {
-      await api.post(`/pessoas/${selectedPersonAtribuicao.id}/atribuicoes`, atribuicaoFormData);
+      const response = await api.post(`/pessoas/${selectedPersonAtribuicao.id}/atribuicoes`, dadosParaEnviar);
+      
+      // Recarregar os dados atualizados do backend
+      const atribuicao = response.data.atribuicao;
+      
+      // Garantir que sempre seja array de números (IDs)
+      let ministeriosLiderArray = [];
+      if (atribuicao.ministeriosLider) {
+        if (Array.isArray(atribuicao.ministeriosLider)) {
+          ministeriosLiderArray = atribuicao.ministeriosLider.map(m => {
+            if (typeof m === 'object' && m !== null && m.id !== undefined) {
+              return Number(m.id);
+            }
+            return Number(m);
+          }).filter(id => !isNaN(id));
+        } else if (typeof atribuicao.ministeriosLider === 'number') {
+          ministeriosLiderArray = [Number(atribuicao.ministeriosLider)];
+        }
+      }
+      
+      let ministeriosParticipanteArray = [];
+      if (atribuicao.ministeriosParticipante) {
+        if (Array.isArray(atribuicao.ministeriosParticipante)) {
+          ministeriosParticipanteArray = atribuicao.ministeriosParticipante.map(m => {
+            if (typeof m === 'object' && m !== null && m.id !== undefined) {
+              return Number(m.id);
+            }
+            return Number(m);
+          }).filter(id => !isNaN(id));
+        } else if (typeof atribuicao.ministeriosParticipante === 'number') {
+          ministeriosParticipanteArray = [Number(atribuicao.ministeriosParticipante)];
+        }
+      }
+      
+      setAtribuicaoFormData({
+        cargoEclesiastico: atribuicao.cargoEclesiastico || '',
+        estagiosUsuario: Array.isArray(atribuicao.estagiosUsuario) ? atribuicao.estagiosUsuario : [],
+        ministeriosLider: ministeriosLiderArray,
+        ministeriosParticipante: ministeriosParticipanteArray,
+        tipoUsuario: atribuicao.tipoUsuario || 'Usuario'
+      });
+      
       toast({
         title: 'Sucesso',
         description: 'Atribuições salvas com sucesso!',
-      });
-      setAtribuicaoFormData({
-        cargoEclesiastico: '',
-        estagiosUsuario: [],
-        ministeriosLider: [],
-        ministeriosParticipante: [],
-        tipoUsuario: 'Usuario'
       });
     } catch (error) {
       toast({
@@ -1344,10 +1405,9 @@ const GestaoPessoas = () => {
                       </div>
                     </div>
 
-                    {atribuicaoFormData.estagiosUsuario.includes('Líder') && (
-                      <div className="form-row">
-                        <div className="form-group">
-                          <Label htmlFor="ministerioLiderSelecionado">Ministérios como Líder</Label>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <Label htmlFor="ministerioLiderSelecionado">Ministérios como Líder</Label>
                           <div className="autores-wrapper">
                             <div className="autores-select-wrapper">
                               <select
@@ -1358,7 +1418,7 @@ const GestaoPessoas = () => {
                               >
                                 <option value="">Selecione um ministério</option>
                                 {ministerios
-                                  .filter(m => !atribuicaoFormData.ministeriosLider.includes(m.id))
+                                  .filter(m => !atribuicaoFormData.ministeriosLider.includes(m.id) && !atribuicaoFormData.ministeriosParticipante.includes(m.id))
                                   .map(ministerio => (
                                     <option key={ministerio.id} value={ministerio.id}>
                                       {ministerio.nome}
@@ -1401,12 +1461,10 @@ const GestaoPessoas = () => {
                           </div>
                         </div>
                       </div>
-                    )}
 
-                    {atribuicaoFormData.estagiosUsuario.includes('Participante de Ministério') && (
-                      <div className="form-row">
-                        <div className="form-group">
-                          <Label htmlFor="ministerioParticipanteSelecionado">Ministérios como Participante</Label>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <Label htmlFor="ministerioParticipanteSelecionado">Ministérios como Participante</Label>
                           <div className="autores-wrapper">
                             <div className="autores-select-wrapper">
                               <select
@@ -1417,7 +1475,7 @@ const GestaoPessoas = () => {
                               >
                                 <option value="">Selecione um ministério</option>
                                 {ministerios
-                                  .filter(m => !atribuicaoFormData.ministeriosParticipante.includes(m.id))
+                                  .filter(m => !atribuicaoFormData.ministeriosParticipante.includes(m.id) && !atribuicaoFormData.ministeriosLider.includes(m.id))
                                   .map(ministerio => (
                                     <option key={ministerio.id} value={ministerio.id}>
                                       {ministerio.nome}
@@ -1460,7 +1518,6 @@ const GestaoPessoas = () => {
                           </div>
                         </div>
                       </div>
-                    )}
 
                     <div className="form-row">
                       <div className="form-group">

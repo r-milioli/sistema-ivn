@@ -54,6 +54,33 @@ async function criarOuAtualizarAtribuicao(req, res) {
       ministeriosParticipante,
       tipoUsuario
     } = req.body;
+    
+    // Garantir que ministeriosLider e ministeriosParticipante sejam arrays
+    // Normalizar: converter para array, garantir que todos os valores sejam números
+    let ministeriosLiderArray = [];
+    if (ministeriosLider) {
+      if (Array.isArray(ministeriosLider)) {
+        ministeriosLiderArray = ministeriosLider.map(id => Number(id)).filter(id => !isNaN(id));
+      } else {
+        const id = Number(ministeriosLider);
+        if (!isNaN(id)) {
+          ministeriosLiderArray = [id];
+        }
+      }
+    }
+    
+    let ministeriosParticipanteArray = [];
+    if (ministeriosParticipante) {
+      if (Array.isArray(ministeriosParticipante)) {
+        ministeriosParticipanteArray = ministeriosParticipante.map(id => Number(id)).filter(id => !isNaN(id));
+      } else {
+        const id = Number(ministeriosParticipante);
+        if (!isNaN(id)) {
+          ministeriosParticipanteArray = [id];
+        }
+      }
+    }
+    
     const registradoPor = req.user?.id;
 
     if (!pessoaId) {
@@ -98,25 +125,18 @@ async function criarOuAtualizarAtribuicao(req, res) {
       return res.status(400).json({ message: 'Tipo de acesso inválido' });
     }
 
-    if (estagiosUsuario.includes('Líder') || estagiosUsuario.some(e => normalizarEstagio(e) === 'Líder')) {
-      if (!Array.isArray(ministeriosLider) || ministeriosLider.length === 0) {
-        return res.status(400).json({ message: 'É necessário informar pelo menos um ministério para líder' });
-      }
-      const ministeriosCheck = await pool.query('SELECT id FROM ministerios WHERE id = ANY($1::int[])', [ministeriosLider]);
-      if (ministeriosCheck.rows.length !== ministeriosLider.length) {
-        return res.status(400).json({ message: 'Um ou mais ministérios não foram encontrados' });
+    // Validar ministérios se fornecidos (não é obrigatório ter estágio para ter ministérios)
+    if (ministeriosLiderArray.length > 0) {
+      const ministeriosCheck = await pool.query('SELECT id FROM ministerios WHERE id = ANY($1::int[])', [ministeriosLiderArray]);
+      if (ministeriosCheck.rows.length !== ministeriosLiderArray.length) {
+        return res.status(400).json({ message: 'Um ou mais ministérios de líder não foram encontrados' });
       }
     }
 
-    const estagioParticipante = normalizarEstagio('Participante de Ministério');
-    const temParticipante = estagiosUsuario.some(e => normalizarEstagio(e) === 'Participante');
-    if (temParticipante) {
-      if (!Array.isArray(ministeriosParticipante) || ministeriosParticipante.length === 0) {
-        return res.status(400).json({ message: 'É necessário informar pelo menos um ministério para participante' });
-      }
-      const ministeriosCheck = await pool.query('SELECT id FROM ministerios WHERE id = ANY($1::int[])', [ministeriosParticipante]);
-      if (ministeriosCheck.rows.length !== ministeriosParticipante.length) {
-        return res.status(400).json({ message: 'Um ou mais ministérios não foram encontrados' });
+    if (ministeriosParticipanteArray.length > 0) {
+      const ministeriosCheck = await pool.query('SELECT id FROM ministerios WHERE id = ANY($1::int[])', [ministeriosParticipanteArray]);
+      if (ministeriosCheck.rows.length !== ministeriosParticipanteArray.length) {
+        return res.status(400).json({ message: 'Um ou mais ministérios de participante não foram encontrados' });
       }
     }
 
@@ -163,6 +183,7 @@ async function criarOuAtualizarAtribuicao(req, res) {
       }
 
       // 4) Ministérios: encerrar participações atuais (data_fim = hoje) e inserir novas
+      // Primeiro, encerrar todas as participações atuais
       await pool.query(
         `UPDATE pessoa_ministerios SET data_fim = CURRENT_DATE, atualizado_em = CURRENT_TIMESTAMP 
          WHERE pessoa_id = $1 AND data_fim IS NULL`,
@@ -170,26 +191,40 @@ async function criarOuAtualizarAtribuicao(req, res) {
       );
 
       const hoje = new Date().toISOString().slice(0, 10);
-
-      if (Array.isArray(ministeriosLider) && ministeriosLider.length > 0) {
-        for (const ministerioId of ministeriosLider) {
+      
+      if (ministeriosLiderArray.length > 0) {
+        for (const ministerioId of ministeriosLiderArray) {
+          const ministerioIdNum = Number(ministerioId);
           await pool.query(
             `INSERT INTO pessoa_ministerios (pessoa_id, ministerio_id, e_lider, data_inicio)
              VALUES ($1, $2, TRUE, $3)
-             ON CONFLICT (pessoa_id, ministerio_id, data_inicio) DO NOTHING`,
-            [pessoaId, ministerioId, hoje]
+             ON CONFLICT (pessoa_id, ministerio_id, data_inicio) 
+             DO UPDATE SET 
+               e_lider = TRUE, 
+               data_fim = NULL, 
+               atualizado_em = CURRENT_TIMESTAMP`,
+            [pessoaId, ministerioIdNum, hoje]
           );
         }
       }
 
-      if (Array.isArray(ministeriosParticipante) && ministeriosParticipante.length > 0) {
-        for (const ministerioId of ministeriosParticipante) {
-          if (ministeriosLider && ministeriosLider.includes(Number(ministerioId))) continue;
+      if (ministeriosParticipanteArray.length > 0) {
+        for (const ministerioId of ministeriosParticipanteArray) {
+          // Não permitir que seja líder e participante do mesmo ministério
+          if (ministeriosLiderArray.includes(Number(ministerioId))) {
+            continue;
+          }
+          
+          const ministerioIdNum = Number(ministerioId);
           await pool.query(
             `INSERT INTO pessoa_ministerios (pessoa_id, ministerio_id, e_lider, data_inicio)
              VALUES ($1, $2, FALSE, $3)
-             ON CONFLICT (pessoa_id, ministerio_id, data_inicio) DO NOTHING`,
-            [pessoaId, ministerioId, hoje]
+             ON CONFLICT (pessoa_id, ministerio_id, data_inicio) 
+             DO UPDATE SET 
+               e_lider = FALSE, 
+               data_fim = NULL, 
+               atualizado_em = CURRENT_TIMESTAMP`,
+            [pessoaId, ministerioIdNum, hoje]
           );
         }
       }
@@ -253,19 +288,53 @@ async function obterAtribuicaoCompleta(pessoaId) {
     [pessoaId]
   );
 
-  const ministeriosLider = ministeriosResult.rows.filter(r => r.e_lider).map(r => ({ id: r.ministerio_id, nome: r.nome }));
-  const ministeriosParticipante = ministeriosResult.rows.filter(r => !r.e_lider).map(r => ({ id: r.ministerio_id, nome: r.nome }));
+  // Filtrar ministérios: garantir que a comparação funcione independente do tipo retornado pelo PostgreSQL
+  const ministeriosLider = ministeriosResult.rows
+    .filter(r => {
+      // Aceitar true, 't', 1, ou qualquer valor truthy que represente true
+      const eLider = r.e_lider;
+      if (eLider === true || eLider === 't' || eLider === 1 || eLider === 'true') {
+        return true;
+      }
+      if (typeof eLider === 'boolean') {
+        return eLider === true;
+      }
+      return false;
+    })
+    .map(r => ({ id: Number(r.ministerio_id), nome: r.nome }));
+  
+  const ministeriosParticipante = ministeriosResult.rows
+    .filter(r => {
+      // Aceitar false, 'f', 0, ou qualquer valor falsy que represente false
+      const eLider = r.e_lider;
+      if (eLider === false || eLider === 'f' || eLider === 0 || eLider === 'false') {
+        return true;
+      }
+      if (typeof eLider === 'boolean') {
+        return eLider === false;
+      }
+      return false;
+    })
+    .map(r => ({ id: Number(r.ministerio_id), nome: r.nome }));
 
   // Frontend usa "Participante de Ministério"; no schema o enum é "Participante"
   const estagioParaFront = p.estagio_atual === 'Participante' ? 'Participante de Ministério' : p.estagio_atual;
+
+  // Garantir que sempre retorne arrays, mesmo que vazios
+  const ministeriosLiderFinal = Array.isArray(ministeriosLider) && ministeriosLider.length > 0 
+    ? ministeriosLider 
+    : [];
+  const ministeriosParticipanteFinal = Array.isArray(ministeriosParticipante) && ministeriosParticipante.length > 0
+    ? ministeriosParticipante
+    : [];
 
   return {
     pessoaId: parseInt(pessoaId),
     cargoEclesiastico: p.cargo_eclesiastico || null,
     tipoUsuario: tipoAcesso,
     estagiosUsuario: [estagioParaFront],
-    ministeriosLider,
-    ministeriosParticipante
+    ministeriosLider: ministeriosLiderFinal,
+    ministeriosParticipante: ministeriosParticipanteFinal
   };
 }
 

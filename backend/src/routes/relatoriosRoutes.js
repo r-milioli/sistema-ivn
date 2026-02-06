@@ -5,16 +5,16 @@ const relatoriosController = require('../controllers/relatoriosController');
 const authMiddleware = require('../middleware/authMiddleware');
 const handleValidationErrors = require('../middleware/validationMiddleware');
 
-// Validações para criação e atualização
+// Validações para criação e atualização (nomeMinisterio é opcional)
 const criarValidation = [
-  body('nomeMinisterio').trim().notEmpty().withMessage('Nome do ministério é obrigatório'),
+  body('nomeMinisterio').optional().trim(),
   body('mesReferencia').isIn(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'])
     .withMessage('Mês de referência inválido (deve ser entre 01 e 12)'),
   body('conteudo').trim().notEmpty().withMessage('Conteúdo do relatório é obrigatório'),
 ];
 
 const atualizarValidation = [
-  body('nomeMinisterio').trim().notEmpty().withMessage('Nome do ministério é obrigatório'),
+  body('nomeMinisterio').optional().trim(),
   body('mesReferencia').isIn(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'])
     .withMessage('Mês de referência inválido (deve ser entre 01 e 12)'),
   body('conteudo').trim().notEmpty().withMessage('Conteúdo do relatório é obrigatório'),

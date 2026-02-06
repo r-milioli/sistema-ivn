@@ -9,6 +9,7 @@ const financasRoutes = require('./routes/financasRoutes');
 const pessoasRoutes = require('./routes/pessoasRoutes');
 const eventosRoutes = require('./routes/eventosRoutes');
 const integracaoRoutes = require('./routes/integracaoRoutes');
+const ministeriosRoutes = require('./routes/ministeriosRoutes');
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/api/relatorios', relatoriosRoutes);
 app.use('/api/financas', financasRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/integracao', integracaoRoutes);
+app.use('/api/ministerios', ministeriosRoutes);
 app.use('/api', pessoasRoutes);
 
 // Rota de teste

@@ -8,10 +8,10 @@ async function criarRelatorio(req, res) {
     const { nomeMinisterio, mesReferencia, conteudo, pastorLiderId } = req.body;
     const userId = req.user.id;
 
-    // Validações básicas
-    if (!nomeMinisterio || !mesReferencia || !conteudo) {
+    // Validações básicas (nomeMinisterio é opcional)
+    if (!mesReferencia || !conteudo) {
       return res.status(400).json({ 
-        message: 'Campos obrigatórios: nomeMinisterio, mesReferencia, conteudo' 
+        message: 'Campos obrigatórios: mesReferencia, conteudo' 
       });
     }
 
@@ -68,7 +68,7 @@ async function criarRelatorio(req, res) {
       RETURNING id, titulo, ministerio_id, mes_referencia, ano_referencia, 
                 conteudo, pastor_lider_id, criado_por, criado_em, atualizado_em`;
       insertValues = [
-        nomeMinisterio, // Usado como titulo
+        nomeMinisterio || 'Sem Ministério', // Usado como titulo, permite vazio
         ministerioId,
         mesReferencia.padStart(2, '0'),
         anoReferencia,
@@ -84,7 +84,7 @@ async function criarRelatorio(req, res) {
       RETURNING id, titulo, ministerio_id, mes_referencia, ano_referencia, 
                 conteudo, criado_por, criado_em, atualizado_em`;
       insertValues = [
-        nomeMinisterio, // Usado como titulo
+        nomeMinisterio || 'Sem Ministério', // Usado como titulo, permite vazio
         ministerioId,
         mesReferencia.padStart(2, '0'),
         anoReferencia,
@@ -115,7 +115,7 @@ async function criarRelatorio(req, res) {
  */
 async function listarRelatorios(req, res) {
   try {
-    const { nomeMinisterio, mesReferencia, anoReferencia, page = 1, pageSize = 10 } = req.query;
+    const { nomeMinisterio, mesReferencia, anoReferencia, pastorLiderId, page = 1, pageSize = 10 } = req.query;
     
     const pageNum = parseInt(page);
     const pageSizeNum = parseInt(pageSize);
@@ -187,6 +187,13 @@ async function listarRelatorios(req, res) {
       paramIndex++;
     }
 
+    // Filtro por pastor líder (para tab "Atribuído a Mim")
+    if (pastorLiderId && temPastorLider) {
+      query += ` AND r.pastor_lider_id = $${paramIndex}`;
+      queryParams.push(parseInt(pastorLiderId));
+      paramIndex++;
+    }
+
     // Contar total de registros (query separada para garantir correção)
     let countQuery = `
       SELECT COUNT(*) as total
@@ -215,6 +222,13 @@ async function listarRelatorios(req, res) {
     if (anoReferencia) {
       countQuery += ` AND r.ano_referencia = $${countParamIndex}`;
       countParams.push(parseInt(anoReferencia));
+      countParamIndex++;
+    }
+
+    // Aplicar filtro de pastor líder na contagem também
+    if (pastorLiderId && temPastorLider) {
+      countQuery += ` AND r.pastor_lider_id = $${countParamIndex}`;
+      countParams.push(parseInt(pastorLiderId));
       countParamIndex++;
     }
     

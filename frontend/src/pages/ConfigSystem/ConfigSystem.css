@@ -1,0 +1,337 @@
+/* Estilos específicos da página de Config System */
+.dashboard-content h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 24px;
+}
+
+.dashboard-content p {
+  color: #666;
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Estilos das Tabs */
+.config-system-tabs {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.config-system-tabs-list {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 24px;
+}
+
+.config-system-tabs-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+  border-radius: 6px;
+}
+
+.config-system-tabs-trigger:hover {
+  color: #1a1a1a;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.config-system-tabs-trigger[data-state="active"] {
+  background: white;
+  color: #1a1a1a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.config-system-tabs-content {
+  padding: 0;
+  margin-top: 0;
+}
+
+.tab-content-wrapper {
+  background: white;
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-content-wrapper h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 24px;
+}
+
+.tab-content-wrapper p {
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Estilos do Formulário de Ministérios */
+.ministerio-form {
+  margin-top: 24px;
+  margin-bottom: 48px;
+  padding-bottom: 32px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  line-height: 1.5;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 0 14px;
+  height: 44px;
+  line-height: 44px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: white;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+
+.form-textarea {
+  height: auto;
+  min-height: 100px;
+  line-height: 1.5;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.submit-button {
+  background: #1a1a1a !important;
+  color: white !important;
+  border: none !important;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 44px;
+}
+
+.submit-button:hover:not(:disabled) {
+  background: #333 !important;
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-button {
+  background: white !important;
+  color: #1a1a1a !important;
+  border: 1px solid #d0d0d0 !important;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 44px;
+}
+
+.cancel-button:hover:not(:disabled) {
+  background: #f5f5f5 !important;
+  border-color: #1a1a1a !important;
+}
+
+.cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Estilos da Tabela de Ministérios */
+.ministerios-table-section {
+  margin-top: 48px;
+}
+
+.table-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 24px;
+}
+
+.table-wrapper {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrapper thead {
+  background: #f5f5f5;
+}
+
+.table-wrapper th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1a1a1a;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.table-wrapper th.text-right {
+  text-align: right;
+}
+
+.table-wrapper td {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.table-wrapper td.text-right {
+  text-align: right;
+}
+
+.table-wrapper tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.table-wrapper tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.edit-button,
+.delete-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.delete-button {
+  color: #721c24;
+  border-color: #f5c6cb;
+}
+
+.delete-button:hover {
+  background: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .tab-content-wrapper {
+    padding: 24px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .submit-button,
+  .cancel-button {
+    width: 100%;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  .table-wrapper table {
+    min-width: 600px;
+  }
+
+  .table-actions {
+    flex-direction: column;
+  }
+
+  .edit-button,
+  .delete-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
