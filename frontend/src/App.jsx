@@ -15,8 +15,10 @@ import Configuracoes from './pages/Configuracoes/Configuracoes';
 import Integracao from './pages/Integracao/Integracao';
 import Eventos from './pages/Eventos/Eventos';
 import Membresia from './pages/Membresia/Membresia';
+import Batismo from './pages/Batismo/Batismo';
 import Relatorio from './pages/Relatorio/Relatorio';
 import ConfigSystem from './pages/ConfigSystem/ConfigSystem';
+import FichaMembros from './pages/FichaMembros/FichaMembros';
 
 // Componente para redirecionar usuários autenticados
 const PublicRoute = ({ children }) => {
@@ -134,6 +136,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/batismo"
+        element={
+          <ProtectedRoute>
+            <Batismo />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/relatorio"
         element={
           <ProtectedRoute>
@@ -146,6 +156,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ConfigSystem />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ficha-membros"
+        element={
+          <ProtectedRoute>
+            <FichaMembros />
           </ProtectedRoute>
         }
       />

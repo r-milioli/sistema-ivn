@@ -39,7 +39,8 @@ import {
   Droplet,
   UserCheck,
   FileText,
-  Server
+  Server,
+  ClipboardList
 } from 'lucide-react';
 import MainLayout from '../../components/Layout/MainLayout';
 import './Dashboard.css';
@@ -242,6 +243,11 @@ const Dashboard = () => {
       icon: Server, 
       label: 'Config System', 
       path: '/config-system'
+    },
+    { 
+      icon: ClipboardList, 
+      label: 'Ficha de Membros', 
+      path: '/ficha-membros'
     },
   ];
 
