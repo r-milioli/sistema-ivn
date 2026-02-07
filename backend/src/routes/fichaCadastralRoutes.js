@@ -5,14 +5,15 @@ const authMiddleware = require('../middleware/authMiddleware');
 const handleValidationErrors = require('../middleware/validationMiddleware');
 const {
   criarOuAtualizarFichaCadastral,
+  obterMinhaFichaCadastral,
   obterFichaCadastral,
   listarFichasCadastrais,
 } = require('../controllers/fichaCadastralController');
 
-// Validação: apenas nome e email obrigatórios, resto opcional
+// Validação: nome e email opcionais (quando já existe ficha); backend usa dados da pessoa se não enviados
 const validarFichaCadastral = [
-  body('nome').trim().notEmpty().withMessage('Nome é obrigatório'),
-  body('email').trim().notEmpty().withMessage('Email é obrigatório').isEmail().withMessage('Email inválido'),
+  body('nome').optional({ values: 'falsy' }).trim(),
+  body('email').optional({ values: 'falsy' }).trim().isEmail().withMessage('Email inválido'),
   
   // Campos opcionais da pessoa
   body('sobrenome').optional({ values: 'falsy' }).trim(),
@@ -75,6 +76,12 @@ router.post(
   validarFichaCadastral,
   handleValidationErrors,
   criarOuAtualizarFichaCadastral
+);
+
+router.get(
+  '/ficha-cadastral/me',
+  authMiddleware,
+  obterMinhaFichaCadastral
 );
 
 router.get(

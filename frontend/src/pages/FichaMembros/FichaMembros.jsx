@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Input } from '../../components/ui/input';
@@ -7,17 +7,20 @@ import { Button } from '../../components/ui/button';
 import { Progress } from '../../components/ui/progress';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
 import { useToast } from '../../hooks/use-toast';
+import { useAuth } from '../../context/AuthContext';
 import { ClipboardList, ChevronLeft, ChevronRight, Camera, X, Edit } from 'lucide-react';
+import api from '../../services/api';
 import './FichaMembros.css';
 
 const FichaMembros = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [foto, setFoto] = useState(null);
   const [fotoPreview, setFotoPreview] = useState(null);
-  const [fichaSalva, setFichaSalva] = useState(null);
-  const [editando, setEditando] = useState(false);
+  const [minhaFicha, setMinhaFicha] = useState(null);
+  const [loadingFicha, setLoadingFicha] = useState(true);
   
   // Definir etapas do formulário
   const steps = [
@@ -240,91 +243,194 @@ const FichaMembros = () => {
     }
   };
 
+  const toDateInput = (val) => {
+    if (!val) return '';
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+  };
+
+  const preencherFormComFicha = (ficha) => {
+    const p = ficha.pessoa || {};
+    setFormData({
+      numeroRegistro: ficha.numeroRegistro || '',
+      dataRegistro: toDateInput(ficha.dataRegistro) || getCurrentDate(),
+      cpf: ficha.cpf || '',
+      nome: p.nome || '',
+      conhecidoPor: ficha.conhecidoPor || '',
+      cep: p.cep || '',
+      estado: p.estado || '',
+      cidade: p.cidade || '',
+      bairro: p.bairro || '',
+      endereco: p.rua || '',
+      numeroEndereco: p.numero || '',
+      complemento: p.complemento || '',
+      telefoneComercial: ficha.telefoneComercial || '',
+      numeroTelefone: p.telefone || '',
+      numeroCelular: p.whatsapp || '',
+      numeroCelular2: ficha.telefone2 || '',
+      email: p.email || '',
+      sexo: p.sexo || '',
+      estadoCivil: p.estadoCivil || '',
+      dataNascimento: toDateInput(p.dataNascimento) || '',
+      naturalidade: ficha.naturalidade || '',
+      naturalidadeUF: ficha.naturalidadeUf || '',
+      nacionalidade: ficha.nacionalidade || '',
+      numeroRG: ficha.rgNumero || '',
+      rgDataEmissao: toDateInput(ficha.rgDataEmissao) || '',
+      rgOrgaoEmissor: ficha.rgOrgaoEmissor || '',
+      escolaridade: ficha.escolaridade || '',
+      profissao: ficha.profissao || '',
+      tipoSanguineo: ficha.tipoSanguineo || '',
+      nomePai: ficha.nomePai || '',
+      nomeMae: ficha.nomeMae || '',
+      nomeConjuge: ficha.nomeConjuge || '',
+      dataCasamento: toDateInput(ficha.dataCasamento) || '',
+      quantidadeFilhos: ficha.quantidadeFilhos ?? '',
+      quantidadeMaiores: ficha.quantidadeFilhosMaiores ?? '',
+      quantidadeMenores: ficha.quantidadeFilhosMenores ?? '',
+      foiCasadoAnteriormente: ficha.foiCasadoAnteriormente ?? '',
+      dataBatismo: toDateInput(ficha.dataBatismo) || '',
+      localBatismo: ficha.localBatismo || '',
+      igrejaOndeFoiBatizado: ficha.igrejaOndeFoiBatizado || '',
+      dataAdmissaoMinisterial: toDateInput(ficha.dataAdmissaoMinisterial) || '',
+      tipoAdmissaoMinisterial: ficha.tipoAdmissaoMinisterial || '',
+      igrejaOuMinisterioAnterior: ficha.igrejaOuMinisterioAnterior || '',
+      dataConsagracao: toDateInput(ficha.dataConsagracao) || '',
+      consagracaoMinisterial: ficha.consagracaoMinisterial || '',
+      localConsagracao: ficha.localConsagracao || '',
+      consagradoPor: ficha.consagradoPor || '',
+      funcao: ficha.funcaoMinisterial || '',
+      ministerioIntegracao: ficha.ministerioIntegracao || '',
+      foto: null,
+      observacoes: ficha.observacoes || ''
+    });
+  };
+
+  const carregarMinhaFicha = async () => {
+    if (!user?.id) {
+      setLoadingFicha(false);
+      return;
+    }
+    try {
+      setLoadingFicha(true);
+      const { data } = await api.get('/ficha-cadastral/me');
+      setMinhaFicha(data.ficha);
+      preencherFormComFicha(data.ficha);
+    } catch (error) {
+      if (error.response?.status === 404) {
+        setMinhaFicha(null);
+        if (user) {
+          setFormData(prev => ({
+            ...prev,
+            nome: user.nome || prev.nome,
+            email: user.email || prev.email
+          }));
+        }
+      } else {
+        console.error('Erro ao carregar ficha:', error);
+        setMinhaFicha(null);
+      }
+    } finally {
+      setLoadingFicha(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarMinhaFicha();
+  }, [user?.id]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
+    // Nome e email: usar do formulário ou do usuário logado
+    const nomeEnviar = formData.nome?.trim() || user?.nome || '';
+    const emailEnviar = formData.email?.trim() || user?.email || '';
+    if (!nomeEnviar) {
+      setLoading(false);
+      toast({
+        title: 'Campo obrigatório',
+        description: 'O nome é obrigatório para salvar a ficha cadastral.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!emailEnviar) {
+      setLoading(false);
+      toast({
+        title: 'Campo obrigatório',
+        description: 'O email é obrigatório para salvar a ficha cadastral.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      // TODO: Implementar chamada à API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Criar objeto com os dados da ficha salva (incluindo foto se houver)
-      const fichaCompleta = {
-        ...formData,
-        foto: fotoPreview || null,
-        id: Date.now(), // ID temporário até implementar API
-        dataSalvamento: new Date().toLocaleString('pt-BR')
+      // Mapear campos do formulário para o formato esperado pela API
+      const payload = {
+        nome: nomeEnviar,
+        email: emailEnviar,
+        telefone: formData.numeroTelefone || formData.numeroCelular || undefined,
+        whatsapp: formData.numeroCelular || undefined,
+        dataNascimento: formData.dataNascimento || undefined,
+        sexo: formData.sexo || undefined,
+        estadoCivil: formData.estadoCivil || undefined,
+        cep: formData.cep || undefined,
+        rua: formData.endereco || undefined,
+        numero: formData.numeroEndereco || undefined,
+        complemento: formData.complemento || undefined,
+        bairro: formData.bairro || undefined,
+        cidade: formData.cidade || undefined,
+        estado: formData.estado || undefined,
+        numeroRegistro: formData.numeroRegistro || undefined,
+        dataRegistro: formData.dataRegistro || undefined,
+        cpf: formData.cpf || undefined,
+        conhecidoPor: formData.conhecidoPor || undefined,
+        telefoneComercial: formData.telefoneComercial || undefined,
+        telefone2: formData.numeroCelular2 || undefined,
+        naturalidade: formData.naturalidade || undefined,
+        naturalidadeUf: formData.naturalidadeUF || undefined,
+        nacionalidade: formData.nacionalidade || undefined,
+        rgNumero: formData.numeroRG || undefined,
+        rgDataEmissao: formData.rgDataEmissao || undefined,
+        rgOrgaoEmissor: formData.rgOrgaoEmissor || undefined,
+        escolaridade: formData.escolaridade || undefined,
+        profissao: formData.profissao || undefined,
+        tipoSanguineo: formData.tipoSanguineo || undefined,
+        nomePai: formData.nomePai || undefined,
+        nomeMae: formData.nomeMae || undefined,
+        nomeConjuge: formData.nomeConjuge || undefined,
+        dataCasamento: formData.dataCasamento || undefined,
+        quantidadeFilhos: formData.quantidadeFilhos ? parseInt(formData.quantidadeFilhos, 10) : undefined,
+        quantidadeFilhosMaiores: formData.quantidadeMaiores ? parseInt(formData.quantidadeMaiores, 10) : undefined,
+        quantidadeFilhosMenores: formData.quantidadeMenores ? parseInt(formData.quantidadeMenores, 10) : undefined,
+        foiCasadoAnteriormente: typeof formData.foiCasadoAnteriormente === 'boolean' ? formData.foiCasadoAnteriormente : undefined,
+        dataBatismo: formData.dataBatismo || undefined,
+        localBatismo: formData.localBatismo || undefined,
+        igrejaOndeFoiBatizado: formData.igrejaOndeFoiBatizado || undefined,
+        dataAdmissaoMinisterial: formData.dataAdmissaoMinisterial || undefined,
+        tipoAdmissaoMinisterial: formData.tipoAdmissaoMinisterial || undefined,
+        igrejaOuMinisterioAnterior: formData.igrejaOuMinisterioAnterior || undefined,
+        dataConsagracao: formData.dataConsagracao || undefined,
+        consagracaoMinisterial: formData.consagracaoMinisterial || undefined,
+        localConsagracao: formData.localConsagracao || undefined,
+        consagradoPor: formData.consagradoPor || undefined,
+        funcaoMinisterial: formData.funcao || undefined,
+        ministerioIntegracao: formData.ministerioIntegracao || undefined,
+        observacoes: formData.observacoes || undefined,
       };
+
+      await api.post('/ficha-cadastral', payload);
       
-      // Salvar a ficha
-      setFichaSalva(fichaCompleta);
-      setEditando(false);
+      await carregarMinhaFicha();
       
       toast({
         title: 'Sucesso!',
         description: 'Ficha cadastral salva com sucesso!',
       });
       
-      // Limpar formulário após sucesso
-      setFormData({
-        numeroRegistro: '',
-        dataRegistro: getCurrentDate(),
-        cpf: '',
-        nome: '',
-        conhecidoPor: '',
-        cep: '',
-        estado: '',
-        cidade: '',
-        bairro: '',
-        endereco: '',
-        numeroEndereco: '',
-        complemento: '',
-        telefoneComercial: '',
-        numeroTelefone: '',
-        numeroCelular: '',
-        numeroCelular2: '',
-        email: '',
-        sexo: '',
-        estadoCivil: '',
-        dataNascimento: '',
-        naturalidade: '',
-        naturalidadeUF: '',
-        nacionalidade: '',
-        numeroRG: '',
-        rgDataEmissao: '',
-        rgOrgaoEmissor: '',
-        escolaridade: '',
-        profissao: '',
-        tipoSanguineo: '',
-        nomePai: '',
-        nomeMae: '',
-        nomeConjuge: '',
-        dataCasamento: '',
-        quantidadeFilhos: '',
-        quantidadeMaiores: '',
-        quantidadeMenores: '',
-        foiCasadoAnteriormente: '',
-        dataBatismo: '',
-        localBatismo: '',
-        igrejaOndeFoiBatizado: '',
-        dataAdmissaoMinisterial: '',
-        tipoAdmissaoMinisterial: '',
-        igrejaOuMinisterioAnterior: '',
-        dataConsagracao: '',
-        consagracaoMinisterial: '',
-        localConsagracao: '',
-        consagradoPor: '',
-        funcao: '',
-        ministerioIntegracao: '',
-        foto: null,
-        observacoes: ''
-      });
-      
-      // Limpar foto
       setFoto(null);
       setFotoPreview(null);
-      
-      // Voltar para primeira etapa
       setCurrentStep(0);
     } catch (error) {
       toast({
@@ -355,7 +461,7 @@ const FichaMembros = () => {
               <div className="tab-content-wrapper">
                 <div className="ficha-membros-header">
                   <p className="header-description">
-                    Preencha todos os campos com letra legível ou em formato de máquina
+                    Preencha ou atualize sua ficha cadastral. Cada usuário possui apenas uma ficha vinculada à sua conta.
                   </p>
                 </div>
 
@@ -364,7 +470,10 @@ const FichaMembros = () => {
                   <Progress value={progress} className="progress-bar" />
                 </div>
 
-                <form onSubmit={handleSubmit} className="ficha-form">
+                <form
+                  onSubmit={(e) => e.preventDefault()}
+                  className="ficha-form"
+                >
                   {/* Etapa 0: Identificação */}
                   {currentStep === 0 && (
             <section className="form-section">
@@ -1150,9 +1259,10 @@ const FichaMembros = () => {
                       </Button>
                     ) : (
                       <Button
-                        type="submit"
+                        type="button"
                         className="submit-button"
                         disabled={loading}
+                        onClick={handleSubmit}
                       >
                         {loading ? 'Salvando...' : 'Salvar Ficha'}
                       </Button>
@@ -1161,43 +1271,52 @@ const FichaMembros = () => {
                 </form>
               </div>
               
-              {/* Ficha Salva */}
-              {fichaSalva && (
-                <div className="ficha-salva-container">
-                  <h3 className="ficha-salva-title">Ficha Salva</h3>
+              {/* Sua Ficha Cadastral - uma por usuário */}
+              <div className="ficha-salva-container">
+                <h3 className="ficha-salva-title">Sua Ficha Cadastral</h3>
+                {loadingFicha ? (
+                  <p className="ficha-salva-loading">Carregando sua ficha...</p>
+                ) : !minhaFicha ? (
+                  <p className="ficha-salva-empty">Você ainda não possui ficha cadastral. Preencha o formulário acima para criar a sua (cada usuário possui apenas uma ficha).</p>
+                ) : (
                   <div className="ficha-salva-card">
                     <div className="ficha-salva-header">
                       <div className="ficha-salva-info">
-                        <h4 className="ficha-salva-nome">{fichaSalva.nome || 'Sem nome'}</h4>
-                        <p className="ficha-salva-data">Salva em: {fichaSalva.dataSalvamento}</p>
+                        <h4 className="ficha-salva-nome">
+                          {minhaFicha.pessoa?.nome 
+                            ? `${minhaFicha.pessoa.nome} ${minhaFicha.pessoa.sobrenome || ''}`.trim() 
+                            : 'Sua ficha'}
+                        </h4>
+                        <p className="ficha-salva-data">
+                          {(minhaFicha.atualizadoEm || minhaFicha.criadoEm) && (
+                            <>Atualizada em: {new Date(minhaFicha.atualizadoEm || minhaFicha.criadoEm).toLocaleString('pt-BR')}</>
+                          )}
+                        </p>
                       </div>
-                      {fichaSalva.foto && (
-                        <div className="ficha-salva-foto">
-                          <Avatar className="ficha-salva-avatar">
-                            <AvatarImage src={fichaSalva.foto} alt="Foto do membro" />
-                            <AvatarFallback>
-                              {fichaSalva.nome ? fichaSalva.nome.charAt(0).toUpperCase() : 'M'}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                      )}
+                      <div className="ficha-salva-foto">
+                        <Avatar className="ficha-salva-avatar">
+                          <AvatarFallback>
+                            {minhaFicha.pessoa?.nome ? minhaFicha.pessoa.nome.charAt(0).toUpperCase() : 'M'}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
                     </div>
                     <div className="ficha-salva-details">
                       <div className="ficha-salva-detail-item">
                         <span className="detail-label">CPF:</span>
-                        <span className="detail-value">{fichaSalva.cpf || 'Não informado'}</span>
+                        <span className="detail-value">{minhaFicha.cpf || 'Não informado'}</span>
                       </div>
                       <div className="ficha-salva-detail-item">
                         <span className="detail-label">Email:</span>
-                        <span className="detail-value">{fichaSalva.email || 'Não informado'}</span>
+                        <span className="detail-value">{minhaFicha.pessoa?.email || 'Não informado'}</span>
                       </div>
                       <div className="ficha-salva-detail-item">
                         <span className="detail-label">Telefone:</span>
-                        <span className="detail-value">{fichaSalva.numeroCelular || 'Não informado'}</span>
+                        <span className="detail-value">{minhaFicha.pessoa?.telefone || minhaFicha.pessoa?.whatsapp || 'Não informado'}</span>
                       </div>
                       <div className="ficha-salva-detail-item">
                         <span className="detail-label">Cidade:</span>
-                        <span className="detail-value">{fichaSalva.cidade || 'Não informado'}</span>
+                        <span className="detail-value">{minhaFicha.pessoa?.cidade || 'Não informado'}</span>
                       </div>
                     </div>
                     <div className="ficha-salva-actions">
@@ -1205,27 +1324,18 @@ const FichaMembros = () => {
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          // Carregar dados da ficha salva no formulário
-                          setFormData({
-                            ...fichaSalva,
-                            foto: null
-                          });
-                          if (fichaSalva.foto) {
-                            setFotoPreview(fichaSalva.foto);
-                          }
-                          setEditando(true);
-                          setCurrentStep(0);
                           window.scrollTo({ top: 0, behavior: 'smooth' });
+                          setCurrentStep(0);
                         }}
                         className="ficha-edit-button"
                       >
                         <Edit className="button-icon" />
-                        Editar
+                        Editar no formulário
                       </Button>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </div>

@@ -59,18 +59,18 @@ function mapRowToFichaCadastral(row) {
 }
 
 /**
- * Criar ou atualizar ficha cadastral
- * Se pessoa_id não existir, cria a pessoa primeiro
- * Apenas nome e email são obrigatórios
+ * Criar ou atualizar ficha cadastral do usuário logado
+ * Cada usuário possui apenas uma ficha cadastral (sua própria)
+ * req.user.id é o pessoa_id
  */
 async function criarOuAtualizarFichaCadastral(req, res) {
   try {
+    const pessoaId = req.user.id;
     const {
-      // Dados da pessoa (obrigatórios: nome, email)
+      // Dados da pessoa (para atualização)
       nome,
       sobrenome,
       email,
-      // Dados básicos da pessoa
       telefone,
       whatsapp,
       dataNascimento,
@@ -122,18 +122,12 @@ async function criarOuAtualizarFichaCadastral(req, res) {
       observacoes,
     } = req.body;
 
-    // Validações obrigatórias
-    if (!nome || !nome.trim()) {
-      return res.status(400).json({ message: 'Nome é obrigatório' });
-    }
-    if (!email || !email.trim()) {
-      return res.status(400).json({ message: 'Email é obrigatório' });
-    }
-
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: 'Email inválido' });
+    // Validar formato de email se fornecido
+    if (email && email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: 'Email inválido' });
+      }
     }
 
     // Validar enums se fornecidos
@@ -173,73 +167,51 @@ async function criarOuAtualizarFichaCadastral(req, res) {
       return Boolean(v);
     };
 
-    // Verificar se pessoa já existe (por email)
-    let pessoaId;
-    const pessoaExistente = await pool.query(
-      'SELECT id FROM pessoas WHERE email = $1',
-      [email]
+    // Atualizar dados da pessoa (usuário logado) - usa COALESCE para manter valores existentes
+    const pessoaAtual = await pool.query(
+      'SELECT nome, sobrenome, email FROM pessoas WHERE id = $1',
+      [pessoaId]
     );
-
-    if (pessoaExistente.rows.length > 0) {
-      // Pessoa existe, atualizar dados básicos
-      pessoaId = pessoaExistente.rows[0].id;
-      
-      await pool.query(
-        `UPDATE pessoas 
-         SET nome = $1, sobrenome = $2, telefone = $3, whatsapp = $4,
-             data_nascimento = $5, sexo = $6, estado_civil = $7,
-             cep = $8, rua = $9, numero = $10, complemento = $11,
-             bairro = $12, cidade = $13, estado = $14,
-             atualizado_em = CURRENT_TIMESTAMP
-         WHERE id = $15`,
-        [
-          nome.trim(),
-          emptyToNull(sobrenome),
-          emptyToNull(telefone),
-          emptyToNull(whatsapp),
-          emptyToNull(dataNascimento),
-          emptyToNull(sexo),
-          emptyToNull(estadoCivil),
-          emptyToNull(cep),
-          emptyToNull(rua),
-          emptyToNull(numero),
-          emptyToNull(complemento),
-          emptyToNull(bairro),
-          emptyToNull(cidade),
-          emptyToNull(estado),
-          pessoaId
-        ]
-      );
-    } else {
-      // Criar nova pessoa
-      const result = await pool.query(
-        `INSERT INTO pessoas (
-          nome, sobrenome, email, telefone, whatsapp, data_nascimento,
-          sexo, estado_civil, cep, rua, numero, complemento, bairro, cidade, estado,
-          estagio_atual, ativo
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'Visitante', TRUE)
-        RETURNING id`,
-        [
-          nome.trim(),
-          emptyToNull(sobrenome),
-          email.trim(),
-          emptyToNull(telefone),
-          emptyToNull(whatsapp),
-          emptyToNull(dataNascimento),
-          emptyToNull(sexo),
-          emptyToNull(estadoCivil),
-          emptyToNull(cep),
-          emptyToNull(rua),
-          emptyToNull(numero),
-          emptyToNull(complemento),
-          emptyToNull(bairro),
-          emptyToNull(cidade),
-          emptyToNull(estado)
-        ]
-      );
-      pessoaId = result.rows[0].id;
+    if (pessoaAtual.rows.length === 0) {
+      return res.status(404).json({ message: 'Pessoa não encontrada' });
     }
+    const p = pessoaAtual.rows[0];
+    const nomeAtual = (nome && nome.trim()) ? nome.trim() : p.nome;
+    const emailAtual = (email && email.trim()) ? email.trim() : p.email;
+    if (!nomeAtual) {
+      return res.status(400).json({ message: 'Nome é obrigatório' });
+    }
+    if (!emailAtual) {
+      return res.status(400).json({ message: 'Email é obrigatório' });
+    }
+
+    await pool.query(
+      `UPDATE pessoas 
+       SET nome = $1, sobrenome = $2, email = $3, telefone = $4, whatsapp = $5,
+           data_nascimento = $6, sexo = $7, estado_civil = $8,
+           cep = $9, rua = $10, numero = $11, complemento = $12,
+           bairro = $13, cidade = $14, estado = $15,
+           atualizado_em = CURRENT_TIMESTAMP
+       WHERE id = $16`,
+      [
+        nomeAtual,
+        emptyToNull(sobrenome ?? p.sobrenome),
+        emailAtual,
+        emptyToNull(telefone),
+        emptyToNull(whatsapp),
+        emptyToNull(dataNascimento),
+        emptyToNull(sexo),
+        emptyToNull(estadoCivil),
+        emptyToNull(cep),
+        emptyToNull(rua),
+        emptyToNull(numero),
+        emptyToNull(complemento),
+        emptyToNull(bairro),
+        emptyToNull(cidade),
+        emptyToNull(estado),
+        pessoaId
+      ]
+    );
 
     // Verificar se ficha cadastral já existe
     const fichaExistente = await pool.query(
@@ -415,7 +387,59 @@ async function criarOuAtualizarFichaCadastral(req, res) {
 }
 
 /**
- * Obter ficha cadastral por pessoa_id
+ * Obter ficha cadastral do usuário logado (sua própria ficha)
+ */
+async function obterMinhaFichaCadastral(req, res) {
+  try {
+    const pessoaId = req.user.id;
+
+    const result = await pool.query(
+      `SELECT fc.*, 
+              p.nome, p.sobrenome, p.email, p.telefone, p.whatsapp,
+              p.data_nascimento, p.sexo, p.estado_civil,
+              p.cep, p.rua, p.numero, p.complemento, p.bairro, p.cidade, p.estado
+       FROM ficha_cadastral fc
+       INNER JOIN pessoas p ON fc.pessoa_id = p.id
+       WHERE fc.pessoa_id = $1`,
+      [pessoaId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Ficha cadastral não encontrada' });
+    }
+
+    const row = result.rows[0];
+    const ficha = mapRowToFichaCadastral(row);
+    ficha.pessoa = {
+      nome: row.nome,
+      sobrenome: row.sobrenome,
+      email: row.email,
+      telefone: row.telefone,
+      whatsapp: row.whatsapp,
+      dataNascimento: row.data_nascimento,
+      sexo: row.sexo,
+      estadoCivil: row.estado_civil,
+      cep: row.cep,
+      rua: row.rua,
+      numero: row.numero,
+      complemento: row.complemento,
+      bairro: row.bairro,
+      cidade: row.cidade,
+      estado: row.estado
+    };
+
+    res.json({ ficha });
+  } catch (error) {
+    console.error('Erro ao obter ficha cadastral:', error);
+    res.status(500).json({ 
+      message: 'Erro ao obter ficha cadastral', 
+      error: error.message 
+    });
+  }
+}
+
+/**
+ * Obter ficha cadastral por pessoa_id (para admins/outros usos)
  */
 async function obterFichaCadastral(req, res) {
   try {
@@ -481,7 +505,7 @@ async function listarFichasCadastrais(req, res) {
 
     let query = `
       SELECT fc.*, 
-             p.nome, p.sobrenome, p.email, p.telefone
+             p.nome, p.sobrenome, p.email, p.telefone, p.cidade
       FROM ficha_cadastral fc
       INNER JOIN pessoas p ON fc.pessoa_id = p.id
       WHERE 1=1
@@ -515,6 +539,7 @@ async function listarFichasCadastrais(req, res) {
       ficha.pessoaNome = `${row.nome} ${row.sobrenome || ''}`.trim();
       ficha.pessoaEmail = row.email;
       ficha.pessoaTelefone = row.telefone;
+      ficha.pessoaCidade = row.cidade;
       return ficha;
     });
 
@@ -538,6 +563,7 @@ async function listarFichasCadastrais(req, res) {
 
 module.exports = {
   criarOuAtualizarFichaCadastral,
+  obterMinhaFichaCadastral,
   obterFichaCadastral,
   listarFichasCadastrais,
 };

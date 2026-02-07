@@ -360,11 +360,28 @@
   margin: 0;
 }
 
-/* Estilos para Ficha Salva */
+/* Estilos para Fichas Cadastrais */
 .ficha-salva-container {
   margin-top: 32px;
   padding-top: 32px;
   border-top: 2px solid #e0e0e0;
+}
+
+.fichas-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.ficha-salva-loading,
+.ficha-salva-empty {
+  color: #666;
+  font-size: 14px;
+  padding: 24px;
+  text-align: center;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px dashed #e0e0e0;
 }
 
 .ficha-salva-title {
