@@ -96,9 +96,24 @@ const MainLayout = ({ children }) => {
             </div>
             
             <div className="header-right">
-              <button className="icon-button aniversariantes-button" type="button" aria-label="Aniversariantes do dia">
-                <Cake className="header-icon" />
-              </button>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="icon-button aniversariantes-button" type="button" aria-label="Aniversariantes do dia">
+                    <Cake className="header-icon" />
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="right" className="notificacoes-sheet">
+                  <SheetHeader>
+                    <SheetTitle>Aniversariantes do dia</SheetTitle>
+                    <SheetDescription>
+                      Pessoas que fazem aniversário hoje.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="notificacoes-body">
+                    <p className="notificacoes-empty">Sem aniversariantes hoje.</p>
+                  </div>
+                </SheetContent>
+              </Sheet>
               <Sheet>
                 <SheetTrigger asChild>
                   <button className="icon-button search-button" type="button" aria-label="Alertas">
