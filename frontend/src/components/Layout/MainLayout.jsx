@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, LogOut, Search, User, Home, Users, DollarSign, Calendar, X } from 'lucide-react';
+import { Settings, LogOut, Bell, Cake, User, Home, Users, DollarSign, Calendar, X } from 'lucide-react';
 import { useSidebar } from '../ui/sidebar';
 import {
   DropdownMenu,
@@ -10,6 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from '../ui/sheet';
 import {
   Sidebar,
   SidebarContent,
@@ -88,10 +96,27 @@ const MainLayout = ({ children }) => {
             </div>
             
             <div className="header-right">
-              <button className="icon-button search-button" type="button">
-                <Search className="header-icon" />
+              <button className="icon-button aniversariantes-button" type="button" aria-label="Aniversariantes do dia">
+                <Cake className="header-icon" />
               </button>
-              
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="icon-button search-button" type="button" aria-label="Alertas">
+                    <Bell className="header-icon" />
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="right" className="notificacoes-sheet">
+                  <SheetHeader>
+                    <SheetTitle>Notificações</SheetTitle>
+                    <SheetDescription>
+                      Suas notificações e alertas aparecerão aqui.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="notificacoes-body">
+                    <p className="notificacoes-empty">Sem notificações.</p>
+                  </div>
+                </SheetContent>
+              </Sheet>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="icon-button user-button" type="button">
