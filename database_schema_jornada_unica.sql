@@ -62,6 +62,7 @@ DO $$ BEGIN
     'Visitante',           -- Primeira visita
     'Visitante Frequente', -- Voltou mais de uma vez
     'Novo Convertido',     -- Aceitou Jesus
+    'Em Batismo',          -- Fazendo curso de batismo
     'Em Membresia',        -- Fazendo curso de membresia
     'Membro',              -- Concluiu membresia
     'Participante',        -- Participa de ministérios
@@ -72,6 +73,15 @@ DO $$ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
+
+-- IMPORTANTE: Se você já tem um banco de dados existente com este enum criado anteriormente,
+-- o comando acima NÃO adicionará automaticamente o novo valor 'Em Batismo'.
+-- Isso acontece porque o PostgreSQL não permite modificar enums dentro de blocos transacionais.
+-- 
+-- Para adicionar 'Em Batismo' a um banco existente, execute ANTES de rodar este script:
+-- ALTER TYPE estagio_espiritual_enum ADD VALUE 'Em Batismo';
+--
+-- Para novos bancos de dados, o valor já estará incluído automaticamente.
 
 -- Enum para tipo de acesso ao sistema
 DO $$ BEGIN
@@ -273,6 +283,79 @@ CREATE TABLE IF NOT EXISTS conversoes (
 );
 
 -- =====================================================
+-- FICHA CADASTRAL COMPLETA
+-- =====================================================
+-- Tabela com informações detalhadas da ficha cadastral
+-- Relacionamento 1:1 com pessoas (opcional - nem todos preenchem)
+-- Mantém a tabela pessoas enxuta e permite ficha completa opcional
+
+CREATE TABLE IF NOT EXISTS ficha_cadastral (
+  id SERIAL PRIMARY KEY,
+  pessoa_id INTEGER NOT NULL UNIQUE REFERENCES pessoas(id) ON DELETE CASCADE,
+  
+  -- Identificação
+  numero_registro VARCHAR(50), -- Número de registro na igreja
+  data_registro DATE, -- Data de registro na igreja
+  cpf VARCHAR(14), -- CPF (formato: 000.000.000-00)
+  conhecido_por VARCHAR(255), -- Apelido/nome conhecido
+  
+  -- Contato Adicional
+  telefone_comercial VARCHAR(20),
+  telefone_2 VARCHAR(20), -- Segundo celular
+  
+  -- Dados Pessoais Adicionais
+  naturalidade VARCHAR(255), -- Cidade de nascimento
+  naturalidade_uf estado_brasil_enum, -- UF de nascimento
+  nacionalidade VARCHAR(100) DEFAULT 'Brasileira',
+  rg_numero VARCHAR(20), -- Número do RG
+  rg_data_emissao DATE, -- Data de emissão do RG
+  rg_orgao_emissor VARCHAR(50), -- Órgão emissor do RG (ex: SSP, IFP)
+  escolaridade VARCHAR(100), -- Ex: Ensino Médio, Superior, etc.
+  profissao VARCHAR(255),
+  tipo_sanguineo VARCHAR(5), -- A+, A-, B+, B-, AB+, AB-, O+, O-
+  
+  -- Informações Familiares
+  nome_pai VARCHAR(255),
+  nome_mae VARCHAR(255),
+  nome_conjuge VARCHAR(255),
+  data_casamento DATE,
+  quantidade_filhos INTEGER DEFAULT 0,
+  quantidade_filhos_maiores INTEGER DEFAULT 0, -- Filhos maiores de idade
+  quantidade_filhos_menores INTEGER DEFAULT 0, -- Filhos menores de idade
+  foi_casado_anteriormente BOOLEAN, -- Já foi casado anteriormente em igreja evangélica
+  
+  -- Informações Eclesiásticas - Batismo
+  data_batismo DATE, -- Data do batismo
+  local_batismo VARCHAR(255), -- Local onde foi batizado
+  igreja_onde_foi_batizado VARCHAR(255), -- Igreja onde foi batizado
+  
+  -- Informações Eclesiásticas - Admissão Ministerial
+  data_admissao_ministerial DATE, -- Data de admissão ministerial
+  tipo_admissao_ministerial VARCHAR(100), -- Tipo de admissão
+  igreja_ou_ministerio_anterior VARCHAR(255), -- Igreja ou ministério anterior
+  
+  -- Informações Eclesiásticas - Consagração
+  data_consagracao DATE, -- Data da consagração
+  consagracao_ministerial VARCHAR(255), -- Tipo de consagração ministerial
+  local_consagracao VARCHAR(255), -- Local da consagração
+  consagrado_por VARCHAR(255), -- Quem consagrou
+  
+  -- Função Ministerial
+  funcao_ministerial VARCHAR(255), -- Função exercida
+  ministerio_integracao VARCHAR(255), -- Ministério de integração
+  
+  -- Observações
+  observacoes TEXT, -- Observações gerais
+  
+  -- Metadados
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  -- Constraints
+  CONSTRAINT cpf_valido CHECK (cpf IS NULL OR LENGTH(REPLACE(REPLACE(cpf, '.', ''), '-', '')) = 11)
+);
+
+-- =====================================================
 -- TABELA DE MINISTÉRIOS
 -- =====================================================
 
@@ -337,6 +420,50 @@ CREATE TABLE IF NOT EXISTS matriculas_membresia (
 CREATE TABLE IF NOT EXISTS aulas_membresia (
   id SERIAL PRIMARY KEY,
   matricula_id INTEGER NOT NULL REFERENCES matriculas_membresia(id) ON DELETE CASCADE,
+  
+  -- Aula
+  aula_numero INTEGER NOT NULL CHECK (aula_numero >= 1 AND aula_numero <= 5),
+  concluida BOOLEAN DEFAULT FALSE,
+  data_conclusao DATE,
+  
+  -- Notas/Observações
+  observacoes TEXT,
+  
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  UNIQUE(matricula_id, aula_numero)
+);
+
+-- =====================================================
+-- CURSO DE BATISMO
+-- =====================================================
+
+-- Tabela de matrículas em batismo
+CREATE TABLE IF NOT EXISTS matriculas_batismo (
+  id SERIAL PRIMARY KEY,
+  pessoa_id INTEGER NOT NULL REFERENCES pessoas(id) ON DELETE CASCADE,
+  
+  -- Dados da matrícula
+  data_matricula DATE NOT NULL,
+  data_conclusao DATE, -- Quando concluiu todas as 5 aulas
+  
+  -- Status
+  concluido BOOLEAN DEFAULT FALSE,
+  
+  -- Observações
+  observacoes TEXT,
+  
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  UNIQUE(pessoa_id, data_matricula)
+);
+
+-- Tabela de aulas de batismo
+CREATE TABLE IF NOT EXISTS aulas_batismo (
+  id SERIAL PRIMARY KEY,
+  matricula_id INTEGER NOT NULL REFERENCES matriculas_batismo(id) ON DELETE CASCADE,
   
   -- Aula
   aula_numero INTEGER NOT NULL CHECK (aula_numero >= 1 AND aula_numero <= 5),
@@ -533,6 +660,16 @@ CREATE INDEX IF NOT EXISTS idx_matriculas_concluido ON matriculas_membresia(conc
 CREATE INDEX IF NOT EXISTS idx_aulas_matricula_id ON aulas_membresia(matricula_id);
 CREATE INDEX IF NOT EXISTS idx_aulas_concluida ON aulas_membresia(concluida);
 
+-- Índices em matriculas_batismo
+CREATE INDEX IF NOT EXISTS idx_matriculas_batismo_pessoa_id ON matriculas_batismo(pessoa_id);
+CREATE INDEX IF NOT EXISTS idx_matriculas_batismo_data_matricula ON matriculas_batismo(data_matricula);
+CREATE INDEX IF NOT EXISTS idx_matriculas_batismo_concluido ON matriculas_batismo(concluido);
+
+-- Índices em aulas_batismo
+CREATE INDEX IF NOT EXISTS idx_aulas_batismo_matricula_id ON aulas_batismo(matricula_id);
+CREATE INDEX IF NOT EXISTS idx_aulas_batismo_concluida ON aulas_batismo(concluida);
+CREATE INDEX IF NOT EXISTS idx_aulas_batismo_aula_numero ON aulas_batismo(aula_numero);
+
 -- Índices em entradas_financeiras
 CREATE INDEX IF NOT EXISTS idx_entradas_data ON entradas_financeiras(data_entrada);
 CREATE INDEX IF NOT EXISTS idx_entradas_categoria ON entradas_financeiras(categoria);
@@ -546,6 +683,12 @@ CREATE INDEX IF NOT EXISTS idx_saidas_registrado_por ON saidas_financeiras(regis
 -- Índices em eventos
 CREATE INDEX IF NOT EXISTS idx_eventos_data ON eventos(data);
 CREATE INDEX IF NOT EXISTS idx_eventos_tipo ON eventos(tipo);
+
+-- Índices em ficha_cadastral
+CREATE INDEX IF NOT EXISTS idx_ficha_cadastral_pessoa_id ON ficha_cadastral(pessoa_id);
+CREATE INDEX IF NOT EXISTS idx_ficha_cadastral_cpf ON ficha_cadastral(cpf);
+CREATE INDEX IF NOT EXISTS idx_ficha_cadastral_numero_registro ON ficha_cadastral(numero_registro);
+CREATE INDEX IF NOT EXISTS idx_ficha_cadastral_data_registro ON ficha_cadastral(data_registro);
 
 -- =====================================================
 -- TRIGGERS PARA ATUALIZAÇÃO AUTOMÁTICA
@@ -589,6 +732,14 @@ DROP TRIGGER IF EXISTS update_aulas_updated_at ON aulas_membresia;
 CREATE TRIGGER update_aulas_updated_at BEFORE UPDATE ON aulas_membresia
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_matriculas_batismo_updated_at ON matriculas_batismo;
+CREATE TRIGGER update_matriculas_batismo_updated_at BEFORE UPDATE ON matriculas_batismo
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_aulas_batismo_updated_at ON aulas_batismo;
+CREATE TRIGGER update_aulas_batismo_updated_at BEFORE UPDATE ON aulas_batismo
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 DROP TRIGGER IF EXISTS update_entradas_updated_at ON entradas_financeiras;
 CREATE TRIGGER update_entradas_updated_at BEFORE UPDATE ON entradas_financeiras
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -603,6 +754,10 @@ CREATE TRIGGER update_eventos_updated_at BEFORE UPDATE ON eventos
 
 DROP TRIGGER IF EXISTS update_relatorios_updated_at ON relatorios;
 CREATE TRIGGER update_relatorios_updated_at BEFORE UPDATE ON relatorios
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_ficha_cadastral_updated_at ON ficha_cadastral;
+CREATE TRIGGER update_ficha_cadastral_updated_at BEFORE UPDATE ON ficha_cadastral
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
@@ -661,6 +816,77 @@ CREATE TRIGGER trigger_conclusao_membresia
   FOR EACH ROW 
   WHEN (NEW.concluida = TRUE AND OLD.concluida = FALSE)
   EXECUTE FUNCTION verificar_conclusao_membresia();
+
+-- =====================================================
+-- TRIGGER: CONCLUIR BATISMO AUTOMATICAMENTE
+-- =====================================================
+-- Quando a 5ª aula for marcada como concluída, marca a matrícula como concluída
+
+CREATE OR REPLACE FUNCTION verificar_conclusao_batismo()
+RETURNS TRIGGER AS $$
+DECLARE
+  aulas_concluidas INTEGER;
+BEGIN
+  -- Contar quantas aulas estão concluídas
+  SELECT COUNT(*) INTO aulas_concluidas
+  FROM aulas_batismo
+  WHERE matricula_id = NEW.matricula_id AND concluida = TRUE;
+  
+  -- Se todas as 5 aulas estão concluídas
+  IF aulas_concluidas = 5 THEN
+    UPDATE matriculas_batismo
+    SET concluido = TRUE,
+        data_conclusao = CURRENT_DATE,
+        atualizado_em = CURRENT_TIMESTAMP
+    WHERE id = NEW.matricula_id;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS trigger_conclusao_batismo ON aulas_batismo;
+CREATE TRIGGER trigger_conclusao_batismo
+  AFTER UPDATE ON aulas_batismo
+  FOR EACH ROW 
+  WHEN (NEW.concluida = TRUE AND OLD.concluida = FALSE)
+  EXECUTE FUNCTION verificar_conclusao_batismo();
+
+-- =====================================================
+-- TRIGGER: ATUALIZAR ESTÁGIO PARA "Em Batismo" AO MATRICULAR
+-- =====================================================
+-- Quando uma matrícula de batismo é criada, atualiza o estágio da pessoa
+
+CREATE OR REPLACE FUNCTION atualizar_estagio_ao_matricular_batismo()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Atualizar estágio para "Em Batismo" se a pessoa for "Novo Convertido"
+  UPDATE pessoas 
+  SET estagio_atual = 'Em Batismo',
+      atualizado_em = CURRENT_TIMESTAMP
+  WHERE id = NEW.pessoa_id 
+    AND estagio_atual = 'Novo Convertido';
+  
+  -- Registrar na jornada espiritual
+  INSERT INTO jornada_espiritual (pessoa_id, estagio_anterior, estagio_novo, observacoes)
+  SELECT 
+    NEW.pessoa_id,
+    estagio_atual,
+    'Em Batismo',
+    'Matriculado no curso de batismo'
+  FROM pessoas
+  WHERE id = NEW.pessoa_id
+    AND estagio_atual = 'Novo Convertido';
+  
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS trigger_atualizar_estagio_batismo ON matriculas_batismo;
+CREATE TRIGGER trigger_atualizar_estagio_batismo
+  AFTER INSERT ON matriculas_batismo
+  FOR EACH ROW
+  EXECUTE FUNCTION atualizar_estagio_ao_matricular_batismo();
 
 -- =====================================================
 -- DADOS INICIAIS (SEEDS)
@@ -811,6 +1037,70 @@ INNER JOIN pessoas p ON mm.pessoa_id = p.id
 LEFT JOIN aulas_membresia am ON mm.id = am.matricula_id
 GROUP BY mm.id, p.id, p.nome, p.sobrenome, p.email, p.telefone, mm.data_matricula, mm.data_conclusao, mm.concluido;
 
+-- View: Progresso de batismo
+DROP VIEW IF EXISTS vw_progresso_batismo CASCADE;
+CREATE OR REPLACE VIEW vw_progresso_batismo AS
+SELECT 
+  mb.id as matricula_id,
+  p.id as pessoa_id,
+  p.nome || ' ' || COALESCE(p.sobrenome, '') as nome_completo,
+  p.email,
+  p.telefone,
+  p.whatsapp,
+  p.estagio_atual,
+  mb.data_matricula,
+  mb.data_conclusao,
+  mb.concluido,
+  COUNT(ab.id) FILTER (WHERE ab.concluida = TRUE) as aulas_concluidas,
+  COUNT(ab.id) FILTER (WHERE ab.concluida = FALSE OR ab.concluida IS NULL) as aulas_pendentes,
+  ROUND((COUNT(ab.id) FILTER (WHERE ab.concluida = TRUE)::DECIMAL / 5) * 100, 2) as progresso_percentual
+FROM matriculas_batismo mb
+INNER JOIN pessoas p ON mb.pessoa_id = p.id
+LEFT JOIN aulas_batismo ab ON mb.id = ab.matricula_id
+GROUP BY mb.id, p.id, p.nome, p.sobrenome, p.email, p.telefone, p.whatsapp, p.estagio_atual, mb.data_matricula, mb.data_conclusao, mb.concluido;
+
+-- View: Alunos de batismo com detalhes das aulas
+DROP VIEW IF EXISTS vw_alunos_batismo_detalhado CASCADE;
+CREATE OR REPLACE VIEW vw_alunos_batismo_detalhado AS
+SELECT 
+  mb.id as matricula_id,
+  p.id as pessoa_id,
+  p.nome || ' ' || COALESCE(p.sobrenome, '') as nome_completo,
+  p.email,
+  p.telefone,
+  p.whatsapp,
+  p.estagio_atual,
+  mb.data_matricula,
+  mb.data_conclusao,
+  mb.concluido,
+  mb.observacoes as observacoes_matricula,
+  -- Aulas como JSON array (para facilitar uso no backend)
+  json_agg(
+    json_build_object(
+      'numero', ab.aula_numero,
+      'concluida', COALESCE(ab.concluida, FALSE),
+      'dataConclusao', ab.data_conclusao,
+      'observacoes', ab.observacoes
+    ) ORDER BY ab.aula_numero
+  ) FILTER (WHERE ab.id IS NOT NULL) as aulas_json,
+  -- Aulas individuais (para queries mais simples)
+  BOOL_OR(CASE WHEN ab.aula_numero = 1 THEN ab.concluida ELSE NULL END) as aula_1_concluida,
+  MAX(CASE WHEN ab.aula_numero = 1 THEN ab.data_conclusao ELSE NULL END) as aula_1_data,
+  BOOL_OR(CASE WHEN ab.aula_numero = 2 THEN ab.concluida ELSE NULL END) as aula_2_concluida,
+  MAX(CASE WHEN ab.aula_numero = 2 THEN ab.data_conclusao ELSE NULL END) as aula_2_data,
+  BOOL_OR(CASE WHEN ab.aula_numero = 3 THEN ab.concluida ELSE NULL END) as aula_3_concluida,
+  MAX(CASE WHEN ab.aula_numero = 3 THEN ab.data_conclusao ELSE NULL END) as aula_3_data,
+  BOOL_OR(CASE WHEN ab.aula_numero = 4 THEN ab.concluida ELSE NULL END) as aula_4_concluida,
+  MAX(CASE WHEN ab.aula_numero = 4 THEN ab.data_conclusao ELSE NULL END) as aula_4_data,
+  BOOL_OR(CASE WHEN ab.aula_numero = 5 THEN ab.concluida ELSE NULL END) as aula_5_concluida,
+  MAX(CASE WHEN ab.aula_numero = 5 THEN ab.data_conclusao ELSE NULL END) as aula_5_data,
+  COUNT(ab.id) FILTER (WHERE ab.concluida = TRUE) as total_aulas_concluidas,
+  COUNT(ab.id) FILTER (WHERE ab.concluida = FALSE OR ab.concluida IS NULL) as total_aulas_pendentes
+FROM matriculas_batismo mb
+INNER JOIN pessoas p ON mb.pessoa_id = p.id
+LEFT JOIN aulas_batismo ab ON mb.id = ab.matricula_id
+GROUP BY mb.id, p.id, p.nome, p.sobrenome, p.email, p.telefone, p.whatsapp, p.estagio_atual, mb.data_matricula, mb.data_conclusao, mb.concluido, mb.observacoes;
+
 -- View: Relatório financeiro consolidado
 DROP VIEW IF EXISTS vw_relatorio_financeiro CASCADE;
 CREATE OR REPLACE VIEW vw_relatorio_financeiro AS
@@ -863,6 +1153,10 @@ SELECT
   (SELECT COUNT(DISTINCT pessoa_id) FROM pessoa_ministerios WHERE data_fim IS NULL) as total_pessoas_em_ministerios,
   (SELECT COUNT(*) FROM matriculas_membresia WHERE concluido = FALSE) as total_em_membresia,
   (SELECT COUNT(*) FROM matriculas_membresia WHERE concluido = TRUE) as total_membresia_concluida,
+  (SELECT COUNT(*) FROM pessoas WHERE estagio_atual = 'Em Batismo') as total_em_batismo,
+  (SELECT COUNT(*) FROM matriculas_batismo WHERE concluido = FALSE) as total_em_batismo_curso,
+  (SELECT COUNT(*) FROM matriculas_batismo WHERE concluido = TRUE) as total_batismo_concluido,
+  (SELECT COUNT(*) FROM ficha_cadastral) as total_fichas_cadastrais,
   (SELECT COALESCE(SUM(valor), 0) FROM entradas_financeiras WHERE EXTRACT(MONTH FROM data_entrada) = EXTRACT(MONTH FROM CURRENT_DATE)) as entradas_mes_atual,
   (SELECT COALESCE(SUM(valor), 0) FROM saidas_financeiras WHERE EXTRACT(MONTH FROM data_saida) = EXTRACT(MONTH FROM CURRENT_DATE)) as saidas_mes_atual;
 
@@ -879,12 +1173,82 @@ COMMENT ON TABLE ministerios IS 'Ministérios da igreja';
 COMMENT ON TABLE pessoa_ministerios IS 'Relacionamento entre pessoas e ministérios (líder ou participante)';
 COMMENT ON TABLE matriculas_membresia IS 'Matrículas no curso de membresia';
 COMMENT ON TABLE aulas_membresia IS 'Aulas do curso de membresia';
+COMMENT ON TABLE matriculas_batismo IS 'Matrículas no curso de batismo';
+COMMENT ON TABLE aulas_batismo IS 'Aulas do curso de batismo (5 aulas)';
 COMMENT ON TABLE entradas_financeiras IS 'Entradas financeiras (dízimos, ofertas, etc)';
 COMMENT ON TABLE entrada_doadores IS 'Doadores de cada entrada financeira';
 COMMENT ON TABLE saidas_financeiras IS 'Saídas financeiras';
 COMMENT ON TABLE eventos IS 'Eventos da igreja';
 COMMENT ON TABLE evento_participantes IS 'Participantes de cada evento';
 COMMENT ON TABLE relatorios IS 'Relatórios gerados pelos ministérios';
+COMMENT ON TABLE ficha_cadastral IS 'Ficha cadastral completa com informações detalhadas (opcional)';
+COMMENT ON TABLE ficha_cadastral IS 'Ficha cadastral completa com informações detalhadas (opcional)';
+
+-- View: Pessoas com ficha cadastral completa
+DROP VIEW IF EXISTS vw_pessoas_ficha_completa CASCADE;
+CREATE OR REPLACE VIEW vw_pessoas_ficha_completa AS
+SELECT 
+  p.id,
+  p.nome,
+  p.sobrenome,
+  p.nome || ' ' || COALESCE(p.sobrenome, '') as nome_completo,
+  p.email,
+  p.telefone,
+  p.whatsapp,
+  p.data_nascimento,
+  p.sexo,
+  p.estado_civil,
+  p.cidade,
+  p.estado,
+  p.estagio_atual,
+  p.cargo_eclesiastico,
+  -- Dados da ficha cadastral
+  fc.numero_registro,
+  fc.data_registro,
+  fc.cpf,
+  fc.conhecido_por,
+  fc.telefone_comercial,
+  fc.telefone_2,
+  fc.naturalidade,
+  fc.naturalidade_uf,
+  fc.nacionalidade,
+  fc.rg_numero,
+  fc.rg_data_emissao,
+  fc.rg_orgao_emissor,
+  fc.escolaridade,
+  fc.profissao,
+  fc.tipo_sanguineo,
+  fc.nome_pai,
+  fc.nome_mae,
+  fc.nome_conjuge,
+  fc.data_casamento,
+  fc.quantidade_filhos,
+  fc.quantidade_filhos_maiores,
+  fc.quantidade_filhos_menores,
+  fc.foi_casado_anteriormente,
+  fc.data_batismo,
+  fc.local_batismo,
+  fc.igreja_onde_foi_batizado,
+  fc.data_admissao_ministerial,
+  fc.tipo_admissao_ministerial,
+  fc.igreja_ou_ministerio_anterior,
+  fc.data_consagracao,
+  fc.consagracao_ministerial,
+  fc.local_consagracao,
+  fc.consagrado_por,
+  fc.funcao_ministerial,
+  fc.ministerio_integracao,
+  fc.observacoes,
+  CASE 
+    WHEN fc.id IS NOT NULL THEN TRUE 
+    ELSE FALSE 
+  END as tem_ficha_cadastral,
+  p.criado_em,
+  p.atualizado_em,
+  fc.criado_em as ficha_criado_em,
+  fc.atualizado_em as ficha_atualizado_em
+FROM pessoas p
+LEFT JOIN ficha_cadastral fc ON p.id = fc.pessoa_id;
 
 -- =====================================================
 -- ATUALIZAÇÕES DE SCHEMA (para bancos existentes)
@@ -901,6 +1265,128 @@ BEGIN
     ADD COLUMN pastor_lider_id INTEGER REFERENCES pessoas(id);
   END IF;
 END $$;
+
+-- =====================================================
+-- FUNÇÕES HELPER PARA BATISMO
+-- =====================================================
+
+-- Função para criar matrícula de batismo com as 5 aulas
+CREATE OR REPLACE FUNCTION criar_matricula_batismo(
+  p_pessoa_id INTEGER,
+  p_data_matricula DATE DEFAULT CURRENT_DATE,
+  p_observacoes TEXT DEFAULT NULL
+)
+RETURNS INTEGER AS $$
+DECLARE
+  v_matricula_id INTEGER;
+BEGIN
+  -- Verificar se a pessoa existe
+  IF NOT EXISTS (SELECT 1 FROM pessoas WHERE id = p_pessoa_id) THEN
+    RAISE EXCEPTION 'Pessoa com ID % não encontrada', p_pessoa_id;
+  END IF;
+
+  -- Verificar se já existe matrícula ativa (não concluída)
+  IF EXISTS (
+    SELECT 1 FROM matriculas_batismo 
+    WHERE pessoa_id = p_pessoa_id 
+    AND concluido = FALSE
+  ) THEN
+    RAISE EXCEPTION 'Pessoa já possui uma matrícula de batismo em andamento';
+  END IF;
+
+  -- Criar matrícula
+  INSERT INTO matriculas_batismo (pessoa_id, data_matricula, observacoes)
+  VALUES (p_pessoa_id, p_data_matricula, p_observacoes)
+  RETURNING id INTO v_matricula_id;
+
+  -- Criar as 5 aulas (inicialmente não concluídas)
+  INSERT INTO aulas_batismo (matricula_id, aula_numero, concluida)
+  VALUES 
+    (v_matricula_id, 1, FALSE),
+    (v_matricula_id, 2, FALSE),
+    (v_matricula_id, 3, FALSE),
+    (v_matricula_id, 4, FALSE),
+    (v_matricula_id, 5, FALSE);
+
+  RETURN v_matricula_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Função para marcar aula como concluída
+CREATE OR REPLACE FUNCTION concluir_aula_batismo(
+  p_matricula_id INTEGER,
+  p_aula_numero INTEGER,
+  p_data_conclusao DATE DEFAULT CURRENT_DATE,
+  p_observacoes TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_updated BOOLEAN;
+BEGIN
+  -- Verificar se a matrícula existe
+  IF NOT EXISTS (SELECT 1 FROM matriculas_batismo WHERE id = p_matricula_id) THEN
+    RAISE EXCEPTION 'Matrícula com ID % não encontrada', p_matricula_id;
+  END IF;
+
+  -- Verificar se a aula existe
+  IF NOT EXISTS (
+    SELECT 1 FROM aulas_batismo 
+    WHERE matricula_id = p_matricula_id 
+    AND aula_numero = p_aula_numero
+  ) THEN
+    RAISE EXCEPTION 'Aula % não encontrada para a matrícula %', p_aula_numero, p_matricula_id;
+  END IF;
+
+  -- Atualizar aula
+  UPDATE aulas_batismo
+  SET concluida = TRUE,
+      data_conclusao = p_data_conclusao,
+      observacoes = COALESCE(p_observacoes, observacoes),
+      atualizado_em = CURRENT_TIMESTAMP
+  WHERE matricula_id = p_matricula_id
+    AND aula_numero = p_aula_numero
+    AND concluida = FALSE;
+
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+
+  -- O trigger verifica automaticamente se todas as aulas foram concluídas
+  -- e marca a matrícula como concluída
+
+  RETURN v_updated > 0;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Função para desmarcar aula (reverter)
+CREATE OR REPLACE FUNCTION reverter_aula_batismo(
+  p_matricula_id INTEGER,
+  p_aula_numero INTEGER
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_updated BOOLEAN;
+BEGIN
+  UPDATE aulas_batismo
+  SET concluida = FALSE,
+      data_conclusao = NULL,
+      atualizado_em = CURRENT_TIMESTAMP
+  WHERE matricula_id = p_matricula_id
+    AND aula_numero = p_aula_numero
+    AND concluida = TRUE;
+
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+
+  -- Se desmarcou uma aula, a matrícula não está mais concluída
+  IF v_updated > 0 THEN
+    UPDATE matriculas_batismo
+    SET concluido = FALSE,
+        data_conclusao = NULL,
+        atualizado_em = CURRENT_TIMESTAMP
+    WHERE id = p_matricula_id;
+  END IF;
+
+  RETURN v_updated > 0;
+END;
+$$ LANGUAGE plpgsql;
 
 -- =====================================================
 -- FIM DO SCHEMA REFATORADO
