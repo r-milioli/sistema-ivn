@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Settings, 
   Handshake, 
@@ -47,6 +48,9 @@ import './Dashboard.css';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const nomeExibicao = user?.nome?.trim() || 'Usuário';
 
   const dashboardCards = [
     { 
@@ -259,6 +263,32 @@ const Dashboard = () => {
     <MainLayout>
       <main className="dashboard-main">
         <div className="dashboard-content">
+          <div className="dashboard-welcome">
+            <div className="dashboard-welcome-logo">
+              <img
+                src="/images/logo.png"
+                alt="Sistema IVN"
+                className="dashboard-welcome-logo-img"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  const fallback = e.target.nextElementSibling;
+                  if (fallback) fallback.style.display = 'block';
+                }}
+                onLoad={(e) => {
+                  e.target.style.display = 'block';
+                  const fallback = e.target.nextElementSibling;
+                  if (fallback) fallback.style.display = 'none';
+                }}
+              />
+              <span className="dashboard-welcome-logo-fallback">IVN</span>
+            </div>
+            <div className="dashboard-welcome-text">
+              <h2 className="dashboard-welcome-greeting">
+                Graça e Paz, {nomeExibicao}!
+              </h2>
+              <p className="dashboard-welcome-sub">Bem-vindo(a) ao sistema. Escolha um módulo abaixo para começar.</p>
+            </div>
+          </div>
           <div className="dashboard-cards-container">
             {dashboardCards.map((card, index) => {
               const Icon = card.icon;
