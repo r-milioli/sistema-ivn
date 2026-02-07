@@ -4,8 +4,8 @@ const { hashPassword } = require('../utils/password');
 
 // Schema jornada única: um estágio por pessoa (estagio_espiritual_enum)
 const ESTAGIOS_VALIDOS = [
-  'Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Membresia',
-  'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'
+  'Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Batismo', 'Batizado',
+  'Em Membresia', 'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'
 ];
 
 // Frontend pode enviar "Participante de Ministério" -> mapear para enum

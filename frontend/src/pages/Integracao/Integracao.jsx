@@ -13,10 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
-import { Search, UserPlus, Camera, X, Heart, List, ChevronLeft, ChevronRight, BarChart3, TrendingUp, Calendar, FileText, Download, Edit } from 'lucide-react';
+import { Search, UserPlus, Camera, X, Heart, List, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/use-toast';
 import {
@@ -87,64 +85,6 @@ const Integracao = () => {
       setPessoasBusca([]);
     }
   };
-
-  // Lista mockada de visitantes - TODO: Substituir por chamada à API
-  const [visitantes] = useState([
-    {
-      id: 1,
-      nome: 'João',
-      sobrenome: 'Silva',
-      email: 'joao.silva@email.com',
-      telefone: '(11) 98765-4321',
-      dataNascimento: '1990-05-15',
-      sexo: 'masculino',
-      estadoCivil: 'solteiro',
-      cep: '01310-100',
-      rua: 'Avenida Paulista',
-      numero: '1000',
-      complemento: 'Apto 101',
-      bairro: 'Bela Vista',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      estagio: 'Visitante'
-    },
-    {
-      id: 2,
-      nome: 'Maria',
-      sobrenome: 'Santos',
-      email: 'maria.santos@email.com',
-      telefone: '(11) 97654-3210',
-      dataNascimento: '1985-08-20',
-      sexo: 'feminino',
-      estadoCivil: 'casado',
-      cep: '04530-000',
-      rua: 'Avenida Faria Lima',
-      numero: '2000',
-      complemento: '',
-      bairro: 'Itaim Bibi',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      estagio: 'Visitante'
-    },
-    {
-      id: 3,
-      nome: 'Pedro',
-      sobrenome: 'Oliveira',
-      email: 'pedro.oliveira@email.com',
-      telefone: '(11) 96543-2109',
-      dataNascimento: '1992-12-10',
-      sexo: 'masculino',
-      estadoCivil: 'solteiro',
-      cep: '05433-070',
-      rua: 'Rua dos Pinheiros',
-      numero: '500',
-      complemento: 'Casa',
-      bairro: 'Pinheiros',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      estagio: 'Visitante'
-    }
-  ]);
 
   // Filtrar visitantes (usando resultado da API)
   const filteredVisitantes = useMemo(() => {
@@ -605,10 +545,6 @@ const Integracao = () => {
               <TabsTrigger value="analytics" className="integracao-tabs-trigger">
                 <BarChart3 className="tab-icon" />
                 <span>Analytics</span>
-              </TabsTrigger>
-              <TabsTrigger value="relatorios" className="integracao-tabs-trigger">
-                <FileText className="tab-icon" />
-                <span>Relatórios</span>
               </TabsTrigger>
             </TabsList>
             
@@ -1233,13 +1169,6 @@ const Integracao = () => {
                 <Analytics />
               </div>
             </TabsContent>
-
-            <TabsContent value="relatorios" className="integracao-tabs-content">
-              <div className="tab-content-wrapper">
-                <h2>Relatório</h2>
-                <RelatorioFormWrapper />
-              </div>
-            </TabsContent>
           </Tabs>
         </div>
       </main>
@@ -1526,13 +1455,25 @@ const Analytics = () => {
     totalAulasConcluidas: 0,
     totalAulasNaoConcluidas: 0,
     taxaConclusao: 0,
-    topCidades: [],
+    topBairros: [],
     alunosPorProgresso: {
       completo: 0,
       parcial: 0,
       nenhum: 0
     },
-    porMes: []
+    porMes: [],
+    totalAlunosBatismo: 0,
+    totalAulasBatismoConcluidas: 0,
+    alunosBatismoCompletos: 0,
+    alunosBatismoAlgumaAula: 0,
+    alunosBatismoSemAulas: 0,
+    taxaConclusaoBatismo: 0,
+    porMesBatismo: [],
+    alunosBatismoPorProgresso: {
+      completo: 0,
+      parcial: 0,
+      nenhum: 0
+    }
   });
 
   const [loading, setLoading] = useState(false);
@@ -1689,6 +1630,54 @@ const Analytics = () => {
             <div className="stat-label">Com alguma aula concluída</div>
           </CardContent>
         </Card>
+
+        <Card className="stat-card">
+          <CardHeader className="stat-card-header">
+            <CardTitle className="stat-card-title">Alunos de Batismo</CardTitle>
+          </CardHeader>
+          <CardContent className="stat-card-content">
+            <div className="stat-value" style={{ color: '#0ea5e9' }}>
+              {estatisticas.totalAlunosBatismo || 0}
+            </div>
+            <div className="stat-label">Total no Período</div>
+          </CardContent>
+        </Card>
+
+        <Card className="stat-card">
+          <CardHeader className="stat-card-header">
+            <CardTitle className="stat-card-title">Aulas Batismo Concluídas</CardTitle>
+          </CardHeader>
+          <CardContent className="stat-card-content">
+            <div className="stat-value" style={{ color: '#0284c7' }}>
+              {estatisticas.totalAulasBatismoConcluidas || 0}
+            </div>
+            <div className="stat-label">de {(estatisticas.totalAlunosBatismo || 0) * 5} possíveis</div>
+          </CardContent>
+        </Card>
+
+        <Card className="stat-card">
+          <CardHeader className="stat-card-header">
+            <CardTitle className="stat-card-title">Taxa Conclusão Batismo</CardTitle>
+          </CardHeader>
+          <CardContent className="stat-card-content">
+            <div className="stat-value" style={{ color: '#0891b2' }}>
+              {estatisticas.taxaConclusaoBatismo || 0}%
+            </div>
+            <div className="stat-label">Percentual do Curso</div>
+          </CardContent>
+        </Card>
+
+        <Card className="stat-card">
+          <CardHeader className="stat-card-header">
+            <CardTitle className="stat-card-title">Batismo Completos</CardTitle>
+          </CardHeader>
+          <CardContent className="stat-card-content">
+            <div className="stat-value" style={{ color: '#0369a1' }}>
+              {estatisticas.alunosBatismoCompletos || 0}
+            </div>
+            <div className="stat-label">5 aulas concluídas</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Gráficos e Estatísticas Detalhadas */}
@@ -1771,16 +1760,16 @@ const Analytics = () => {
           </CardContent>
         </Card>
 
-        {/* Top Cidades */}
+        {/* Top Bairros */}
         <Card>
           <CardHeader>
-            <CardTitle>Top 5 Cidades</CardTitle>
+            <CardTitle>Top 5 Bairros</CardTitle>
           </CardHeader>
           <CardContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {estatisticas.topCidades.length > 0 ? (
-                estatisticas.topCidades.map((item, index) => (
-                  <div key={item.cidade} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {estatisticas.topBairros?.length > 0 ? (
+                estatisticas.topBairros.map((item, index) => (
+                  <div key={item.bairro} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{
                         width: '24px',
@@ -1796,7 +1785,7 @@ const Analytics = () => {
                       }}>
                         {index + 1}
                       </span>
-                      <span>{item.cidade}</span>
+                      <span>{item.bairro}</span>
                     </div>
                     <strong>{item.quantidade} alunos</strong>
                   </div>
@@ -1807,17 +1796,92 @@ const Analytics = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Progresso dos Alunos de Batismo */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Progresso dos Alunos de Batismo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Completos (5 aulas)</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '200px',
+                    height: '20px',
+                    backgroundColor: '#e5e7eb',
+                    borderRadius: '10px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.completo / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
+                      height: '100%',
+                      backgroundColor: '#0369a1',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                  <strong>{estatisticas.alunosBatismoPorProgresso?.completo || 0}</strong>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Parcial (1-4 aulas)</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '200px',
+                    height: '20px',
+                    backgroundColor: '#e5e7eb',
+                    borderRadius: '10px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.parcial / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
+                      height: '100%',
+                      backgroundColor: '#0891b2',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                  <strong>{estatisticas.alunosBatismoPorProgresso?.parcial || 0}</strong>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Nenhuma aula</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '200px',
+                    height: '20px',
+                    backgroundColor: '#e5e7eb',
+                    borderRadius: '10px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.nenhum / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
+                      height: '100%',
+                      backgroundColor: '#ef4444',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                  <strong>{estatisticas.alunosBatismoPorProgresso?.nenhum || 0}</strong>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Gráfico de Matrículas por Mês */}
+      {/* Gráficos de Matrículas por Mês */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', marginBottom: '32px' }}>
       <Card>
         <CardHeader>
-          <CardTitle>Matrículas por Mês (Últimos 6 Meses)</CardTitle>
+          <CardTitle>Matrículas Membresia por Mês</CardTitle>
         </CardHeader>
         <CardContent>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', height: '200px', padding: '20px 0' }}>
-            {estatisticas.porMes.map((item, index) => {
-              const maxQuantidade = Math.max(...estatisticas.porMes.map(m => m.quantidade), 1);
+            {(estatisticas.porMes || []).map((item, index) => {
+              const porMesArr = estatisticas.porMes || [];
+              const maxQuantidade = porMesArr.length > 0 ? Math.max(...porMesArr.map(m => m.quantidade), 1) : 1;
               const altura = (item.quantidade / maxQuantidade) * 100;
               
               return (
@@ -1853,435 +1917,52 @@ const Analytics = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
-};
 
-// Componente Wrapper para Relatório (gerencia estado de edição)
-const RelatorioFormWrapper = () => {
-  const [editingId, setEditingId] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+      <Card>
+        <CardHeader>
+          <CardTitle>Matrículas Batismo por Mês</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', height: '200px', padding: '20px 0' }}>
+            {(estatisticas.porMesBatismo || []).map((item, index) => {
+              const porMesBatismoArr = estatisticas.porMesBatismo || [];
+              const maxQuantidade = porMesBatismoArr.length > 0 ? Math.max(...porMesBatismoArr.map(m => m.quantidade), 1) : 1;
+              const altura = (item.quantidade / maxQuantidade) * 100;
 
-  const handleEdit = (id) => {
-    setEditingId(id);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-  };
-
-  const handleSaveSuccess = () => {
-    setEditingId(null);
-    setRefreshKey(prev => prev + 1); // Força atualização da lista
-  };
-
-  return (
-    <>
-      <RelatorioForm 
-        editingId={editingId} 
-        onCancelEdit={handleCancelEdit}
-        onSaveSuccess={handleSaveSuccess}
-      />
-      <div className="relatorios-section">
-        <RelatoriosGerados onEdit={handleEdit} refreshKey={refreshKey} />
-      </div>
-    </>
-  );
-};
-
-// Componente de Formulário de Relatório
-const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
-  const meses = useMemo(() => [
-    { value: '01', label: 'Janeiro' },
-    { value: '02', label: 'Fevereiro' },
-    { value: '03', label: 'Março' },
-    { value: '04', label: 'Abril' },
-    { value: '05', label: 'Maio' },
-    { value: '06', label: 'Junho' },
-    { value: '07', label: 'Julho' },
-    { value: '08', label: 'Agosto' },
-    { value: '09', label: 'Setembro' },
-    { value: '10', label: 'Outubro' },
-    { value: '11', label: 'Novembro' },
-    { value: '12', label: 'Dezembro' }
-  ], []);
-
-  const mesAtual = useMemo(() => String(new Date().getMonth() + 1).padStart(2, '0'), []);
-
-  const [formData, setFormData] = useState({
-    nomeMinisterio: 'Ministério Integração',
-    mesReferencia: mesAtual,
-    conteudo: '',
-    pastorLiderId: ''
-  });
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [loadingRelatorio, setLoadingRelatorio] = useState(false);
-  const [pastoresLideres, setPastoresLideres] = useState([]);
-
-  // Carregar pastores líderes
-  useEffect(() => {
-    const carregarPastoresLideres = async () => {
-      try {
-        const response = await api.get('/relatorios/pastores-lideres');
-        setPastoresLideres(response.data.pastoresLideres || []);
-      } catch (error) {
-        console.error('Erro ao carregar pastores líderes:', error);
-        toast({
-          title: 'Aviso',
-          description: 'Erro ao carregar lista de pastores líderes.',
-          variant: 'destructive',
-        });
-      }
-    };
-    carregarPastoresLideres();
-  }, [toast]);
-
-  // Carregar relatório quando editingId mudar
-  useEffect(() => {
-    if (editingId) {
-      const carregarRelatorio = async () => {
-        setLoadingRelatorio(true);
-        try {
-          const response = await api.get(`/relatorios/${editingId}`);
-          const relatorio = response.data.relatorio;
-          
-          // Converter nome do mês para número
-          const mesEncontrado = meses.find(m => m.label === relatorio.mesReferencia);
-          const mesValue = mesEncontrado ? mesEncontrado.value : mesAtual;
-          
-          setFormData({
-            nomeMinisterio: relatorio.nomeMinisterio,
-            mesReferencia: mesValue,
-            conteudo: relatorio.conteudo,
-            pastorLiderId: relatorio.pastorLiderId || ''
-          });
-        } catch (error) {
-          toast({
-            title: 'Erro',
-            description: 'Erro ao carregar relatório. Tente novamente.',
-            variant: 'destructive',
-          });
-          if (onCancelEdit) onCancelEdit();
-        } finally {
-          setLoadingRelatorio(false);
-        }
-      };
-
-      carregarRelatorio();
-    } else {
-      // Resetar formulário quando não estiver editando
-      setFormData({
-        nomeMinisterio: 'Ministério Integração',
-        mesReferencia: mesAtual,
-        conteudo: '',
-        pastorLiderId: ''
-      });
-    }
-  }, [editingId, mesAtual, meses, onCancelEdit, toast]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleEditorChange = (value) => {
-    setFormData(prev => ({
-      ...prev,
-      conteudo: value
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      if (editingId) {
-        // Atualizar relatório existente
-        await api.put(`/relatorios/${editingId}`, formData);
-        
-        toast({
-          title: 'Sucesso!',
-          description: 'Relatório atualizado com sucesso!',
-        });
-        
-        onSaveSuccess();
-      } else {
-        // Criar novo relatório
-        await api.post('/relatorios', formData);
-        
-        toast({
-          title: 'Sucesso!',
-          description: 'Relatório criado com sucesso!',
-        });
-
-        setFormData({
-          nomeMinisterio: 'Ministério Integração',
-          mesReferencia: mesAtual,
-          conteudo: '',
-          pastorLiderId: ''
-        });
-      }
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || 
-        (editingId ? 'Erro ao atualizar relatório. Tente novamente.' : 'Erro ao criar relatório. Tente novamente.');
-      toast({
-        title: 'Erro',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Configuração do editor Quill
-  const quillModules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-      [{ 'font': [] }],
-      [{ 'size': [] }],
-      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }, { 'indent': '-1'}, { 'indent': '+1' }],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'align': [] }],
-      ['link', 'image', 'video'],
-      ['clean']
-    ],
-  };
-
-  const quillFormats = [
-    'header', 'font', 'size',
-    'bold', 'italic', 'underline', 'strike', 'blockquote',
-    'list', 'bullet', 'indent',
-    'color', 'background',
-    'align',
-    'link', 'image', 'video',
-  ];
-
-  if (loadingRelatorio) {
-    return <div className="text-center p-8">Carregando relatório...</div>;
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="relatorio-form">
-      {editingId && (
-        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Modo de Edição:</strong> Você está editando um relatório existente.
-          </p>
-        </div>
-      )}
-      <div className="form-row form-row-2">
-        <div className="form-group">
-          <Label htmlFor="nomeMinisterio">Nome do Ministério</Label>
-          <Input
-            type="text"
-            id="nomeMinisterio"
-            name="nomeMinisterio"
-            value={formData.nomeMinisterio}
-            onChange={handleChange}
-            required
-            className="form-input"
-          />
-        </div>
-
-        <div className="form-group">
-          <Label htmlFor="mesReferencia">Mês de Referência</Label>
-          <select
-            id="mesReferencia"
-            name="mesReferencia"
-            value={formData.mesReferencia}
-            onChange={handleChange}
-            required
-            className="form-select"
-          >
-            {meses.map((mes) => (
-              <option key={mes.value} value={mes.value}>
-                {mes.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="form-row form-row-2">
-        <div className="form-group">
-          <Label htmlFor="pastorLiderId">Pastor Líder do Ministério</Label>
-          <select
-            id="pastorLiderId"
-            name="pastorLiderId"
-            value={formData.pastorLiderId}
-            onChange={handleChange}
-            className="form-select"
-          >
-            <option value="">Selecione um pastor líder (opcional)</option>
-            {pastoresLideres.map((pastor) => (
-              <option key={pastor.id} value={pastor.id}>
-                {pastor.nomeCompleto}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <Label htmlFor="conteudo">Conteúdo do Relatório</Label>
-          <div className="editor-wrapper">
-            <ReactQuill
-              theme="snow"
-              value={formData.conteudo}
-              onChange={handleEditorChange}
-              modules={quillModules}
-              formats={quillFormats}
-              placeholder="Digite o conteúdo do relatório..."
-              className="rich-text-editor"
-            />
+              return (
+                <div key={index} style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <div style={{
+                    width: '100%',
+                    height: `${altura}%`,
+                    backgroundColor: '#0ea5e9',
+                    borderRadius: '4px 4px 0 0',
+                    minHeight: item.quantidade > 0 ? '20px' : '0',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '12px',
+                    padding: '4px'
+                  }}>
+                    {item.quantidade > 0 && item.quantidade}
+                  </div>
+                  <span style={{ fontSize: '12px', color: '#666', textAlign: 'center' }}>
+                    {item.mes}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </CardContent>
+      </Card>
       </div>
-
-      <div className="form-actions">
-        {editingId && (
-          <Button 
-            type="button" 
-            variant="outline"
-            onClick={onCancelEdit}
-            className="cancel-button"
-            disabled={loading}
-          >
-            Cancelar Edição
-          </Button>
-        )}
-        <Button 
-          type="submit" 
-          className="submit-button"
-          disabled={loading}
-        >
-          {loading 
-            ? (editingId ? 'Atualizando...' : 'Enviando...') 
-            : (editingId ? 'Atualizar Relatório' : 'Enviar Relatório')
-          }
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-// Componente de Lista de Relatórios Gerados
-const RelatoriosGerados = ({ onEdit, refreshKey }) => {
-  const { toast } = useToast();
-  const [relatorios, setRelatorios] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const buscarRelatorios = async () => {
-      setLoading(true);
-      try {
-        const response = await api.get('/relatorios', {
-          params: {
-            nomeMinisterio: 'Ministério Integração'
-          }
-        });
-        setRelatorios(response.data.relatorios);
-      } catch (error) {
-        toast({
-          title: 'Erro',
-          description: 'Erro ao carregar relatórios. Tente novamente.',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    buscarRelatorios();
-  }, [toast, refreshKey]);
-
-  const handleDownload = async (relatorio) => {
-    try {
-      const response = await api.get(`/relatorios/${relatorio.id}/download`, {
-        responseType: 'blob'
-      });
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Relatorio_${relatorio.nomeMinisterio}_${relatorio.mesReferencia}_${relatorio.anoReferencia}.html`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      
-      toast({
-        title: 'Sucesso!',
-        description: 'Relatório baixado com sucesso!',
-      });
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Erro ao baixar relatório. Tente novamente.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  return (
-    <div className="relatorios-gerados-container">
-      <h3 className="relatorios-gerados-title">Relatórios Gerados</h3>
-      
-      {loading ? (
-        <div className="text-center p-8">Carregando relatórios...</div>
-      ) : relatorios.length === 0 ? (
-        <div className="relatorios-empty">
-          <p>Nenhum relatório gerado ainda.</p>
-        </div>
-      ) : (
-        <div className="relatorios-list">
-          {relatorios.map((relatorio) => (
-            <Card key={relatorio.id} className="relatorio-item">
-              <CardContent className="relatorio-item-content">
-                <div className="relatorio-item-info">
-                  <div className="relatorio-item-header">
-                    <h4 className="relatorio-item-nome">{relatorio.nomeMinisterio}</h4>
-                    <span className="relatorio-item-data">{relatorio.dataGeracao}</span>
-                  </div>
-                  <div className="relatorio-item-details">
-                    <span className="relatorio-item-mes">
-                      {relatorio.mesReferencia} / {relatorio.anoReferencia}
-                    </span>
-                    <span className="relatorio-item-tamanho">{relatorio.tamanho}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onEdit && onEdit(relatorio.id)}
-                    className="relatorio-edit-button"
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    <span>Editar</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownload(relatorio)}
-                    className="relatorio-download-button"
-                  >
-                    <Download className="download-icon" />
-                    <span>Download</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

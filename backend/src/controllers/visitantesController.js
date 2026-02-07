@@ -2,8 +2,8 @@ const pool = require('../config/database');
 
 // Estágios do schema jornada única (estagio_espiritual_enum)
 const ESTAGIOS_VALIDOS = [
-  'Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Membresia',
-  'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'
+  'Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Batismo', 'Batizado',
+  'Em Membresia', 'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'
 ];
 
 // Como conheceu (como_conheceu_enum)

@@ -63,6 +63,7 @@ DO $$ BEGIN
     'Visitante Frequente', -- Voltou mais de uma vez
     'Novo Convertido',     -- Aceitou Jesus
     'Em Batismo',          -- Fazendo curso de batismo
+    'Batizado',            -- Concluiu o batismo (próximo passo após Em Batismo)
     'Em Membresia',        -- Fazendo curso de membresia
     'Membro',              -- Concluiu membresia
     'Participante',        -- Participa de ministérios
@@ -75,13 +76,14 @@ EXCEPTION
 END $$;
 
 -- IMPORTANTE: Se você já tem um banco de dados existente com este enum criado anteriormente,
--- o comando acima NÃO adicionará automaticamente o novo valor 'Em Batismo'.
+-- o comando acima NÃO adicionará automaticamente os novos valores.
 -- Isso acontece porque o PostgreSQL não permite modificar enums dentro de blocos transacionais.
 -- 
--- Para adicionar 'Em Batismo' a um banco existente, execute ANTES de rodar este script:
+-- Para adicionar a um banco existente, execute ANTES de rodar este script (se ainda não executou):
 -- ALTER TYPE estagio_espiritual_enum ADD VALUE 'Em Batismo';
+-- ALTER TYPE estagio_espiritual_enum ADD VALUE 'Batizado';
 --
--- Para novos bancos de dados, o valor já estará incluído automaticamente.
+-- Para novos bancos de dados, os valores já estarão incluídos automaticamente.
 
 -- Enum para tipo de acesso ao sistema
 DO $$ BEGIN
@@ -1154,6 +1156,7 @@ SELECT
   (SELECT COUNT(*) FROM matriculas_membresia WHERE concluido = FALSE) as total_em_membresia,
   (SELECT COUNT(*) FROM matriculas_membresia WHERE concluido = TRUE) as total_membresia_concluida,
   (SELECT COUNT(*) FROM pessoas WHERE estagio_atual = 'Em Batismo') as total_em_batismo,
+  (SELECT COUNT(*) FROM pessoas WHERE estagio_atual = 'Batizado') as total_batizados,
   (SELECT COUNT(*) FROM matriculas_batismo WHERE concluido = FALSE) as total_em_batismo_curso,
   (SELECT COUNT(*) FROM matriculas_batismo WHERE concluido = TRUE) as total_batismo_concluido,
   (SELECT COUNT(*) FROM ficha_cadastral) as total_fichas_cadastrais,

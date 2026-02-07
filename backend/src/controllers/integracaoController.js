@@ -2,8 +2,8 @@ const pool = require('../config/database');
 
 // Estágios válidos (estagio_espiritual_enum)
 const ESTAGIOS_VALIDOS = [
-  'Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Membresia',
-  'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'
+  'Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Batismo', 'Batizado',
+  'Em Membresia', 'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'
 ];
 
 /**
@@ -1052,24 +1052,24 @@ async function obterEstatisticasAnalytics(req, res) {
       ? ((totalAulasConcluidas / totalAulasPossiveis) * 100).toFixed(1)
       : '0.0';
 
-    // 4. Estatísticas por cidade (top 5)
-    const cidadesQuery = await pool.query(
+    // 4. Estatísticas por bairro (top 5)
+    const bairrosQuery = await pool.query(
       `SELECT 
-         p.cidade,
+         p.bairro,
          COUNT(DISTINCT m.id) as quantidade
        FROM matriculas_membresia m
        INNER JOIN pessoas p ON m.pessoa_id = p.id
        WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
          AND p.ativo = TRUE
-         AND p.cidade IS NOT NULL
-         AND p.cidade != ''
-       GROUP BY p.cidade
+         AND p.bairro IS NOT NULL
+         AND p.bairro != ''
+       GROUP BY p.bairro
        ORDER BY quantidade DESC
        LIMIT 5`,
       [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
     );
-    const topCidades = cidadesQuery.rows.map(row => ({
-      cidade: row.cidade,
+    const topBairros = bairrosQuery.rows.map(row => ({
+      bairro: row.bairro,
       quantidade: parseInt(row.quantidade)
     }));
 
@@ -1104,6 +1104,109 @@ async function obterEstatisticasAnalytics(req, res) {
       nenhum: alunosSemAulas
     };
 
+    // 7. Estatísticas de Batismo
+    const totalAlunosBatismoQuery = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM matriculas_batismo m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const totalAlunosBatismo = parseInt(totalAlunosBatismoQuery.rows[0].total) || 0;
+
+    const aulasBatismoQuery = await pool.query(
+      `SELECT 
+         COUNT(CASE WHEN a.concluida = TRUE THEN 1 END) as total_aulas_concluidas,
+         COUNT(CASE WHEN a.concluida = FALSE THEN 1 END) as total_aulas_nao_concluidas
+       FROM matriculas_batismo m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       INNER JOIN aulas_batismo a ON m.id = a.matricula_id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const totalAulasBatismoConcluidas = parseInt(aulasBatismoQuery.rows[0].total_aulas_concluidas) || 0;
+
+    const alunosBatismoCompletosQuery = await pool.query(
+      `SELECT COUNT(DISTINCT m.id) as total
+       FROM matriculas_batismo m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE
+         AND (
+           SELECT COUNT(*) 
+           FROM aulas_batismo a 
+           WHERE a.matricula_id = m.id AND a.concluida = TRUE
+         ) = 5`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const alunosBatismoCompletos = parseInt(alunosBatismoCompletosQuery.rows[0].total) || 0;
+
+    const alunosBatismoAlgumaAulaQuery = await pool.query(
+      `SELECT COUNT(DISTINCT m.id) as total
+       FROM matriculas_batismo m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE
+         AND EXISTS (
+           SELECT 1 
+           FROM aulas_batismo a 
+           WHERE a.matricula_id = m.id AND a.concluida = TRUE
+         )`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const alunosBatismoAlgumaAula = parseInt(alunosBatismoAlgumaAulaQuery.rows[0].total) || 0;
+
+    const alunosBatismoSemAulasQuery = await pool.query(
+      `SELECT COUNT(DISTINCT m.id) as total
+       FROM matriculas_batismo m
+       INNER JOIN pessoas p ON m.pessoa_id = p.id
+       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+         AND p.ativo = TRUE
+         AND NOT EXISTS (
+           SELECT 1 
+           FROM aulas_batismo a 
+           WHERE a.matricula_id = m.id AND a.concluida = TRUE
+         )`,
+      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+    );
+    const alunosBatismoSemAulas = parseInt(alunosBatismoSemAulasQuery.rows[0].total) || 0;
+
+    const totalAulasBatismoPossiveis = totalAlunosBatismo * 5;
+    const taxaConclusaoBatismo = totalAulasBatismoPossiveis > 0
+      ? ((totalAulasBatismoConcluidas / totalAulasBatismoPossiveis) * 100).toFixed(1)
+      : '0.0';
+
+    const porMesBatismo = [];
+    for (let i = 5; i >= 0; i--) {
+      const data = new Date();
+      data.setMonth(data.getMonth() - i);
+      const inicioMes = new Date(data.getFullYear(), data.getMonth(), 1);
+      const fimMes = new Date(data.getFullYear(), data.getMonth() + 1, 0);
+
+      const mesBatismoQuery = await pool.query(
+        `SELECT COUNT(*) as quantidade
+         FROM matriculas_batismo m
+         INNER JOIN pessoas p ON m.pessoa_id = p.id
+         WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+           AND p.ativo = TRUE`,
+        [inicioMes.toISOString().split('T')[0], fimMes.toISOString().split('T')[0]]
+      );
+
+      const mesNome = data.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+      porMesBatismo.push({
+        mes: mesNome,
+        quantidade: parseInt(mesBatismoQuery.rows[0].quantidade)
+      });
+    }
+
+    const alunosBatismoPorProgresso = {
+      completo: alunosBatismoCompletos,
+      parcial: alunosBatismoAlgumaAula - alunosBatismoCompletos,
+      nenhum: alunosBatismoSemAulas
+    };
+
     res.json({
       totalNovosConvertidos,
       totalAlunosMembresia,
@@ -1113,9 +1216,17 @@ async function obterEstatisticasAnalytics(req, res) {
       totalAulasConcluidas,
       totalAulasNaoConcluidas,
       taxaConclusao: parseFloat(taxaConclusao),
-      topCidades,
+      topBairros,
       alunosPorProgresso,
       porMes,
+      totalAlunosBatismo,
+      totalAulasBatismoConcluidas,
+      alunosBatismoCompletos,
+      alunosBatismoAlgumaAula,
+      alunosBatismoSemAulas,
+      taxaConclusaoBatismo: parseFloat(taxaConclusaoBatismo),
+      porMesBatismo,
+      alunosBatismoPorProgresso,
       periodo: {
         dataInicio: inicio.toISOString().split('T')[0],
         dataFim: fim.toISOString().split('T')[0]
@@ -1130,6 +1241,398 @@ async function obterEstatisticasAnalytics(req, res) {
   }
 }
 
+/**
+ * Buscar pessoas com ficha cadastral (para matrícula no curso de batismo)
+ * Somente quem tem ficha cadastral pode fazer o curso de batismo
+ */
+async function buscarPessoasComFicha(req, res) {
+  try {
+    const { search, page = 1, pageSize = 20 } = req.query;
+
+    if (!search || search.trim().length < 2) {
+      return res.json({ pessoas: [], pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 } });
+    }
+
+    const searchTerm = `%${search.trim()}%`;
+    const pageNum = parseInt(page);
+    const pageSizeNum = Math.min(parseInt(pageSize) || 20, 50);
+    const offset = (pageNum - 1) * pageSizeNum;
+
+    const result = await pool.query(
+      `SELECT 
+        p.id,
+        p.nome,
+        p.sobrenome,
+        p.email,
+        p.telefone,
+        p.whatsapp,
+        p.data_nascimento,
+        p.estagio_atual,
+        fc.id as ficha_id
+       FROM pessoas p
+       INNER JOIN ficha_cadastral fc ON fc.pessoa_id = p.id
+       WHERE p.ativo = TRUE
+         AND (
+           p.nome ILIKE $1 OR
+           p.sobrenome ILIKE $1 OR
+           p.email ILIKE $1 OR
+           p.telefone ILIKE $1 OR
+           COALESCE(p.whatsapp, '') ILIKE $1 OR
+           fc.cpf ILIKE $1 OR
+           fc.numero_registro ILIKE $1 OR
+           CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) ILIKE $1
+         )
+       ORDER BY p.nome, p.sobrenome
+       LIMIT $2 OFFSET $3`,
+      [searchTerm, pageSizeNum, offset]
+    );
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM pessoas p
+       INNER JOIN ficha_cadastral fc ON fc.pessoa_id = p.id
+       WHERE p.ativo = TRUE
+         AND (
+           p.nome ILIKE $1 OR
+           p.sobrenome ILIKE $1 OR
+           p.email ILIKE $1 OR
+           p.telefone ILIKE $1 OR
+           COALESCE(p.whatsapp, '') ILIKE $1 OR
+           fc.cpf ILIKE $1 OR
+           fc.numero_registro ILIKE $1 OR
+           CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) ILIKE $1
+         )`,
+      [searchTerm]
+    );
+
+    const total = parseInt(countResult.rows[0].total);
+    const pessoas = result.rows.map(row => ({
+      id: row.id,
+      nome: row.nome,
+      sobrenome: row.sobrenome,
+      nomeCompleto: `${row.nome || ''} ${row.sobrenome || ''}`.trim(),
+      email: row.email,
+      telefone: row.telefone,
+      whatsapp: row.whatsapp,
+      dataNascimento: row.data_nascimento ? row.data_nascimento.toISOString().split('T')[0] : null,
+      estagioAtual: row.estagio_atual
+    }));
+
+    res.json({
+      pessoas,
+      pagination: {
+        page: pageNum,
+        pageSize: pageSizeNum,
+        total,
+        totalPages: Math.ceil(total / pageSizeNum) || 1
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao buscar pessoas com ficha:', error);
+    res.status(500).json({
+      message: 'Erro ao buscar pessoas com ficha cadastral',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Matricular no curso de batismo
+ * Somente pessoas com ficha cadastral podem ser matriculadas
+ */
+async function matricularBatismo(req, res) {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { pessoaId, dataMatricula, observacoes } = req.body;
+
+    if (!pessoaId || !dataMatricula) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        message: 'pessoaId e dataMatricula são obrigatórios'
+      });
+    }
+
+    // Verificar se pessoa existe
+    const pessoaCheck = await client.query(
+      'SELECT id, estagio_atual FROM pessoas WHERE id = $1',
+      [pessoaId]
+    );
+
+    if (pessoaCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Pessoa não encontrada' });
+    }
+
+    // Verificar se pessoa possui ficha cadastral
+    const fichaCheck = await client.query(
+      'SELECT id FROM ficha_cadastral WHERE pessoa_id = $1',
+      [pessoaId]
+    );
+
+    if (fichaCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        message: 'Somente pessoas com ficha cadastral podem ser matriculadas no curso de batismo'
+      });
+    }
+
+    // Verificar se já tem matrícula ativa (não concluída)
+    const matriculaExistente = await client.query(
+      'SELECT id FROM matriculas_batismo WHERE pessoa_id = $1 AND concluido = FALSE',
+      [pessoaId]
+    );
+
+    if (matriculaExistente.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        message: 'Esta pessoa já possui uma matrícula de batismo em andamento'
+      });
+    }
+
+    // Criar matrícula (o trigger no banco atualiza estágio apenas se for "Novo Convertido")
+    const matriculaResult = await client.query(
+      `INSERT INTO matriculas_batismo (pessoa_id, data_matricula, observacoes)
+       VALUES ($1, $2, $3)
+       RETURNING id, pessoa_id, data_matricula, concluido`,
+      [pessoaId, dataMatricula, observacoes || null]
+    );
+
+    const matriculaId = matriculaResult.rows[0].id;
+
+    // Criar as 5 aulas
+    for (let aulaNumero = 1; aulaNumero <= 5; aulaNumero++) {
+      await client.query(
+        `INSERT INTO aulas_batismo (matricula_id, aula_numero)
+         VALUES ($1, $2)`,
+        [matriculaId, aulaNumero]
+      );
+    }
+
+    // Atualizar estágio para "Em Batismo" (o trigger do banco só faz para "Novo Convertido")
+    const estagioAtual = pessoaCheck.rows[0].estagio_atual;
+    if (estagioAtual !== 'Novo Convertido' && estagioAtual !== 'Em Batismo') {
+      await registrarMudancaEstagio(
+        client,
+        pessoaId,
+        'Em Batismo',
+        'Matriculado no curso de batismo',
+        req.user.id
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      message: 'Matrícula de batismo realizada com sucesso',
+      matricula: {
+        ...matriculaResult.rows[0],
+        aulas: [1, 2, 3, 4, 5].map(num => ({
+          numero: num,
+          concluida: false,
+          dataConclusao: null
+        }))
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Erro ao matricular em batismo:', error);
+    res.status(500).json({
+      message: 'Erro ao matricular em batismo',
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Listar matrículas de batismo
+ */
+async function listarMatriculasBatismo(req, res) {
+  try {
+    const { page = 1, pageSize = 10, concluido, search } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(pageSize);
+
+    let query = `
+      SELECT 
+        m.id,
+        m.pessoa_id,
+        m.data_matricula,
+        m.data_conclusao,
+        m.concluido,
+        CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) as nome_completo,
+        p.email,
+        p.telefone,
+        p.whatsapp,
+        p.estagio_atual
+      FROM matriculas_batismo m
+      INNER JOIN pessoas p ON m.pessoa_id = p.id
+    `;
+
+    const queryParams = [];
+    const conditions = [];
+    let paramIndex = 1;
+
+    if (concluido !== undefined && concluido !== '') {
+      conditions.push(`m.concluido = $${paramIndex}`);
+      queryParams.push(concluido === 'true');
+      paramIndex++;
+    }
+
+    if (search && search.trim()) {
+      conditions.push(`(
+        p.nome ILIKE $${paramIndex} OR
+        p.sobrenome ILIKE $${paramIndex} OR
+        p.email ILIKE $${paramIndex} OR
+        p.telefone ILIKE $${paramIndex} OR
+        COALESCE(p.whatsapp, '') ILIKE $${paramIndex} OR
+        CONCAT(p.nome, ' ', COALESCE(p.sobrenome, '')) ILIKE $${paramIndex}
+      )`);
+      queryParams.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY m.data_matricula DESC';
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM matriculas_batismo m
+      INNER JOIN pessoas p ON m.pessoa_id = p.id
+      ${conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''}
+    `;
+
+    const [result, countResult] = await Promise.all([
+      pool.query(query + ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`, [
+        ...queryParams,
+        parseInt(pageSize),
+        offset
+      ]),
+      pool.query(countQuery, queryParams)
+    ]);
+
+    const total = parseInt(countResult.rows[0].total);
+
+    const matriculas = await Promise.all(
+      result.rows.map(async (matricula) => {
+        const aulasResult = await pool.query(
+          `SELECT aula_numero, concluida, data_conclusao, observacoes
+           FROM aulas_batismo
+           WHERE matricula_id = $1
+           ORDER BY aula_numero`,
+          [matricula.id]
+        );
+
+        return {
+          id: matricula.id,
+          pessoaId: matricula.pessoa_id,
+          nomeCompleto: matricula.nome_completo || null,
+          email: matricula.email || null,
+          telefone: matricula.telefone || matricula.whatsapp || null,
+          estagioAtual: matricula.estagio_atual || null,
+          dataMatricula: matricula.data_matricula,
+          dataConclusao: matricula.data_conclusao,
+          concluido: matricula.concluido,
+          aulas: aulasResult.rows.map(aula => ({
+            numero: aula.aula_numero,
+            concluida: aula.concluida,
+            dataConclusao: aula.data_conclusao,
+            observacoes: aula.observacoes
+          }))
+        };
+      })
+    );
+
+    res.json({
+      matriculas,
+      pagination: {
+        page: parseInt(page),
+        pageSize: parseInt(pageSize),
+        total,
+        totalPages: Math.ceil(total / parseInt(pageSize)) || 1
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao listar matrículas de batismo:', error);
+    res.status(500).json({
+      message: 'Erro ao listar matrículas de batismo',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Atualizar status de aula de batismo
+ */
+async function atualizarStatusAulaBatismo(req, res) {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const { matriculaId, aulaNumero } = req.params;
+    const { concluida, observacoes } = req.body;
+
+    const matriculaCheck = await client.query(
+      'SELECT id, pessoa_id, concluido FROM matriculas_batismo WHERE id = $1',
+      [matriculaId]
+    );
+
+    if (matriculaCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Matrícula não encontrada' });
+    }
+
+    const aulaCheck = await client.query(
+      'SELECT id, concluida FROM aulas_batismo WHERE matricula_id = $1 AND aula_numero = $2',
+      [matriculaId, aulaNumero]
+    );
+
+    if (aulaCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Aula não encontrada' });
+    }
+
+    const dataConclusao = concluida ? new Date().toISOString().split('T')[0] : null;
+
+    await client.query(
+      `UPDATE aulas_batismo
+       SET concluida = $1, data_conclusao = $2, observacoes = COALESCE($3, observacoes), atualizado_em = CURRENT_TIMESTAMP
+       WHERE matricula_id = $4 AND aula_numero = $5`,
+      [concluida, dataConclusao, observacoes || null, matriculaId, aulaNumero]
+    );
+
+    // Se desmarcou, reverter matrícula concluída se necessário
+    if (!concluida) {
+      await client.query(
+        `UPDATE matriculas_batismo
+         SET concluido = FALSE, data_conclusao = NULL, atualizado_em = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [matriculaId]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.json({ message: 'Status da aula atualizado com sucesso' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Erro ao atualizar status da aula de batismo:', error);
+    res.status(500).json({
+      message: 'Erro ao atualizar status da aula',
+      error: error.message
+    });
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   integrarVisitante,
   registrarConversao,
@@ -1140,5 +1643,9 @@ module.exports = {
   adicionarPessoaMinisterio,
   listarPessoasMinisterios,
   listarNovosConvertidos,
-  obterEstatisticasAnalytics
+  obterEstatisticasAnalytics,
+  buscarPessoasComFicha,
+  matricularBatismo,
+  listarMatriculasBatismo,
+  atualizarStatusAulaBatismo
 };

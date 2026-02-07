@@ -48,20 +48,18 @@ const Batismo = () => {
   const [pageSizeBatismo, setPageSizeBatismo] = useState(10);
   const [totalMatriculas, setTotalMatriculas] = useState(0);
 
-  // Carregar matrículas
+  // Carregar matrículas de batismo
   const loadMatriculas = async () => {
     try {
-      // TODO: Implementar quando a tabela for criada
-      // const response = await api.get('/integracao/batismo/matriculas', {
-      //   params: {
-      //     page: currentPageBatismo,
-      //     pageSize: pageSizeBatismo
-      //   }
-      // });
-      
-      // Por enquanto, retornar array vazio
-      setAlunosBatismo([]);
-      setTotalMatriculas(0);
+      const response = await api.get('/integracao/batismo/matriculas', {
+        params: {
+          page: currentPageBatismo,
+          pageSize: pageSizeBatismo
+        }
+      });
+      const matriculas = response.data.matriculas || [];
+      setAlunosBatismo(matriculas);
+      setTotalMatriculas(response.data.pagination?.total ?? matriculas.length);
     } catch (error) {
       console.error('Erro ao carregar matrículas:', error);
       toast({
@@ -77,7 +75,7 @@ const Batismo = () => {
     loadMatriculas();
   }, [currentPageBatismo, pageSizeBatismo]);
 
-  // Buscar novos convertidos da API
+  // Buscar pessoas com ficha cadastral (somente quem tem ficha pode fazer curso de batismo)
   const buscarNovosConvertidosAPI = async (query) => {
     if (!query || query.trim().length < 2) {
       setNovosConvertidosBusca([]);
@@ -85,12 +83,11 @@ const Batismo = () => {
     }
 
     try {
-      const response = await api.get('/pessoas', {
+      const response = await api.get('/integracao/batismo/buscar', {
         params: {
-          page: 1,
-          pageSize: 20,
           search: query,
-          estagio: 'Novo Convertido'
+          page: 1,
+          pageSize: 20
         }
       });
       setNovosConvertidosBusca(response.data.pessoas || []);
@@ -180,7 +177,7 @@ const Batismo = () => {
     if (!selectedNovoConvertido) {
       toast({
         title: 'Erro',
-        description: 'Por favor, selecione um novo convertido para matricular.',
+        description: 'Por favor, selecione uma pessoa com ficha cadastral para matricular.',
         variant: 'destructive',
       });
       setLoadingBatismo(false);
@@ -188,18 +185,16 @@ const Batismo = () => {
     }
 
     try {
-      // TODO: Implementar quando a tabela for criada
-      // const response = await api.post('/integracao/batismo/matricular', {
-      //   pessoaId: selectedNovoConvertido.id,
-      //   dataMatricula: batismoFormData.dataMatricula
-      // });
-
-      toast({
-        title: 'Aviso',
-        description: 'Funcionalidade em desenvolvimento. A tabela de batismo ainda não foi criada.',
+      await api.post('/integracao/batismo/matricular', {
+        pessoaId: selectedNovoConvertido.id,
+        dataMatricula: batismoFormData.dataMatricula
       });
 
-      // Recarregar matrículas
+      toast({
+        title: 'Sucesso',
+        description: 'Matrícula de batismo realizada com sucesso!',
+      });
+
       await loadMatriculas();
       handleClearBatismoSelection();
     } catch (error) {
@@ -214,19 +209,18 @@ const Batismo = () => {
   };
 
   // Marcar/desmarcar aula
-  const handleToggleAula = async (matriculaId, aulaNumero) => {
+  const handleToggleAula = async (matriculaId, aulaNumero, atualConcluida) => {
     try {
-      // TODO: Implementar quando a tabela for criada
-      // await api.put(`/integracao/batismo/matriculas/${matriculaId}/aulas/${aulaNumero}`, {
-      //   concluida: novaConcluida
-      // });
-
-      toast({
-        title: 'Aviso',
-        description: 'Funcionalidade em desenvolvimento. A tabela de batismo ainda não foi criada.',
+      const novaConcluida = !atualConcluida;
+      await api.put(`/integracao/batismo/matriculas/${matriculaId}/aulas/${aulaNumero}`, {
+        concluida: novaConcluida
       });
 
-      // Recarregar matrículas
+      toast({
+        title: 'Sucesso',
+        description: novaConcluida ? 'Aula marcada como concluída.' : 'Aula desmarcada.',
+      });
+
       await loadMatriculas();
     } catch (error) {
       toast({
@@ -243,7 +237,15 @@ const Batismo = () => {
         <div className="dashboard-content">
           <h1>Batismo</h1>
           
-          <Tabs defaultValue="batismo" className="batismo-tabs">
+          <Tabs
+            defaultValue="batismo"
+            className="batismo-tabs"
+            onValueChange={(value) => {
+              if (value === 'alunos-batismo') {
+                loadMatriculas();
+              }
+            }}
+          >
             <TabsList className="batismo-tabs-list">
               <TabsTrigger value="batismo" className="batismo-tabs-trigger">
                 <Droplet className="tab-icon" />
@@ -262,7 +264,7 @@ const Batismo = () => {
                 {/* Campo de Pesquisa */}
                 <div className="form-row" style={{ marginBottom: '24px' }}>
                   <div className="form-group" style={{ position: 'relative' }}>
-                    <Label htmlFor="batismo-search">Pesquisar Novo Convertido</Label>
+                    <Label htmlFor="batismo-search">Pesquisar pessoa com ficha cadastral</Label>
                     <div className="search-input-wrapper">
                       <Search className="search-icon" />
                       <Input
@@ -302,7 +304,7 @@ const Batismo = () => {
                 {selectedNovoConvertido && (
                   <div className="selected-person-card" style={{ marginBottom: '24px' }}>
                     <div>
-                      <strong>Novo Convertido Selecionado:</strong> {selectedNovoConvertido.nomeCompleto || `${selectedNovoConvertido.nome || ''} ${selectedNovoConvertido.sobrenome || ''}`.trim()}
+                      <strong>Pessoa selecionada:</strong> {selectedNovoConvertido.nomeCompleto || `${selectedNovoConvertido.nome || ''} ${selectedNovoConvertido.sobrenome || ''}`.trim()}
                     </div>
                     <Button
                       type="button"
@@ -458,7 +460,7 @@ const Batismo = () => {
                                     <input
                                       type="checkbox"
                                       checked={aula.concluida}
-                                      onChange={() => handleToggleAula(aluno.id, aula.numero)}
+                                      onChange={() => handleToggleAula(aluno.id, aula.numero, aula.concluida)}
                                       style={{
                                         width: '20px',
                                         height: '20px',
@@ -483,7 +485,7 @@ const Batismo = () => {
 
                 {!selectedNovoConvertido && (
                   <div className="no-selection-message">
-                    <p>Pesquise e selecione um novo convertido para realizar a matrícula de batismo.</p>
+                    <p>Pesquise e selecione uma pessoa com ficha cadastral para realizar a matrícula no curso de batismo. Somente quem possui ficha pode ser matriculado.</p>
                   </div>
                 )}
               </div>
@@ -525,8 +527,8 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
       let matchEstagio = true;
       if (filters.estagio === 'Aluno') {
         matchEstagio = estagioAtual === 'Em Batismo';
-      } else if (filters.estagio === 'Membro') {
-        matchEstagio = estagioAtual === 'Membro';
+      } else if (filters.estagio === 'Batizado') {
+        matchEstagio = estagioAtual === 'Batizado';
       }
       
       const matchSearch = !filters.search || 
@@ -624,7 +626,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
       }
 
       if (!nome || !nome.trim()) {
-        throw new Error('Nome é obrigatório para promover a membro. Por favor, verifique os dados da pessoa.');
+        throw new Error('Nome é obrigatório para promover a batizado. Por favor, verifique os dados da pessoa.');
       }
       
       if (!sobrenome || !sobrenome.trim()) {
@@ -642,8 +644,8 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
 
       await api.post('/integracao/integrar-visitante', {
         pessoaId: alunoParaTornarMembro.pessoaId,
-        novoEstagio: 'Membro',
-        observacoes: 'Promovido a membro após conclusão do curso de batismo',
+        novoEstagio: 'Batizado',
+        observacoes: 'Promovido a batizado após conclusão do curso de batismo',
         nome: nome.trim(),
         sobrenome: sobrenome.trim(),
         email: pessoa.email || null,
@@ -662,7 +664,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
 
       toast({
         title: 'Sucesso',
-        description: `${alunoParaTornarMembro.nomeCompleto} foi promovido a membro com sucesso!`,
+        description: `${alunoParaTornarMembro.nomeCompleto} foi promovido a batizado com sucesso!`,
       });
 
       setTornarMembroDialogOpen(false);
@@ -672,10 +674,10 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
         onReload();
       }
     } catch (error) {
-      console.error('Erro ao tornar membro:', error);
+      console.error('Erro ao tornar batizado:', error);
       toast({
         title: 'Erro',
-        description: error.response?.data?.message || error.message || 'Erro ao promover a membro. Tente novamente.',
+        description: error.response?.data?.message || error.message || 'Erro ao promover a batizado. Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -714,7 +716,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
       }
 
       if (!nome || !nome.trim()) {
-        throw new Error('Nome é obrigatório para reverter membro. Por favor, verifique os dados da pessoa.');
+        throw new Error('Nome é obrigatório para reverter. Por favor, verifique os dados da pessoa.');
       }
       
       if (!sobrenome || !sobrenome.trim()) {
@@ -733,7 +735,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
       await api.post('/integracao/integrar-visitante', {
         pessoaId: alunoParaTornarMembro.pessoaId,
         novoEstagio: 'Em Batismo',
-        observacoes: 'Revertido de membro para aluno de batismo',
+        observacoes: 'Revertido de batizado para aluno de batismo',
         nome: nome.trim(),
         sobrenome: sobrenome.trim(),
         email: pessoa.email || null,
@@ -762,10 +764,10 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
         onReload();
       }
     } catch (error) {
-      console.error('Erro ao reverter membro:', error);
+      console.error('Erro ao reverter batizado:', error);
       toast({
         title: 'Erro',
-        description: error.response?.data?.message || error.message || 'Erro ao reverter membro. Tente novamente.',
+        description: error.response?.data?.message || error.message || 'Erro ao reverter para aluno. Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -809,7 +811,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
               className="form-select"
             >
               <option value="Aluno">Aluno</option>
-              <option value="Membro">Membro</option>
+              <option value="Batizado">Batizado</option>
             </select>
           </div>
 
@@ -986,7 +988,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
                       </TableCell>
                     ))}
                     <TableCell style={{ textAlign: 'center' }}>
-                      {aluno.estagioAtual === 'Membro' ? (
+                      {aluno.estagioAtual === 'Batizado' ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -1011,7 +1013,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
                             minWidth: '120px'
                           }}
                         >
-                          {loadingTornarMembro[aluno.id] ? 'Processando...' : 'Tornar Membro'}
+                          {loadingTornarMembro[aluno.id] ? 'Processando...' : 'Tornar Batizado'}
                         </Button>
                       )}
                     </TableCell>
@@ -1094,20 +1096,20 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {alunoParaTornarMembro?.estagioAtual === 'Membro' 
+              {alunoParaTornarMembro?.estagioAtual === 'Batizado' 
                 ? 'Confirmar reversão para aluno' 
-                : 'Confirmar promoção a membro'}
+                : 'Confirmar promoção a batizado'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {alunoParaTornarMembro?.estagioAtual === 'Membro' ? (
+              {alunoParaTornarMembro?.estagioAtual === 'Batizado' ? (
                 <>
-                  Tem certeza que deseja reverter <strong>{alunoParaTornarMembro?.nomeCompleto || 'este membro'}</strong> para aluno de batismo? 
-                  Esta ação alterará o estágio espiritual da pessoa de "Membro" para "Em Batismo".
+                  Tem certeza que deseja reverter <strong>{alunoParaTornarMembro?.nomeCompleto || 'este batizado'}</strong> para aluno de batismo? 
+                  Esta ação alterará o estágio espiritual da pessoa de "Batizado" para "Em Batismo".
                 </>
               ) : (
                 <>
-                  Tem certeza que deseja promover <strong>{alunoParaTornarMembro?.nomeCompleto || 'este aluno'}</strong> a membro? 
-                  Esta ação alterará o estágio espiritual da pessoa para "Membro".
+                  Tem certeza que deseja promover <strong>{alunoParaTornarMembro?.nomeCompleto || 'este aluno'}</strong> a batizado? 
+                  Esta ação alterará o estágio espiritual da pessoa para "Batizado".
                 </>
               )}
             </AlertDialogDescription>
@@ -1120,9 +1122,9 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={alunoParaTornarMembro?.estagioAtual === 'Membro' ? handleReverterMembro : handleConfirmTornarMembro}
+              onClick={alunoParaTornarMembro?.estagioAtual === 'Batizado' ? handleReverterMembro : handleConfirmTornarMembro}
               disabled={loadingTornarMembro[alunoParaTornarMembro?.id]}
-              className={alunoParaTornarMembro?.estagioAtual === 'Membro' 
+              className={alunoParaTornarMembro?.estagioAtual === 'Batizado' 
                 ? "bg-red-600 hover:bg-red-700 text-white" 
                 : "bg-blue-600 hover:bg-blue-700 text-white"}
             >

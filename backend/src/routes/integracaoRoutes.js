@@ -12,7 +12,7 @@ router.use(authMiddleware);
 const integrarVisitanteValidation = [
   body('pessoaId').isInt({ min: 1 }).withMessage('pessoaId deve ser um número inteiro positivo'),
   body('novoEstagio')
-    .isIn(['Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Membresia', 'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'])
+    .isIn(['Visitante', 'Visitante Frequente', 'Novo Convertido', 'Em Batismo', 'Batizado', 'Em Membresia', 'Membro', 'Participante', 'Líder', 'Obreiro', 'Inativo'])
     .withMessage('Estágio inválido'),
   body('nome').trim().notEmpty().withMessage('Nome é obrigatório'),
   body('sobrenome').trim().notEmpty().withMessage('Sobrenome é obrigatório'),
@@ -144,5 +144,40 @@ const analyticsValidation = [
 ];
 
 router.get('/analytics', analyticsValidation, handleValidationErrors, integracaoController.obterEstatisticasAnalytics);
+
+// ==================== BATISMO ====================
+// Busca pessoas com ficha cadastral (somente quem tem ficha pode fazer curso de batismo)
+const buscarBatismoValidation = [
+  query('search').optional().trim().isString(),
+  query('page').optional().isInt({ min: 1 }),
+  query('pageSize').optional().isInt({ min: 1, max: 50 })
+];
+router.get('/batismo/buscar', buscarBatismoValidation, handleValidationErrors, integracaoController.buscarPessoasComFicha);
+
+// Matricular no curso de batismo
+const matricularBatismoValidation = [
+  body('pessoaId').isInt({ min: 1 }).withMessage('pessoaId deve ser um número inteiro positivo'),
+  body('dataMatricula').isISO8601().withMessage('dataMatricula deve ser uma data válida (ISO 8601)'),
+  body('observacoes').optional().trim().isString()
+];
+router.post('/batismo/matricular', matricularBatismoValidation, handleValidationErrors, integracaoController.matricularBatismo);
+
+// Listar matrículas de batismo
+const listarBatismoValidation = [
+  query('page').optional().isInt({ min: 1 }),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }),
+  query('concluido').optional().isIn(['true', 'false']),
+  query('search').optional().trim().isString()
+];
+router.get('/batismo/matriculas', listarBatismoValidation, handleValidationErrors, integracaoController.listarMatriculasBatismo);
+
+// Atualizar status de aula de batismo
+const atualizarAulaBatismoValidation = [
+  param('matriculaId').isInt({ min: 1 }).withMessage('matriculaId deve ser um número inteiro positivo'),
+  param('aulaNumero').isInt({ min: 1, max: 5 }).withMessage('aulaNumero deve ser entre 1 e 5'),
+  body('concluida').isBoolean().withMessage('concluida deve ser um booleano'),
+  body('observacoes').optional().trim().isString()
+];
+router.put('/batismo/matriculas/:matriculaId/aulas/:aulaNumero', atualizarAulaBatismoValidation, handleValidationErrors, integracaoController.atualizarStatusAulaBatismo);
 
 module.exports = router;
