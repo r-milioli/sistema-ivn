@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Settings, LogOut, Bell, Cake, User, Home, Users, DollarSign, Calendar, X } from 'lucide-react';
+import { ModeToggle } from '../Theme/ModeToggle';
 import { useSidebar } from '../ui/sidebar';
 import {
   DropdownMenu,
@@ -96,6 +97,7 @@ const MainLayout = ({ children }) => {
             </div>
             
             <div className="header-right">
+              <ModeToggle />
               <Sheet>
                 <SheetTrigger asChild>
                   <button className="icon-button aniversariantes-button" type="button" aria-label="Aniversariantes do dia">
