@@ -32,8 +32,43 @@ async function obterCargosEclesiasticos() {
     return result.rows.map(row => row.valor);
   } catch (error) {
     console.error('Erro ao buscar cargos eclesiásticos:', error);
-    // Fallback para valores padrão se houver erro
     return ['Pastor', 'Evangelista', 'Presbítero', 'Diácono', 'Pastor lider'];
+  }
+}
+
+/**
+ * Buscar valores do enum estagio_espiritual_enum do banco de dados
+ */
+async function obterEstagiosEspirituais() {
+  try {
+    const result = await pool.query(
+      `SELECT enumlabel as valor 
+       FROM pg_enum 
+       WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'estagio_espiritual_enum')
+       ORDER BY enumsortorder`
+    );
+    return result.rows.map(row => row.valor);
+  } catch (error) {
+    console.error('Erro ao buscar estágios espirituais:', error);
+    return ESTAGIOS_VALIDOS;
+  }
+}
+
+/**
+ * Buscar valores do enum tipo_acesso_enum do banco de dados
+ */
+async function obterTiposAcesso() {
+  try {
+    const result = await pool.query(
+      `SELECT enumlabel as valor 
+       FROM pg_enum 
+       WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'tipo_acesso_enum')
+       ORDER BY enumsortorder`
+    );
+    return result.rows.map(row => row.valor);
+  } catch (error) {
+    console.error('Erro ao buscar tipos de acesso:', error);
+    return TIPOS_ACESSO_VALIDOS;
   }
 }
 
@@ -362,7 +397,7 @@ async function listarMinisterios(req, res) {
 }
 
 /**
- * Obter valores do enum cargo_eclesiastico_enum
+ * Obter valores do enum cargo_eclesiastico_enum (para dropdown)
  */
 async function obterCargosEclesiasticosEndpoint(req, res) {
   try {
@@ -374,9 +409,37 @@ async function obterCargosEclesiasticosEndpoint(req, res) {
   }
 }
 
+/**
+ * Obter valores do enum estagio_espiritual_enum (para dropdown)
+ */
+async function obterEstagiosEspirituaisEndpoint(req, res) {
+  try {
+    const estagios = await obterEstagiosEspirituais();
+    res.json({ estagios });
+  } catch (error) {
+    console.error('Erro ao obter estágios espirituais:', error);
+    res.status(500).json({ message: 'Erro ao obter estágios espirituais', error: error.message });
+  }
+}
+
+/**
+ * Obter valores do enum tipo_acesso_enum (para dropdown)
+ */
+async function obterTiposAcessoEndpoint(req, res) {
+  try {
+    const tipos = await obterTiposAcesso();
+    res.json({ tipos });
+  } catch (error) {
+    console.error('Erro ao obter tipos de acesso:', error);
+    res.status(500).json({ message: 'Erro ao obter tipos de acesso', error: error.message });
+  }
+}
+
 module.exports = {
   criarOuAtualizarAtribuicao,
   obterAtribuicao,
   listarMinisterios,
   obterCargosEclesiasticosEndpoint,
+  obterEstagiosEspirituaisEndpoint,
+  obterTiposAcessoEndpoint,
 };

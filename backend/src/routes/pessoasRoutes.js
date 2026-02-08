@@ -4,7 +4,7 @@ const { body, query } = require('express-validator');
 const authMiddleware = require('../middleware/authMiddleware');
 const { criarPessoa, listarPessoas, buscarPessoas, obterPessoaPorId, atualizarPessoa, updateMe, deletarPessoa } = require('../controllers/pessoasController');
 const handleValidationErrors = require('../middleware/validationMiddleware');
-const { criarOuAtualizarAtribuicao, obterAtribuicao, listarMinisterios, obterCargosEclesiasticosEndpoint } = require('../controllers/atribuicoesController');
+const { criarOuAtualizarAtribuicao, obterAtribuicao, listarMinisterios, obterCargosEclesiasticosEndpoint, obterEstagiosEspirituaisEndpoint, obterTiposAcessoEndpoint } = require('../controllers/atribuicoesController');
 
 // Middleware de validação: apenas nome e telefone obrigatórios
 const validarPessoa = [
@@ -84,5 +84,7 @@ router.post('/pessoas/:pessoaId/atribuicoes', authMiddleware, validarAtribuicao,
 router.get('/pessoas/:pessoaId/atribuicoes', authMiddleware, obterAtribuicao);
 router.get('/ministerios', authMiddleware, listarMinisterios);
 router.get('/cargos-eclesiasticos', authMiddleware, obterCargosEclesiasticosEndpoint);
+router.get('/estagios-espirituais', authMiddleware, obterEstagiosEspirituaisEndpoint);
+router.get('/tipos-acesso', authMiddleware, obterTiposAcessoEndpoint);
 
 module.exports = router;

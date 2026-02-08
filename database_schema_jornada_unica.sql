@@ -1437,8 +1437,8 @@ CREATE TRIGGER update_paginas_config_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_paginas_config_updated_at();
 
--- Inserir páginas padrão (se não existirem)
-INSERT INTO paginas_config (rota, nome, icone, pagina_visivel, card_visivel, ordem) VALUES
+-- Inserir páginas padrão (se não existirem) - usa pagina_visivel_geral (coluna atual)
+INSERT INTO paginas_config (rota, nome, icone, pagina_visivel_geral, card_visivel, ordem) VALUES
   ('/recepcao', 'Recepção', 'Handshake', TRUE, TRUE, 1),
   ('/financas', 'Finanças', 'Wallet', TRUE, TRUE, 2),
   ('/gestao-pessoas', 'Gestão de Pessoas', 'UserCog', TRUE, TRUE, 3),

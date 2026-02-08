@@ -301,11 +301,6 @@ const GestaoPessoas = () => {
     }
   };
 
-  // Carregar dados iniciais
-  useEffect(() => {
-    loadMinisterios();
-  }, []);
-
   // Recarregar pessoas quando filtros ou paginação mudarem
   useEffect(() => {
     loadPessoas();
@@ -632,20 +627,34 @@ const GestaoPessoas = () => {
   });
   const [loadingAtribuicao, setLoadingAtribuicao] = useState(false);
   const [cargosEclesiasticos, setCargosEclesiasticos] = useState([]);
+  const [estagiosEspirituais, setEstagiosEspirituais] = useState([]);
+  const [tiposAcesso, setTiposAcesso] = useState([]);
 
-  // Carregar cargos eclesiásticos do banco de dados
+  // Carregar opções da tab Atribuição do banco (cargos, estágios, tipos de acesso, ministérios)
+  // Ministérios: mesmo endpoint e parâmetro do Config System > tab Ministérios (todos os cadastrados)
   useEffect(() => {
-    const carregarCargosEclesiasticos = async () => {
+    const carregarOpcoesAtribuicao = async () => {
       try {
-        const response = await api.get('/cargos-eclesiasticos');
-        setCargosEclesiasticos(response.data.cargos || []);
+        const [cargosRes, estagiosRes, tiposRes, ministeriosRes] = await Promise.all([
+          api.get('/cargos-eclesiasticos'),
+          api.get('/estagios-espirituais'),
+          api.get('/tipos-acesso'),
+          api.get('/ministerios', { params: { incluirInativos: true } }),
+        ]);
+        setCargosEclesiasticos(cargosRes.data.cargos || []);
+        setEstagiosEspirituais(estagiosRes.data.estagios || []);
+        setTiposAcesso(tiposRes.data.tipos || []);
+        setMinisterios(ministeriosRes.data.ministerios || []);
       } catch (error) {
-        console.error('Erro ao carregar cargos eclesiásticos:', error);
-        // Fallback para valores padrão em caso de erro
-        setCargosEclesiasticos(['Pastor', 'Evangelista', 'Presbítero', 'Diácono', 'Pastor lider']);
+        console.error('Erro ao carregar opções de atribuição:', error);
+        toast({
+          title: 'Aviso',
+          description: 'Não foi possível carregar algumas opções. Tente recarregar a página.',
+          variant: 'destructive',
+        });
       }
     };
-    carregarCargosEclesiasticos();
+    carregarOpcoesAtribuicao();
   }, []);
 
   // Buscar pessoas para atribuição
@@ -1363,11 +1372,14 @@ const GestaoPessoas = () => {
                               className="form-select"
                             >
                               <option value="">Selecione um estágio</option>
-                              {['Visitante', 'Novo Convertido', 'Membro', 'Participante de Ministério', 'Líder']
-                                .filter(estagio => !atribuicaoFormData.estagiosUsuario.includes(estagio))
+                              {estagiosEspirituais
+                                .filter(estagio => {
+                                  const valorFront = estagio === 'Participante' ? 'Participante de Ministério' : estagio;
+                                  return !atribuicaoFormData.estagiosUsuario.includes(valorFront);
+                                })
                                 .map(estagio => (
-                                  <option key={estagio} value={estagio}>
-                                    {estagio}
+                                  <option key={estagio} value={estagio === 'Participante' ? 'Participante de Ministério' : estagio}>
+                                    {estagio === 'Participante' ? 'Participante de Ministério' : estagio}
                                   </option>
                                 ))}
                             </select>
@@ -1416,7 +1428,9 @@ const GestaoPessoas = () => {
                                 onChange={(e) => setMinisterioLiderSelecionado(e.target.value)}
                                 className="form-select"
                               >
-                                <option value="">Selecione um ministério</option>
+                                <option value="">
+                                  {ministerios.length === 0 ? 'Carregando ministérios...' : 'Selecione um ministério'}
+                                </option>
                                 {ministerios
                                   .filter(m => !atribuicaoFormData.ministeriosLider.includes(m.id) && !atribuicaoFormData.ministeriosParticipante.includes(m.id))
                                   .map(ministerio => (
@@ -1473,7 +1487,9 @@ const GestaoPessoas = () => {
                                 onChange={(e) => setMinisterioParticipanteSelecionado(e.target.value)}
                                 className="form-select"
                               >
-                                <option value="">Selecione um ministério</option>
+                                <option value="">
+                                  {ministerios.length === 0 ? 'Carregando ministérios...' : 'Selecione um ministério'}
+                                </option>
                                 {ministerios
                                   .filter(m => !atribuicaoFormData.ministeriosParticipante.includes(m.id) && !atribuicaoFormData.ministeriosLider.includes(m.id))
                                   .map(ministerio => (
@@ -1531,9 +1547,11 @@ const GestaoPessoas = () => {
                           className="form-select"
                         >
                           <option value="">Selecione o tipo de usuário</option>
-                          <option value="Usuario">Usuário</option>
-                          <option value="Admin">Admin</option>
-                          <option value="SuperAdmin">SuperAdmin</option>
+                          {tiposAcesso.map((tipo) => (
+                            <option key={tipo} value={tipo}>
+                              {tipo === 'Usuario' ? 'Usuário' : tipo === 'Lider' ? 'Líder' : tipo}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
