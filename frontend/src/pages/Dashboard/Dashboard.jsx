@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import { 
   Settings, 
   Handshake, 
@@ -46,13 +47,50 @@ import {
 import MainLayout from '../../components/Layout/MainLayout';
 import './Dashboard.css';
 
+// Mapeamento de ícones por nome
+const iconMap = {
+  Handshake, Wallet, Music, HeartHandshake, Users, Hammer, Baby, Sparkles,
+  Heart, BookOpen, Zap, Video, Smile, Bike, Home, Crown, ChefHat, Radio,
+  Globe, Shield, UserCircle, MessageCircle, Cross, GraduationCap, Coffee,
+  UsersRound, Activity, User, UserRound, Calendar, Drama, Mic, HeartPulse,
+  UserCog, Droplet, UserCheck, FileText, Server, ClipboardList, Settings
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [paginasConfig, setPaginasConfig] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const nomeExibicao = user?.nome?.trim() || 'Usuário';
 
-  const dashboardCards = [
+  // Carregar configurações de páginas
+  useEffect(() => {
+    loadPaginasConfig();
+  }, []);
+
+  const loadPaginasConfig = async () => {
+    try {
+      const response = await api.get('/paginas-config');
+      // Garantir que os valores booleanos sejam booleanos JavaScript
+      const paginas = (response.data.paginas || []).map(pagina => ({
+        ...pagina,
+        pagina_visivel: Boolean(pagina.pagina_visivel),
+        card_visivel: Boolean(pagina.card_visivel),
+        ativo: Boolean(pagina.ativo)
+      }));
+      setPaginasConfig(paginas);
+    } catch (error) {
+      console.error('Erro ao carregar configurações de páginas:', error);
+      // Em caso de erro, usar lista padrão
+      setPaginasConfig([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cards padrão (fallback se não houver configurações)
+  const dashboardCardsDefault = [
     { 
       icon: Handshake, 
       label: 'Recepção', 
@@ -254,6 +292,50 @@ const Dashboard = () => {
       path: '/ficha-membros'
     },
   ];
+
+  // Cards filtrados baseado nas configurações
+  const dashboardCards = useMemo(() => {
+    if (loading || paginasConfig.length === 0) {
+      return dashboardCardsDefault;
+    }
+
+    // Criar mapa de configurações por rota
+    const configMap = new Map();
+    paginasConfig.forEach(pagina => {
+      configMap.set(pagina.rota, pagina);
+    });
+
+    // Filtrar e mapear cards baseado nas configurações
+    return dashboardCardsDefault
+      .filter(card => {
+        const config = configMap.get(card.path);
+        // Se não houver configuração, mostrar por padrão
+        if (!config) {
+          return true; // Sem configuração, mostrar por padrão
+        }
+        // Mostrar apenas se card_visivel for explicitamente true
+        // Garantir que seja boolean e não string ou null
+        const cardVisivel = config.card_visivel === true || config.card_visivel === 'true' || config.card_visivel === 1;
+        return cardVisivel;
+      })
+      .map(card => {
+        const config = configMap.get(card.path);
+        if (config && config.icone) {
+          const IconComponent = iconMap[config.icone];
+          if (IconComponent) {
+            return { ...card, icon: IconComponent };
+          }
+        }
+        return card;
+      })
+      .sort((a, b) => {
+        const configA = configMap.get(a.path);
+        const configB = configMap.get(b.path);
+        const ordemA = configA?.ordem ?? 999;
+        const ordemB = configB?.ordem ?? 999;
+        return ordemA - ordemB;
+      });
+  }, [paginasConfig, loading]);
 
   const handleCardClick = (path) => {
     navigate(path);

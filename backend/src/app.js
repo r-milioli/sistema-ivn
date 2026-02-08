@@ -11,6 +11,7 @@ const eventosRoutes = require('./routes/eventosRoutes');
 const integracaoRoutes = require('./routes/integracaoRoutes');
 const ministeriosRoutes = require('./routes/ministeriosRoutes');
 const fichaCadastralRoutes = require('./routes/fichaCadastralRoutes');
+const paginasConfigRoutes = require('./routes/paginasConfigRoutes');
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/api/integracao', integracaoRoutes);
 app.use('/api/ministerios', ministeriosRoutes);
 app.use('/api', pessoasRoutes);
 app.use('/api', fichaCadastralRoutes);
+app.use('/api/paginas-config', paginasConfigRoutes);
 
 // Rota de teste
 app.get('/api/health', (req, res) => {

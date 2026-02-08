@@ -12,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
-import { Settings, Building2, FileText, Edit, X } from 'lucide-react';
+import { Switch } from '../../components/ui/switch';
+import { Settings, Building2, FileText, Edit, X, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
 import './ConfigSystem.css';
@@ -52,10 +53,7 @@ const ConfigSystem = () => {
             </TabsContent>
 
             <TabsContent value="paginas" className="config-system-tabs-content">
-              <div className="tab-content-wrapper">
-                <h2>Páginas</h2>
-                <p>Gerenciamento de páginas do sistema.</p>
-              </div>
+              <PaginasTab />
             </TabsContent>
           </Tabs>
         </div>
@@ -321,6 +319,160 @@ const MinisteriosTab = () => {
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+// Componente da Tab Páginas
+const PaginasTab = () => {
+  const { toast } = useToast();
+  const [paginas, setPaginas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState({});
+
+  // Carregar lista de páginas
+  useEffect(() => {
+    loadPaginas();
+  }, []);
+
+  const loadPaginas = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/paginas-config');
+      setPaginas(response.data.paginas || []);
+    } catch (error) {
+      console.error('Erro ao carregar páginas:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar configurações de páginas. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTogglePaginaVisivel = async (paginaId, newValue) => {
+    try {
+      setUpdating(prev => ({ ...prev, [paginaId]: true }));
+      
+      // newValue já vem do Switch (invertido do valor atual)
+      // Se checked=true (visível), ao clicar passa false (invisível)
+      // Se checked=false (invisível), ao clicar passa true (visível)
+      await api.put(`/paginas-config/${paginaId}`, {
+        pagina_visivel: newValue
+      });
+
+      setPaginas(prev => prev.map(p => 
+        p.id === paginaId ? { ...p, pagina_visivel: newValue } : p
+      ));
+
+      toast({
+        title: 'Sucesso!',
+        description: `Página ${newValue ? 'ativada' : 'desativada'} com sucesso!`,
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar visibilidade da página:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao atualizar visibilidade. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdating(prev => ({ ...prev, [paginaId]: false }));
+    }
+  };
+
+  const handleToggleCardVisivel = async (paginaId, newValue) => {
+    try {
+      setUpdating(prev => ({ ...prev, [paginaId]: true }));
+      
+      // newValue já vem do Switch (invertido do valor atual)
+      // Se checked=true (visível), ao clicar passa false (invisível)
+      // Se checked=false (invisível), ao clicar passa true (visível)
+      await api.put(`/paginas-config/${paginaId}`, {
+        card_visivel: newValue
+      });
+
+      setPaginas(prev => prev.map(p => 
+        p.id === paginaId ? { ...p, card_visivel: newValue } : p
+      ));
+
+      toast({
+        title: 'Sucesso!',
+        description: `Card ${newValue ? 'ativado' : 'desativado'} com sucesso!`,
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar visibilidade do card:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao atualizar visibilidade. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdating(prev => ({ ...prev, [paginaId]: false }));
+    }
+  };
+
+  return (
+    <div className="tab-content-wrapper">
+      <h2>Gerenciamento de Páginas</h2>
+      <p style={{ marginBottom: '24px', color: '#666' }}>
+        Configure a visibilidade das páginas e seus cards no dashboard.
+      </p>
+      
+      {loading ? (
+        <div className="text-center p-8">Carregando páginas...</div>
+      ) : paginas.length === 0 ? (
+        <div className="empty-state">
+          <p>Nenhuma página configurada ainda.</p>
+        </div>
+      ) : (
+        <div className="table-wrapper">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Rota</TableHead>
+                <TableHead className="text-center">Página Visível</TableHead>
+                <TableHead className="text-center">Card Visível</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginas.map((pagina) => (
+                <TableRow key={pagina.id}>
+                  <TableCell className="font-medium">{pagina.nome}</TableCell>
+                  <TableCell style={{ color: '#666' }}>{pagina.rota}</TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center">
+                      <Switch
+                        checked={pagina.pagina_visivel}
+                        onCheckedChange={(newValue) => handleTogglePaginaVisivel(pagina.id, newValue)}
+                        disabled={updating[pagina.id]}
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center">
+                      <Switch
+                        checked={pagina.card_visivel}
+                        onCheckedChange={(newValue) => handleToggleCardVisivel(pagina.id, newValue)}
+                        disabled={updating[pagina.id]}
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`status-badge ${pagina.ativo ? 'status-active' : 'status-inactive'}`}>
+                      {pagina.ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 };

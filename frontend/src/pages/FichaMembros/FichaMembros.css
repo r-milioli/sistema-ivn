@@ -491,3 +491,109 @@
     font-size: 24px;
   }
 }
+
+/* Dark Mode Styles */
+.dark .form-section {
+  background: hsl(var(--muted)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .section-title {
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .form-group label {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .form-input,
+.dark .form-select,
+.dark .form-textarea {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .form-input:focus,
+.dark .form-select:focus,
+.dark .form-textarea:focus {
+  border-color: hsl(var(--ring)) !important;
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.1) !important;
+}
+
+.dark .form-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23e5e5e5' d='M6 9L1 4h10z'/%3E%3C/svg%3E") !important;
+}
+
+.dark .checkbox-label {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .cep-hint,
+.dark .foto-hint {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .form-actions {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .avatar-edit-icon-button {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .avatar-edit-icon-button:hover {
+  background: hsl(var(--accent)) !important;
+}
+
+.dark .avatar-remove-button {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .ficha-salva-container {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .ficha-salva-loading,
+.dark .ficha-salva-empty {
+  background: hsl(var(--muted)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .ficha-salva-title {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .ficha-salva-card {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .ficha-salva-header {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .ficha-salva-nome {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .ficha-salva-data {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .detail-label {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .detail-value {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .ficha-salva-actions {
+  border-color: hsl(var(--border)) !important;
+}

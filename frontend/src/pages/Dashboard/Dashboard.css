@@ -1,6 +1,11 @@
 .dashboard-container {
   min-height: 100vh;
   background-color: #f5f5f5;
+  transition: background-color 0.3s ease;
+}
+
+.dark .dashboard-container {
+  background-color: hsl(var(--background)) !important;
 }
 
 .dashboard-header {
@@ -261,18 +266,35 @@
   max-width: 1400px;
   margin: 0 auto;
   box-sizing: border-box;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark .dashboard-content {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
 }
 
 .dashboard-content h2 {
   margin-top: 0;
   color: #333;
   font-size: 28px;
+  transition: color 0.3s ease;
+}
+
+.dark .dashboard-content h2 {
+  color: hsl(var(--card-foreground)) !important;
 }
 
 .dashboard-content p {
   color: #666;
   font-size: 16px;
   line-height: 1.6;
+  transition: color 0.3s ease;
+}
+
+.dark .dashboard-content p {
+  color: hsl(var(--muted-foreground)) !important;
 }
 
 /* Welcome banner - cores alinhadas ao layout do sistema */
@@ -286,6 +308,12 @@
   border-radius: 16px;
   border: 1px solid #e0e0e0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.dark .dashboard-welcome {
+  background: hsl(var(--muted)) !important;
+  border-color: hsl(var(--border)) !important;
 }
 
 .dashboard-welcome-logo {
@@ -300,6 +328,12 @@
   border: 1px solid #e0e0e0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.dark .dashboard-welcome-logo {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
 }
 
 .dashboard-welcome-logo-img {
@@ -364,10 +398,21 @@
   box-sizing: border-box;
 }
 
+.dark .dashboard-card {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
 .dashboard-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   border-color: #d0d0d0;
+}
+
+.dark .dashboard-card:hover {
+  border-color: hsl(var(--border)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
 }
 
 .dashboard-card-icon {
@@ -440,6 +485,13 @@
   height: 100vh;
   border-right: 1px solid #e0e0e0;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.dark [data-slot="sidebar-inner"] {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 [data-sidebar="header"] {
@@ -489,12 +541,22 @@
   color: #1a1a1a !important;
 }
 
+.dark [data-sidebar="menu-button"]:hover {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
 [data-sidebar="menu-button"][data-active="true"] {
   background-color: #f0f0f0;
   color: #1a1a1a !important;
   font-weight: 500;
   border-bottom: none !important;
   box-shadow: none !important;
+}
+
+.dark [data-sidebar="menu-button"][data-active="true"] {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
 }
 
 [data-sidebar="menu-button"] svg {
@@ -618,6 +680,11 @@
 .sidebar-close-button:hover {
   background: #f5f5f5;
   color: #1a1a1a;
+}
+
+.dark .sidebar-close-button:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
 }
 
 .sidebar-close-icon {

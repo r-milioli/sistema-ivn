@@ -51,6 +51,11 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    @apply bg-background;
+  }
+  
   body {
     @apply bg-background text-foreground;
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -58,6 +63,23 @@
       sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    background-color: hsl(var(--background));
+  }
+  
+  /* Garantir que o body tenha background correto no dark mode */
+  .dark body {
+    background-color: hsl(var(--background)) !important;
+  }
+  
+  /* Garantir que o root tenha background correto */
+  #root {
+    min-height: 100vh;
+    background-color: hsl(var(--background));
+  }
+  
+  .dark #root {
+    background-color: hsl(var(--background)) !important;
   }
 }
 
@@ -185,4 +207,83 @@
 .dark .notificacoes-sheet {
   background: #171717 !important;
   border-color: #333 !important;
+}
+
+/* Garantir que elementos principais usem variáveis CSS no dark mode */
+.dark .dashboard-container {
+  background-color: hsl(var(--background)) !important;
+}
+
+.dark .dashboard-main {
+  background-color: hsl(var(--background)) !important;
+}
+
+.dark .dashboard-content {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+/* Garantir que elementos com background branco no light mode usem card no dark mode */
+.dark [data-slot="sidebar-inner"] {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .sidebar-close-button-wrapper {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .sidebar-close-button:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+/* Regras dark mode para elementos comuns em todas as páginas */
+.dark .tab-content-wrapper {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .ficha-membros-tabs-list,
+.dark .config-system-tabs-list,
+.dark .relatorio-tabs-list {
+  background: hsl(var(--muted)) !important;
+}
+
+.dark .ficha-membros-tabs-trigger[data-state="active"],
+.dark .config-system-tabs-trigger[data-state="active"],
+.dark .relatorio-tabs-trigger[data-state="active"] {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .ficha-membros-tabs-trigger:hover,
+.dark .config-system-tabs-trigger:hover,
+.dark .relatorio-tabs-trigger:hover {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+/* Garantir que h1, h2, h3, etc. tenham cor correta no dark mode */
+.dark .dashboard-content h1,
+.dark .dashboard-content h2,
+.dark .dashboard-content h3,
+.dark .tab-content-wrapper h1,
+.dark .tab-content-wrapper h2,
+.dark .tab-content-wrapper h3 {
+  color: hsl(var(--card-foreground)) !important;
+}
+
+/* Garantir que parágrafos tenham cor correta no dark mode */
+.dark .dashboard-content p,
+.dark .tab-content-wrapper p,
+.dark .header-description {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Garantir que bordas tenham cor correta no dark mode */
+.dark .ficha-membros-header,
+.dark .header-description {
+  border-color: hsl(var(--border)) !important;
 }
