@@ -12,10 +12,15 @@ async function listarPaginasConfig(req, res) {
         nome,
         icone,
         ministerio_id,
-        COALESCE(pagina_visivel, true) as pagina_visivel,
         COALESCE(card_visivel, true) as card_visivel,
+        COALESCE(pagina_visivel_geral, true) as pagina_visivel_geral,
+        COALESCE(pagina_visivel_visitantes, false) as pagina_visivel_visitantes,
+        COALESCE(pagina_visivel_lider_ministerio, false) as pagina_visivel_lider_ministerio,
+        COALESCE(pagina_visivel_participa_ministerio, false) as pagina_visivel_participa_ministerio,
+        COALESCE(pagina_visivel_user, false) as pagina_visivel_user,
+        COALESCE(pagina_visivel_admin, false) as pagina_visivel_admin,
+        COALESCE(pagina_visivel_superadmin, false) as pagina_visivel_superadmin,
         ordem,
-        COALESCE(ativo, true) as ativo,
         criado_em,
         atualizado_em
       FROM paginas_config
@@ -25,9 +30,14 @@ async function listarPaginasConfig(req, res) {
     // Garantir que os valores booleanos sejam booleanos JavaScript
     const paginas = result.rows.map(row => ({
       ...row,
-      pagina_visivel: Boolean(row.pagina_visivel),
       card_visivel: Boolean(row.card_visivel),
-      ativo: Boolean(row.ativo)
+      pagina_visivel_geral: Boolean(row.pagina_visivel_geral),
+      pagina_visivel_visitantes: Boolean(row.pagina_visivel_visitantes),
+      pagina_visivel_lider_ministerio: Boolean(row.pagina_visivel_lider_ministerio),
+      pagina_visivel_participa_ministerio: Boolean(row.pagina_visivel_participa_ministerio),
+      pagina_visivel_user: Boolean(row.pagina_visivel_user),
+      pagina_visivel_admin: Boolean(row.pagina_visivel_admin),
+      pagina_visivel_superadmin: Boolean(row.pagina_visivel_superadmin)
     }));
 
     res.json({
@@ -52,7 +62,12 @@ async function atualizarPaginaConfig(req, res) {
     await client.query('BEGIN');
 
     const { id } = req.params;
-    const { pagina_visivel, card_visivel, ordem, ministerio_id } = req.body;
+    const { 
+      card_visivel, ordem, ministerio_id,
+      pagina_visivel_geral, pagina_visivel_visitantes,
+      pagina_visivel_lider_ministerio, pagina_visivel_participa_ministerio,
+      pagina_visivel_user, pagina_visivel_admin, pagina_visivel_superadmin
+    } = req.body;
 
     // Verificar se a página existe
     const paginaCheck = await client.query(
@@ -70,11 +85,6 @@ async function atualizarPaginaConfig(req, res) {
     const updateValues = [];
     let paramIndex = 1;
 
-    if (pagina_visivel !== undefined) {
-      updateFields.push(`pagina_visivel = $${paramIndex++}`);
-      updateValues.push(pagina_visivel);
-    }
-
     if (card_visivel !== undefined) {
       updateFields.push(`card_visivel = $${paramIndex++}`);
       updateValues.push(card_visivel);
@@ -90,6 +100,41 @@ async function atualizarPaginaConfig(req, res) {
       updateValues.push(ministerio_id === null || ministerio_id === '' ? null : ministerio_id);
     }
 
+    if (pagina_visivel_geral !== undefined) {
+      updateFields.push(`pagina_visivel_geral = $${paramIndex++}`);
+      updateValues.push(pagina_visivel_geral);
+    }
+
+    if (pagina_visivel_visitantes !== undefined) {
+      updateFields.push(`pagina_visivel_visitantes = $${paramIndex++}`);
+      updateValues.push(pagina_visivel_visitantes);
+    }
+
+    if (pagina_visivel_lider_ministerio !== undefined) {
+      updateFields.push(`pagina_visivel_lider_ministerio = $${paramIndex++}`);
+      updateValues.push(pagina_visivel_lider_ministerio);
+    }
+
+    if (pagina_visivel_participa_ministerio !== undefined) {
+      updateFields.push(`pagina_visivel_participa_ministerio = $${paramIndex++}`);
+      updateValues.push(pagina_visivel_participa_ministerio);
+    }
+
+    if (pagina_visivel_user !== undefined) {
+      updateFields.push(`pagina_visivel_user = $${paramIndex++}`);
+      updateValues.push(pagina_visivel_user);
+    }
+
+    if (pagina_visivel_admin !== undefined) {
+      updateFields.push(`pagina_visivel_admin = $${paramIndex++}`);
+      updateValues.push(pagina_visivel_admin);
+    }
+
+    if (pagina_visivel_superadmin !== undefined) {
+      updateFields.push(`pagina_visivel_superadmin = $${paramIndex++}`);
+      updateValues.push(pagina_visivel_superadmin);
+    }
+
     if (updateFields.length === 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ message: 'Nenhum campo para atualizar' });
@@ -102,16 +147,33 @@ async function atualizarPaginaConfig(req, res) {
       UPDATE paginas_config
       SET ${updateFields.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, rota, nome, icone, ministerio_id, pagina_visivel, card_visivel, ordem, ativo, atualizado_em
+      RETURNING id, rota, nome, icone, ministerio_id, card_visivel, 
+                pagina_visivel_geral, pagina_visivel_visitantes, 
+                pagina_visivel_lider_ministerio, pagina_visivel_participa_ministerio,
+                pagina_visivel_user, pagina_visivel_admin, pagina_visivel_superadmin,
+                ordem, atualizado_em
     `;
 
     const result = await client.query(updateQuery, updateValues);
 
     await client.query('COMMIT');
 
+    // Garantir que os valores booleanos sejam booleanos JavaScript
+    const paginaAtualizada = {
+      ...result.rows[0],
+      card_visivel: Boolean(result.rows[0].card_visivel),
+      pagina_visivel_geral: Boolean(result.rows[0].pagina_visivel_geral),
+      pagina_visivel_visitantes: Boolean(result.rows[0].pagina_visivel_visitantes),
+      pagina_visivel_lider_ministerio: Boolean(result.rows[0].pagina_visivel_lider_ministerio),
+      pagina_visivel_participa_ministerio: Boolean(result.rows[0].pagina_visivel_participa_ministerio),
+      pagina_visivel_user: Boolean(result.rows[0].pagina_visivel_user),
+      pagina_visivel_admin: Boolean(result.rows[0].pagina_visivel_admin),
+      pagina_visivel_superadmin: Boolean(result.rows[0].pagina_visivel_superadmin)
+    };
+
     res.json({
       message: 'Configuração de página atualizada com sucesso',
-      pagina: result.rows[0]
+      pagina: paginaAtualizada
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -126,24 +188,100 @@ async function atualizarPaginaConfig(req, res) {
 }
 
 /**
- * Obter configurações de páginas visíveis no dashboard
+ * Obter páginas visíveis no dashboard para o usuário atual
+ * Considera card_visivel E as flags de visibilidade da página
  */
 async function obterPaginasVisiveis(req, res) {
   try {
+    const { pessoaId, tipoAcesso, estagioAtual } = req.query;
+
     const result = await pool.query(
       `SELECT 
+        id,
         rota,
         nome,
         icone,
-        ordem
+        ministerio_id,
+        ordem,
+        card_visivel,
+        pagina_visivel_geral,
+        pagina_visivel_visitantes,
+        pagina_visivel_lider_ministerio,
+        pagina_visivel_participa_ministerio,
+        pagina_visivel_user,
+        pagina_visivel_admin,
+        pagina_visivel_superadmin
       FROM paginas_config
-      WHERE ativo = TRUE 
-        AND card_visivel = TRUE
+      WHERE card_visivel = TRUE
       ORDER BY ordem ASC, nome ASC`
     );
 
+    // Filtrar páginas baseado nas permissões do usuário
+    const paginasFiltradas = [];
+    
+    for (const pagina of result.rows) {
+      let podeVer = false;
+
+      // Geral: todos podem ver
+      if (pagina.pagina_visivel_geral) {
+        podeVer = true;
+      }
+
+      // Visitante
+      if (!podeVer && pagina.pagina_visivel_visitantes && estagioAtual) {
+        const estagio = String(estagioAtual).toLowerCase();
+        if (estagio.includes('visitante')) {
+          podeVer = true;
+        }
+      }
+
+      // User, Admin, SuperAdmin (baseado em tipoAcesso)
+      if (!podeVer && tipoAcesso) {
+        const tipo = String(tipoAcesso).toLowerCase();
+        if ((tipo === 'usuario' || tipo === 'user') && pagina.pagina_visivel_user) {
+          podeVer = true;
+        }
+        if (tipo === 'admin' && pagina.pagina_visivel_admin) {
+          podeVer = true;
+        }
+        if (tipo === 'superadmin' && pagina.pagina_visivel_superadmin) {
+          podeVer = true;
+        }
+      }
+
+      // Líder/Participante do ministério DESTA página
+      if (!podeVer && pessoaId && pagina.ministerio_id) {
+        const pm = await pool.query(
+          `SELECT e_lider FROM pessoa_ministerios 
+           WHERE pessoa_id = $1 AND ministerio_id = $2 AND data_fim IS NULL`,
+          [pessoaId, pagina.ministerio_id]
+        );
+        
+        if (pm.rows.length > 0) {
+          const isLider = pm.rows[0].e_lider === true;
+          const isParticipante = pm.rows[0].e_lider === false;
+          
+          if (isLider && pagina.pagina_visivel_lider_ministerio) {
+            podeVer = true;
+          }
+          if (isParticipante && pagina.pagina_visivel_participa_ministerio) {
+            podeVer = true;
+          }
+        }
+      }
+
+      if (podeVer) {
+        paginasFiltradas.push({
+          rota: pagina.rota,
+          nome: pagina.nome,
+          icone: pagina.icone,
+          ordem: pagina.ordem
+        });
+      }
+    }
+
     res.json({
-      paginas: result.rows
+      paginas: paginasFiltradas
     });
   } catch (error) {
     console.error('Erro ao obter páginas visíveis:', error);
@@ -155,11 +293,13 @@ async function obterPaginasVisiveis(req, res) {
 }
 
 /**
- * Verificar se uma página específica está visível pela rota
+ * Verificar se o usuário pode acessar uma página específica
+ * Baseado nas flags de visibilidade e no perfil do usuário
  */
 async function verificarVisibilidadePagina(req, res) {
   try {
     const { rota } = req.query;
+    const { pessoaId, tipoAcesso, estagioAtual } = req.query; // tipoAcesso: Usuario, Lider, Admin, SuperAdmin
 
     if (!rota) {
       return res.status(400).json({
@@ -172,15 +312,21 @@ async function verificarVisibilidadePagina(req, res) {
         id,
         rota,
         nome,
-        pagina_visivel,
-        ativo
+        ministerio_id,
+        pagina_visivel_geral,
+        pagina_visivel_visitantes,
+        pagina_visivel_lider_ministerio,
+        pagina_visivel_participa_ministerio,
+        pagina_visivel_user,
+        pagina_visivel_admin,
+        pagina_visivel_superadmin
       FROM paginas_config
       WHERE rota = $1`,
       [rota]
     );
 
     if (result.rows.length === 0) {
-      // Se a página não estiver na tabela, permitir acesso (compatibilidade com páginas antigas)
+      // Se a página não estiver na tabela, permitir acesso (compatibilidade)
       return res.json({
         visivel: true,
         pagina: null
@@ -188,10 +334,58 @@ async function verificarVisibilidadePagina(req, res) {
     }
 
     const pagina = result.rows[0];
-    const visivel = Boolean(pagina.ativo && pagina.pagina_visivel);
+
+    // Determinar se o usuário pode ver a página
+    let podeVer = false;
+
+    // Geral: todos podem ver
+    if (pagina.pagina_visivel_geral) {
+      podeVer = true;
+    }
+
+    // Visitante: apenas se estagioAtual contém "visitante"
+    if (!podeVer && pagina.pagina_visivel_visitantes && estagioAtual) {
+      const estagio = String(estagioAtual).toLowerCase();
+      if (estagio.includes('visitante')) {
+        podeVer = true;
+      }
+    }
+
+    // User, Admin, SuperAdmin: baseado em tipoAcesso
+    if (!podeVer && tipoAcesso) {
+      const tipo = String(tipoAcesso).toLowerCase();
+      if (tipo === 'usuario' || tipo === 'user') {
+        podeVer = podeVer || pagina.pagina_visivel_user;
+      }
+      if (tipo === 'admin') {
+        podeVer = podeVer || pagina.pagina_visivel_admin;
+      }
+      if (tipo === 'superadmin') {
+        podeVer = podeVer || pagina.pagina_visivel_superadmin;
+      }
+    }
+
+    // Líder/Participante do ministério DESTA página
+    if (!podeVer && pessoaId && pagina.ministerio_id) {
+      const pm = await pool.query(
+        `SELECT e_lider FROM pessoa_ministerios 
+         WHERE pessoa_id = $1 AND ministerio_id = $2 AND data_fim IS NULL`,
+        [pessoaId, pagina.ministerio_id]
+      );
+      if (pm.rows.length > 0) {
+        const isLider = pm.rows[0].e_lider === true;
+        const isParticipante = pm.rows[0].e_lider === false;
+        if (isLider && pagina.pagina_visivel_lider_ministerio) {
+          podeVer = true;
+        }
+        if (isParticipante && pagina.pagina_visivel_participa_ministerio) {
+          podeVer = true;
+        }
+      }
+    }
 
     res.json({
-      visivel,
+      visivel: podeVer,
       pagina: {
         id: pagina.id,
         rota: pagina.rota,

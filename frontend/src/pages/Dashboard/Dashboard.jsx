@@ -64,22 +64,28 @@ const Dashboard = () => {
 
   const nomeExibicao = user?.nome?.trim() || 'Usuário';
 
-  // Carregar configurações de páginas
+  // Carregar configurações de páginas (recarregar quando user mudar)
   useEffect(() => {
-    loadPaginasConfig();
-  }, []);
+    if (user) {
+      loadPaginasConfig();
+    }
+  }, [user?.id]);
 
   const loadPaginasConfig = async () => {
     try {
-      const response = await api.get('/paginas-config');
-      // Garantir que os valores booleanos sejam booleanos JavaScript
-      const paginas = (response.data.paginas || []).map(pagina => ({
-        ...pagina,
-        pagina_visivel: Boolean(pagina.pagina_visivel),
-        card_visivel: Boolean(pagina.card_visivel),
-        ativo: Boolean(pagina.ativo)
-      }));
-      setPaginasConfig(paginas);
+      // Montar parâmetros do usuário para filtrar páginas
+      const params = new URLSearchParams();
+      if (user?.id) params.append('pessoaId', user.id);
+      if (user?.tipo_acesso || user?.tipoAcesso) {
+        params.append('tipoAcesso', user.tipo_acesso || user.tipoAcesso);
+      }
+      if (user?.estagio_atual || user?.estagioAtual) {
+        params.append('estagioAtual', user.estagio_atual || user.estagioAtual);
+      }
+
+      // Usar endpoint que já filtra por permissões
+      const response = await api.get(`/paginas-config/visiveis?${params.toString()}`);
+      setPaginasConfig(response.data.paginas || []);
     } catch (error) {
       console.error('Erro ao carregar configurações de páginas:', error);
       // Em caso de erro, usar lista padrão
@@ -305,18 +311,12 @@ const Dashboard = () => {
       configMap.set(pagina.rota, pagina);
     });
 
-    // Filtrar e mapear cards baseado nas configurações
+    // O backend já filtrou por permissões e card_visivel
+    // Apenas mapear para os cards padrão
     return dashboardCardsDefault
       .filter(card => {
-        const config = configMap.get(card.path);
-        // Se não houver configuração, mostrar por padrão
-        if (!config) {
-          return true; // Sem configuração, mostrar por padrão
-        }
-        // Mostrar apenas se card_visivel for explicitamente true
-        // Garantir que seja boolean e não string ou null
-        const cardVisivel = config.card_visivel === true || config.card_visivel === 'true' || config.card_visivel === 1;
-        return cardVisivel;
+        // Mostrar apenas se a página está na lista retornada pelo backend
+        return configMap.has(card.path);
       })
       .map(card => {
         const config = configMap.get(card.path);

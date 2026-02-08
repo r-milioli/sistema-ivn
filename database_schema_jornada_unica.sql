@@ -1400,11 +1400,17 @@ CREATE TABLE IF NOT EXISTS paginas_config (
   rota VARCHAR(255) NOT NULL UNIQUE, -- Ex: '/recepcao', '/financas'
   nome VARCHAR(255) NOT NULL, -- Nome exibido: 'Recepção', 'Finanças'
   icone VARCHAR(100), -- Nome do ícone (opcional)
-  ministerio_id INTEGER REFERENCES ministerios(id) ON DELETE SET NULL, -- Ministério da página (para tabs "Líder/Participante do ministério")
-  pagina_visivel BOOLEAN DEFAULT TRUE, -- Se a página está acessível
+  ministerio_id INTEGER REFERENCES ministerios(id) ON DELETE SET NULL, -- Ministério da página (para tabs/página "Líder/Participante do ministério")
   card_visivel BOOLEAN DEFAULT TRUE, -- Se o card aparece no dashboard
+  -- Visibilidade da página por nível (múltiplas opções podem estar marcadas)
+  pagina_visivel_geral BOOLEAN DEFAULT TRUE, -- Visível para todos
+  pagina_visivel_visitantes BOOLEAN DEFAULT FALSE, -- Visível para visitantes
+  pagina_visivel_lider_ministerio BOOLEAN DEFAULT FALSE, -- Visível para líderes do ministério desta página
+  pagina_visivel_participa_ministerio BOOLEAN DEFAULT FALSE, -- Visível para participantes do ministério desta página
+  pagina_visivel_user BOOLEAN DEFAULT FALSE, -- Visível para User (tipo_acesso = Usuario)
+  pagina_visivel_admin BOOLEAN DEFAULT FALSE, -- Visível para Admin
+  pagina_visivel_superadmin BOOLEAN DEFAULT FALSE, -- Visível para SuperAdmin
   ordem INTEGER DEFAULT 0, -- Ordem de exibição no dashboard
-  ativo BOOLEAN DEFAULT TRUE,
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -1412,8 +1418,10 @@ CREATE TABLE IF NOT EXISTS paginas_config (
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_paginas_config_rota ON paginas_config(rota);
 CREATE INDEX IF NOT EXISTS idx_paginas_config_ministerio_id ON paginas_config(ministerio_id);
-CREATE INDEX IF NOT EXISTS idx_paginas_config_ativo ON paginas_config(ativo);
 CREATE INDEX IF NOT EXISTS idx_paginas_config_card_visivel ON paginas_config(card_visivel);
+CREATE INDEX IF NOT EXISTS idx_paginas_config_visivel_geral ON paginas_config(pagina_visivel_geral);
+CREATE INDEX IF NOT EXISTS idx_paginas_config_visivel_admin ON paginas_config(pagina_visivel_admin);
+CREATE INDEX IF NOT EXISTS idx_paginas_config_visivel_superadmin ON paginas_config(pagina_visivel_superadmin);
 
 -- Trigger para atualizar updated_at
 CREATE OR REPLACE FUNCTION update_paginas_config_updated_at()

@@ -381,15 +381,23 @@ const PaginasTab = () => {
   const [paginas, setPaginas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState({});
-  const [modalAberto, setModalAberto] = useState(false);
-  const [paginaSelecionada, setPaginaSelecionada] = useState(null);
+  
+  // Modal de Tabs
+  const [modalTabsAberto, setModalTabsAberto] = useState(false);
+  const [paginaSelecionadaTabs, setPaginaSelecionadaTabs] = useState(null);
   const [tabs, setTabs] = useState([]);
   const [carregandoTabs, setCarregandoTabs] = useState(false);
+
+  // Modal de Visibilidade da Página
+  const [modalVisibilidadeAberto, setModalVisibilidadeAberto] = useState(false);
+  const [paginaSelecionadaVisibilidade, setPaginaSelecionadaVisibilidade] = useState(null);
+  const [salvandoVisibilidade, setSalvandoVisibilidade] = useState(false);
 
   // Carregar lista de páginas
   useEffect(() => {
     loadPaginas();
   }, []);
+
 
   const loadPaginas = async () => {
     try {
@@ -408,44 +416,10 @@ const PaginasTab = () => {
     }
   };
 
-  const handleTogglePaginaVisivel = async (paginaId, newValue) => {
-    try {
-      setUpdating(prev => ({ ...prev, [paginaId]: true }));
-      
-      // newValue já vem do Switch (invertido do valor atual)
-      // Se checked=true (visível), ao clicar passa false (invisível)
-      // Se checked=false (invisível), ao clicar passa true (visível)
-      await api.put(`/paginas-config/${paginaId}`, {
-        pagina_visivel: newValue
-      });
-
-      setPaginas(prev => prev.map(p => 
-        p.id === paginaId ? { ...p, pagina_visivel: newValue } : p
-      ));
-
-      toast({
-        title: 'Sucesso!',
-        description: `Página ${newValue ? 'ativada' : 'desativada'} com sucesso!`,
-      });
-    } catch (error) {
-      console.error('Erro ao atualizar visibilidade da página:', error);
-      toast({
-        title: 'Erro',
-        description: error.response?.data?.message || 'Erro ao atualizar visibilidade. Tente novamente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUpdating(prev => ({ ...prev, [paginaId]: false }));
-    }
-  };
-
   const handleToggleCardVisivel = async (paginaId, newValue) => {
     try {
       setUpdating(prev => ({ ...prev, [paginaId]: true }));
       
-      // newValue já vem do Switch (invertido do valor atual)
-      // Se checked=true (visível), ao clicar passa false (invisível)
-      // Se checked=false (invisível), ao clicar passa true (visível)
       await api.put(`/paginas-config/${paginaId}`, {
         card_visivel: newValue
       });
@@ -456,7 +430,7 @@ const PaginasTab = () => {
 
       toast({
         title: 'Sucesso!',
-        description: `Card ${newValue ? 'ativado' : 'desativado'} com sucesso!`,
+        description: `Card ${newValue ? 'visível' : 'oculto'} com sucesso!`,
       });
     } catch (error) {
       console.error('Erro ao atualizar visibilidade do card:', error);
@@ -470,34 +444,97 @@ const PaginasTab = () => {
     }
   };
 
-  const handleAbrirModalConfig = async (pagina) => {
-    setPaginaSelecionada(pagina);
-    setModalAberto(true);
-    setCarregandoTabs(true);
-    setTabs([]); // Limpar tabs anteriores
+  const handleAbrirModalVisibilidade = (pagina) => {
+    setPaginaSelecionadaVisibilidade({
+      ...pagina,
+      pagina_visivel_geral: Boolean(pagina.pagina_visivel_geral),
+      pagina_visivel_visitantes: Boolean(pagina.pagina_visivel_visitantes),
+      pagina_visivel_lider_ministerio: Boolean(pagina.pagina_visivel_lider_ministerio),
+      pagina_visivel_participa_ministerio: Boolean(pagina.pagina_visivel_participa_ministerio),
+      pagina_visivel_user: Boolean(pagina.pagina_visivel_user),
+      pagina_visivel_admin: Boolean(pagina.pagina_visivel_admin),
+      pagina_visivel_superadmin: Boolean(pagina.pagina_visivel_superadmin)
+    });
+    setModalVisibilidadeAberto(true);
+  };
+
+  const handleSalvarVisibilidade = async () => {
+    if (!paginaSelecionadaVisibilidade) return;
 
     try {
-      // Carregar tabs existentes
+      setSalvandoVisibilidade(true);
+      const response = await api.put(`/paginas-config/${paginaSelecionadaVisibilidade.id}`, {
+        pagina_visivel_geral: paginaSelecionadaVisibilidade.pagina_visivel_geral,
+        pagina_visivel_visitantes: paginaSelecionadaVisibilidade.pagina_visivel_visitantes,
+        pagina_visivel_lider_ministerio: paginaSelecionadaVisibilidade.pagina_visivel_lider_ministerio,
+        pagina_visivel_participa_ministerio: paginaSelecionadaVisibilidade.pagina_visivel_participa_ministerio,
+        pagina_visivel_user: paginaSelecionadaVisibilidade.pagina_visivel_user,
+        pagina_visivel_admin: paginaSelecionadaVisibilidade.pagina_visivel_admin,
+        pagina_visivel_superadmin: paginaSelecionadaVisibilidade.pagina_visivel_superadmin
+      });
+
+      // Atualizar a lista localmente com os dados retornados pela API
+      const paginaAtualizada = response.data.pagina || response.data;
+      
+      setPaginas(prev => prev.map(p => {
+        if (p.id === paginaSelecionadaVisibilidade.id) {
+          return { 
+            ...p,
+            ...paginaAtualizada,
+            pagina_visivel_geral: Boolean(paginaAtualizada.pagina_visivel_geral),
+            pagina_visivel_visitantes: Boolean(paginaAtualizada.pagina_visivel_visitantes),
+            pagina_visivel_lider_ministerio: Boolean(paginaAtualizada.pagina_visivel_lider_ministerio),
+            pagina_visivel_participa_ministerio: Boolean(paginaAtualizada.pagina_visivel_participa_ministerio),
+            pagina_visivel_user: Boolean(paginaAtualizada.pagina_visivel_user),
+            pagina_visivel_admin: Boolean(paginaAtualizada.pagina_visivel_admin),
+            pagina_visivel_superadmin: Boolean(paginaAtualizada.pagina_visivel_superadmin)
+          };
+        }
+        return p;
+      }));
+
+      toast({
+        title: 'Sucesso!',
+        description: 'Visibilidade da página atualizada com sucesso!',
+      });
+
+      setModalVisibilidadeAberto(false);
+    } catch (error) {
+      console.error('Erro ao salvar visibilidade:', error);
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao salvar visibilidade. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSalvandoVisibilidade(false);
+    }
+  };
+
+  const handleToggleVisibilidade = (campo) => {
+    setPaginaSelecionadaVisibilidade(prev => ({
+      ...prev,
+      [campo]: !prev[campo]
+    }));
+  };
+
+  const handleAbrirModalTabs = async (pagina) => {
+    setPaginaSelecionadaTabs(pagina);
+    setModalTabsAberto(true);
+    setCarregandoTabs(true);
+    setTabs([]);
+
+    try {
       const response = await api.get(`/paginas-tabs/pagina/${pagina.id}`);
       const tabsExistentes = response.data.tabs || [];
 
-      console.log('Tabs existentes:', tabsExistentes);
-      console.log('Rota da página:', pagina.rota);
-      console.log('Tabs mapeadas:', TABS_POR_PAGINA[pagina.rota]);
-
-      // Se não houver tabs, sincronizar com o mapeamento
       if (tabsExistentes.length === 0 && TABS_POR_PAGINA[pagina.rota]) {
-        console.log('Sincronizando tabs para:', pagina.rota);
-        // Sincronizar tabs
         const syncResponse = await api.post(`/paginas-tabs/pagina/${pagina.id}/sincronizar`, {
           tabs: TABS_POR_PAGINA[pagina.rota]
         });
-        console.log('Resposta da sincronização:', syncResponse.data);
         
-        // Recarregar tabs
         const responseAtualizado = await api.get(`/paginas-tabs/pagina/${pagina.id}`);
         const tabsAtualizadas = responseAtualizado.data.tabs || [];
-        console.log('Tabs após sincronização:', tabsAtualizadas);
         setTabs(tabsAtualizadas);
         
         if (tabsAtualizadas.length > 0) {
@@ -508,13 +545,9 @@ const PaginasTab = () => {
         }
       } else {
         setTabs(tabsExistentes);
-        if (tabsExistentes.length === 0 && !TABS_POR_PAGINA[pagina.rota]) {
-          console.log('Nenhuma tab mapeada para esta página:', pagina.rota);
-        }
       }
     } catch (error) {
       console.error('Erro ao carregar tabs:', error);
-      console.error('Detalhes do erro:', error.response?.data);
       toast({
         title: 'Erro',
         description: error.response?.data?.message || 'Erro ao carregar configurações de tabs. Tente novamente.',
@@ -554,7 +587,7 @@ const PaginasTab = () => {
     <div className="tab-content-wrapper">
       <h2>Gerenciamento de Páginas</h2>
       <p style={{ marginBottom: '24px', color: '#666' }}>
-        Configure a visibilidade das páginas e seus cards no dashboard.
+        Configure a visibilidade das páginas, cards no dashboard e permissões de acesso.
       </p>
       
       {loading ? (
@@ -570,9 +603,7 @@ const PaginasTab = () => {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Rota</TableHead>
-                <TableHead className="text-center">Página Visível</TableHead>
                 <TableHead className="text-center">Card Visível</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -580,16 +611,7 @@ const PaginasTab = () => {
               {paginas.map((pagina) => (
                 <TableRow key={pagina.id}>
                   <TableCell className="font-medium">{pagina.nome}</TableCell>
-                  <TableCell style={{ color: '#666' }}>{pagina.rota}</TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center">
-                      <Switch
-                        checked={pagina.pagina_visivel}
-                        onCheckedChange={(newValue) => handleTogglePaginaVisivel(pagina.id, newValue)}
-                        disabled={updating[pagina.id]}
-                      />
-                    </div>
-                  </TableCell>
+                  <TableCell style={{ color: '#666', fontSize: '0.9rem' }}>{pagina.rota}</TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center">
                       <Switch
@@ -599,21 +621,25 @@ const PaginasTab = () => {
                       />
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <span className={`status-badge ${pagina.ativo ? 'status-active' : 'status-inactive'}`}>
-                      {pagina.ativo ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </TableCell>
                   <TableCell className="text-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAbrirModalConfig(pagina)}
-                      className="flex items-center gap-1"
-                    >
-                      <Cog className="h-4 w-4" />
-                      Configurar
-                    </Button>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleAbrirModalVisibilidade(pagina)}
+                        title="Configurar visibilidade da página"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleAbrirModalTabs(pagina)}
+                        title="Configurar tabs da página"
+                      >
+                        <Cog className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -622,12 +648,116 @@ const PaginasTab = () => {
         </div>
       )}
 
+      {/* Modal de Visibilidade da Página */}
+      <Dialog open={modalVisibilidadeAberto} onOpenChange={setModalVisibilidadeAberto}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Visibilidade da Página - {paginaSelecionadaVisibilidade?.nome}
+            </DialogTitle>
+            <DialogDescription>
+              Defina quem pode visualizar esta página. Marque todos os níveis de acesso que podem ver a página.
+            </DialogDescription>
+          </DialogHeader>
+
+          {paginaSelecionadaVisibilidade && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                <Checkbox
+                  checked={paginaSelecionadaVisibilidade.pagina_visivel_geral}
+                  onCheckedChange={() => handleToggleVisibilidade('pagina_visivel_geral')}
+                />
+                <div>
+                  <div style={{ fontWeight: '500' }}>Geral</div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>Todos os usuários autenticados</div>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                <Checkbox
+                  checked={paginaSelecionadaVisibilidade.pagina_visivel_visitantes}
+                  onCheckedChange={() => handleToggleVisibilidade('pagina_visivel_visitantes')}
+                />
+                <div>
+                  <div style={{ fontWeight: '500' }}>Visitantes</div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>Apenas visitantes</div>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                <Checkbox
+                  checked={paginaSelecionadaVisibilidade.pagina_visivel_user}
+                  onCheckedChange={() => handleToggleVisibilidade('pagina_visivel_user')}
+                />
+                <div>
+                  <div style={{ fontWeight: '500' }}>User</div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>Usuários com tipo de acesso "Usuario"</div>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                <Checkbox
+                  checked={paginaSelecionadaVisibilidade.pagina_visivel_lider_ministerio}
+                  onCheckedChange={() => handleToggleVisibilidade('pagina_visivel_lider_ministerio')}
+                />
+                <div>
+                  <div style={{ fontWeight: '500' }}>Líder do Ministério</div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>Líderes do ministério vinculado a esta página</div>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                <Checkbox
+                  checked={paginaSelecionadaVisibilidade.pagina_visivel_participa_ministerio}
+                  onCheckedChange={() => handleToggleVisibilidade('pagina_visivel_participa_ministerio')}
+                />
+                <div>
+                  <div style={{ fontWeight: '500' }}>Participante do Ministério</div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>Participantes do ministério vinculado a esta página</div>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                <Checkbox
+                  checked={paginaSelecionadaVisibilidade.pagina_visivel_admin}
+                  onCheckedChange={() => handleToggleVisibilidade('pagina_visivel_admin')}
+                />
+                <div>
+                  <div style={{ fontWeight: '500' }}>Admin</div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>Administradores do sistema</div>
+                </div>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                <Checkbox
+                  checked={paginaSelecionadaVisibilidade.pagina_visivel_superadmin}
+                  onCheckedChange={() => handleToggleVisibilidade('pagina_visivel_superadmin')}
+                />
+                <div>
+                  <div style={{ fontWeight: '500' }}>SuperAdmin</div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>Super administradores do sistema</div>
+                </div>
+              </label>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+            <Button variant="outline" onClick={() => setModalVisibilidadeAberto(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSalvarVisibilidade} disabled={salvandoVisibilidade}>
+              {salvandoVisibilidade ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de Configuração de Tabs */}
-      <Dialog open={modalAberto} onOpenChange={setModalAberto}>
+      <Dialog open={modalTabsAberto} onOpenChange={setModalTabsAberto}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Configurar Tabs - {paginaSelecionada?.nome}
+              Configurar Tabs - {paginaSelecionadaTabs?.nome}
             </DialogTitle>
             <DialogDescription>
               Configure as permissões de visibilidade das tabs desta página
@@ -639,19 +769,19 @@ const PaginasTab = () => {
           ) : tabs.length === 0 ? (
             <div className="text-center p-8">
               <p className="mb-4">Nenhuma tab configurada para esta página.</p>
-              {TABS_POR_PAGINA[paginaSelecionada?.rota] ? (
+              {TABS_POR_PAGINA[paginaSelecionadaTabs?.rota] ? (
                 <div>
                   <p className="text-sm text-gray-500 mb-4">
-                    Esta página possui {TABS_POR_PAGINA[paginaSelecionada?.rota].length} tab(s) definida(s) no mapeamento.
+                    Esta página possui {TABS_POR_PAGINA[paginaSelecionadaTabs?.rota].length} tab(s) definida(s) no mapeamento.
                   </p>
                   <Button
                     onClick={async () => {
                       try {
                         setCarregandoTabs(true);
-                        await api.post(`/paginas-tabs/pagina/${paginaSelecionada.id}/sincronizar`, {
-                          tabs: TABS_POR_PAGINA[paginaSelecionada.rota]
+                        await api.post(`/paginas-tabs/pagina/${paginaSelecionadaTabs.id}/sincronizar`, {
+                          tabs: TABS_POR_PAGINA[paginaSelecionadaTabs.rota]
                         });
-                        const response = await api.get(`/paginas-tabs/pagina/${paginaSelecionada.id}`);
+                        const response = await api.get(`/paginas-tabs/pagina/${paginaSelecionadaTabs.id}`);
                         setTabs(response.data.tabs || []);
                         toast({
                           title: 'Sucesso!',
@@ -698,25 +828,25 @@ const PaginasTab = () => {
                       <TableCell className="text-center">
                         <Checkbox
                           checked={tab.visivel_geral}
-                          onChange={(e) => handleAtualizarPermissao(tab.id, 'visivel_geral', e.target.checked)}
+                          onCheckedChange={(checked) => handleAtualizarPermissao(tab.id, 'visivel_geral', checked)}
                         />
                       </TableCell>
                       <TableCell className="text-center">
                         <Checkbox
                           checked={tab.visivel_visitantes}
-                          onChange={(e) => handleAtualizarPermissao(tab.id, 'visivel_visitantes', e.target.checked)}
+                          onCheckedChange={(checked) => handleAtualizarPermissao(tab.id, 'visivel_visitantes', checked)}
                         />
                       </TableCell>
                       <TableCell className="text-center">
                         <Checkbox
                           checked={tab.visivel_lider_ministerio}
-                          onChange={(e) => handleAtualizarPermissao(tab.id, 'visivel_lider_ministerio', e.target.checked)}
+                          onCheckedChange={(checked) => handleAtualizarPermissao(tab.id, 'visivel_lider_ministerio', checked)}
                         />
                       </TableCell>
                       <TableCell className="text-center">
                         <Checkbox
                           checked={tab.visivel_participa_ministerio}
-                          onChange={(e) => handleAtualizarPermissao(tab.id, 'visivel_participa_ministerio', e.target.checked)}
+                          onCheckedChange={(checked) => handleAtualizarPermissao(tab.id, 'visivel_participa_ministerio', checked)}
                         />
                       </TableCell>
                     </TableRow>
