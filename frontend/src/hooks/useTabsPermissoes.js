@@ -43,17 +43,17 @@ export const useTabsPermissoes = (tabsPadrao = []) => {
         const tabsPermitidas = responseTabs.data.tabs || [];
         console.log('[useTabsPermissoes] Tabs permitidas encontradas:', tabsPermitidas);
 
-        // Se houver tabs configuradas, usar apenas as permitidas
+        // Página tem configuração: respeitar exatamente o que a API retornou.
+        // Se retornou 0 tabs = usuário não tem permissão para nenhuma tab (não mostrar todas).
         if (tabsPermitidas.length > 0) {
-          // Filtrar tabs padrão baseado nas tabs permitidas
           const valoresPermitidos = tabsPermitidas.map(t => t.valor);
-          const tabsFiltradas = tabsPadrao.filter(tab => 
+          const tabsFiltradas = tabsPadrao.filter(tab =>
             valoresPermitidos.includes(tab.value)
           );
           setTabsVisiveis(tabsFiltradas);
         } else {
-          // Se não houver configuração de permissões, usar todas as tabs padrão
-          setTabsVisiveis(tabsPadrao);
+          // Resposta vazia com página configurada = sem permissão para nenhuma tab
+          setTabsVisiveis([]);
         }
       } catch (error) {
         console.error('Erro ao carregar tabs visíveis:', error);
@@ -76,71 +76,20 @@ export const useTabsPermissoes = (tabsPadrao = []) => {
 };
 
 /**
- * Determina o tipo de usuário baseado nos dados do usuário
+ * Determina apenas se o usuário é "visitante" para fins de tabs.
+ * Líder/Participante do ministério são decididos no BACKEND pelo ministério da PÁGINA
+ * (não pela função/cargo do usuário), usando pessoaId.
  */
 function determinarTipoUsuario(user) {
-  if (!user) {
-    console.log('[useTabsPermissoes] Usuário não encontrado, retornando "geral"');
-    return 'geral';
-  }
+  if (!user) return 'geral';
 
-  console.log('[useTabsPermissoes] Dados do usuário:', {
-    id: user.id,
-    tipo_acesso: user.tipo_acesso,
-    tipoAcesso: user.tipoAcesso,
-    estagio_atual: user.estagio_atual,
-    estagioAtual: user.estagioAtual
-  });
-
-  // Verificar tipo_acesso do usuário (pode ser tipo_acesso ou tipoAcesso)
-  const tipoAcesso = user.tipo_acesso || user.tipoAcesso;
-  
-  if (tipoAcesso) {
-    const tipoAcessoLower = String(tipoAcesso).toLowerCase().trim();
-    console.log('[useTabsPermissoes] Tipo de acesso encontrado:', tipoAcessoLower);
-    
-    // Mapear tipos de acesso do enum tipo_acesso_enum
-    // 'Sem Acesso', 'Usuario', 'Lider', 'Admin', 'SuperAdmin'
-    // O valor no banco é 'Lider' (com L maiúsculo)
-    if (tipoAcessoLower === 'lider' || tipoAcessoLower === 'líder' || tipoAcessoLower.includes('lider')) {
-      console.log('[useTabsPermissoes] Usuário identificado como LÍDER (tipo_acesso)');
-      return 'lider_ministerio';
-    }
-    // Para 'Usuario', 'Admin', 'SuperAdmin', verificar se participa de ministério
-    // Por enquanto, assumimos que Admin e SuperAdmin têm acesso geral
-    if (tipoAcessoLower === 'admin' || tipoAcessoLower === 'superadmin') {
-      console.log('[useTabsPermissoes] Usuário identificado como ADMIN/SUPERADMIN');
-      return 'geral'; // Admins veem tudo
-    }
-    if (tipoAcessoLower === 'usuario' || tipoAcessoLower === 'usuário') {
-      console.log('[useTabsPermissoes] Usuário identificado como USUÁRIO');
-      // Verificar se é participante de ministério (precisa verificar na tabela pessoa_ministerios)
-      // Por enquanto, retornar 'geral'
-      return 'geral';
-    }
-  }
-
-  // Verificar estágio espiritual (se disponível)
+  // Só enviamos 'visitante' quando for claramente visitante; caso contrário 'geral'.
+  // O backend usa pessoaId para ver se a pessoa é líder/participante DO MINISTÉRIO DA PÁGINA.
   const estagioAtual = user.estagioAtual || user.estagio_atual;
   if (estagioAtual) {
     const estagio = String(estagioAtual).toLowerCase().trim();
-    console.log('[useTabsPermissoes] Estágio atual encontrado:', estagio);
-    
-    if (estagio.includes('líder') || estagio.includes('lider')) {
-      console.log('[useTabsPermissoes] Usuário identificado como LÍDER (por estágio)');
-      return 'lider_ministerio';
-    }
-    if (estagio.includes('participante') || estagio.includes('participa')) {
-      console.log('[useTabsPermissoes] Usuário identificado como PARTICIPANTE');
-      return 'participa_ministerio';
-    }
-    if (estagio.includes('visitante')) {
-      console.log('[useTabsPermissoes] Usuário identificado como VISITANTE');
-      return 'visitante';
-    }
+    if (estagio.includes('visitante')) return 'visitante';
   }
 
-  // Por padrão, retornar 'geral' (acesso completo)
-  console.log('[useTabsPermissoes] Usuário identificado como GERAL (padrão)');
   return 'geral';
 }

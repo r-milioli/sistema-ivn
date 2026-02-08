@@ -113,6 +113,23 @@ const Recepcao = () => {
     }
   };
 
+  // Sem permissão para nenhuma tab: exibir mensagem em vez das abas
+  if (!loadingTabs && tabsVisiveis.length === 0) {
+    return (
+      <MainLayout>
+        <main className="dashboard-main">
+          <div className="dashboard-content">
+            <h1>Recepção</h1>
+            <div className="tab-content-wrapper" style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+              <p>Você não tem permissão para acessar as abas desta página.</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Entre em contato com o administrador se acredita que deveria ter acesso.</p>
+            </div>
+          </div>
+        </main>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <main className="dashboard-main">

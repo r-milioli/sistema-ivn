@@ -688,7 +688,7 @@ const PaginasTab = () => {
                     <TableHead className="text-center">Geral</TableHead>
                     <TableHead className="text-center">Visitantes</TableHead>
                     <TableHead className="text-center">Líder do Ministério</TableHead>
-                    <TableHead className="text-center">Participa do Ministério</TableHead>
+                    <TableHead className="text-center">Participante do Ministério</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

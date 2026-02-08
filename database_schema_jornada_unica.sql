@@ -1400,6 +1400,7 @@ CREATE TABLE IF NOT EXISTS paginas_config (
   rota VARCHAR(255) NOT NULL UNIQUE, -- Ex: '/recepcao', '/financas'
   nome VARCHAR(255) NOT NULL, -- Nome exibido: 'Recepção', 'Finanças'
   icone VARCHAR(100), -- Nome do ícone (opcional)
+  ministerio_id INTEGER REFERENCES ministerios(id) ON DELETE SET NULL, -- Ministério da página (para tabs "Líder/Participante do ministério")
   pagina_visivel BOOLEAN DEFAULT TRUE, -- Se a página está acessível
   card_visivel BOOLEAN DEFAULT TRUE, -- Se o card aparece no dashboard
   ordem INTEGER DEFAULT 0, -- Ordem de exibição no dashboard
@@ -1410,6 +1411,7 @@ CREATE TABLE IF NOT EXISTS paginas_config (
 
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_paginas_config_rota ON paginas_config(rota);
+CREATE INDEX IF NOT EXISTS idx_paginas_config_ministerio_id ON paginas_config(ministerio_id);
 CREATE INDEX IF NOT EXISTS idx_paginas_config_ativo ON paginas_config(ativo);
 CREATE INDEX IF NOT EXISTS idx_paginas_config_card_visivel ON paginas_config(card_visivel);
 

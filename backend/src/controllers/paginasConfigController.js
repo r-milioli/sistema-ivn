@@ -11,6 +11,7 @@ async function listarPaginasConfig(req, res) {
         rota,
         nome,
         icone,
+        ministerio_id,
         COALESCE(pagina_visivel, true) as pagina_visivel,
         COALESCE(card_visivel, true) as card_visivel,
         ordem,
@@ -51,7 +52,7 @@ async function atualizarPaginaConfig(req, res) {
     await client.query('BEGIN');
 
     const { id } = req.params;
-    const { pagina_visivel, card_visivel, ordem } = req.body;
+    const { pagina_visivel, card_visivel, ordem, ministerio_id } = req.body;
 
     // Verificar se a página existe
     const paginaCheck = await client.query(
@@ -84,6 +85,11 @@ async function atualizarPaginaConfig(req, res) {
       updateValues.push(ordem);
     }
 
+    if (ministerio_id !== undefined) {
+      updateFields.push(`ministerio_id = $${paramIndex++}`);
+      updateValues.push(ministerio_id === null || ministerio_id === '' ? null : ministerio_id);
+    }
+
     if (updateFields.length === 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ message: 'Nenhum campo para atualizar' });
@@ -96,7 +102,7 @@ async function atualizarPaginaConfig(req, res) {
       UPDATE paginas_config
       SET ${updateFields.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, rota, nome, icone, pagina_visivel, card_visivel, ordem, ativo, atualizado_em
+      RETURNING id, rota, nome, icone, ministerio_id, pagina_visivel, card_visivel, ordem, ativo, atualizado_em
     `;
 
     const result = await client.query(updateQuery, updateValues);

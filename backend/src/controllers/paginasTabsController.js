@@ -294,44 +294,41 @@ async function sincronizarTabsPagina(req, res) {
 }
 
 /**
- * Obter tabs visíveis de uma página baseado no tipo de usuário
+ * Obter tabs visíveis de uma página.
+ * Líder/Participante são avaliados pelo ministério DESTA página (paginas_config.ministerio_id),
+ * não pela função geral do usuário.
  */
 async function obterTabsVisiveis(req, res) {
   try {
     const { paginaId } = req.params;
-    const { tipoUsuario, pessoaId } = req.query; // tipoUsuario: 'geral', 'visitante', 'lider_ministerio', 'participa_ministerio'
+    const { tipoUsuario, pessoaId } = req.query; // tipoUsuario: 'geral' | 'visitante' (líder/participante vêm do ministério da página)
 
-    // Se pessoaId for fornecido, verificar se é líder de ministério
-    let tipoUsuarioFinal = tipoUsuario;
-    if (pessoaId && tipoUsuario === 'geral') {
-      // Verificar se a pessoa é líder de algum ministério
-      const liderCheck = await pool.query(
-        `SELECT COUNT(*) as count 
-         FROM pessoa_ministerios 
-         WHERE pessoa_id = $1 AND e_lider = TRUE AND data_fim IS NULL`,
-        [pessoaId]
+    // Carregar a página com ministerio_id (quando preenchido, líder/participante são deste ministério)
+    const pageResult = await pool.query(
+      'SELECT id, ministerio_id FROM paginas_config WHERE id = $1',
+      [paginaId]
+    );
+    if (pageResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Página não encontrada' });
+    }
+    const ministerioIdPagina = pageResult.rows[0].ministerio_id;
+
+    // Para "Líder do ministério" e "Participante do ministério": verificar se a pessoa é líder/participante DESTE ministério (da página)
+    let isLiderDesteMinisterio = false;
+    let isParticipanteDesteMinisterio = false;
+    if (pessoaId && ministerioIdPagina != null) {
+      const pm = await pool.query(
+        `SELECT e_lider FROM pessoa_ministerios 
+         WHERE pessoa_id = $1 AND ministerio_id = $2 AND data_fim IS NULL`,
+        [pessoaId, ministerioIdPagina]
       );
-      
-      if (liderCheck.rows[0].count > 0) {
-        tipoUsuarioFinal = 'lider_ministerio';
-        console.log(`[obterTabsVisiveis] Pessoa ${pessoaId} identificada como líder de ministério`);
-      } else {
-        // Verificar se é participante
-        const participanteCheck = await pool.query(
-          `SELECT COUNT(*) as count 
-           FROM pessoa_ministerios 
-           WHERE pessoa_id = $1 AND e_lider = FALSE AND data_fim IS NULL`,
-          [pessoaId]
-        );
-        
-        if (participanteCheck.rows[0].count > 0) {
-          tipoUsuarioFinal = 'participa_ministerio';
-          console.log(`[obterTabsVisiveis] Pessoa ${pessoaId} identificada como participante de ministério`);
-        }
+      if (pm.rows.length > 0) {
+        isLiderDesteMinisterio = pm.rows[0].e_lider === true;
+        isParticipanteDesteMinisterio = pm.rows[0].e_lider === false;
       }
     }
 
-    console.log(`[obterTabsVisiveis] Tipo de usuário final: ${tipoUsuarioFinal}`);
+    const isVisitante = tipoUsuario === 'visitante';
 
     const result = await pool.query(
       `SELECT 
@@ -352,7 +349,6 @@ async function obterTabsVisiveis(req, res) {
       [paginaId]
     );
 
-    // Filtrar tabs baseado no tipo de usuário
     const tabsFiltradas = result.rows
       .map(row => ({
         ...row,
@@ -363,22 +359,13 @@ async function obterTabsVisiveis(req, res) {
         ativo: Boolean(row.ativo)
       }))
       .filter(tab => {
-        switch (tipoUsuarioFinal) {
-          case 'geral':
-            return tab.visivel_geral === true;
-          case 'visitante':
-            return tab.visivel_visitantes === true;
-          case 'lider_ministerio':
-            return tab.visivel_lider_ministerio === true;
-          case 'participa_ministerio':
-            return tab.visivel_participa_ministerio === true;
-          default:
-            // Se não especificado, retornar todas as tabs com visivel_geral = true
-            return tab.visivel_geral === true;
-        }
+        return (
+          tab.visivel_geral === true ||
+          (tab.visivel_visitantes === true && isVisitante) ||
+          (tab.visivel_lider_ministerio === true && isLiderDesteMinisterio) ||
+          (tab.visivel_participa_ministerio === true && isParticipanteDesteMinisterio)
+        );
       });
-
-    console.log(`[obterTabsVisiveis] Total de tabs encontradas: ${result.rows.length}, Tabs filtradas: ${tabsFiltradas.length}`);
 
     res.json({
       tabs: tabsFiltradas
