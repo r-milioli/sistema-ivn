@@ -16,12 +16,23 @@ import { useAuth } from '../../context/AuthContext';
 import { UserPlus, List, Search, ChevronLeft, ChevronRight, BarChart3, Calendar, MapPin, Users, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { useToast } from '../../hooks/use-toast';
+import { useTabsPermissoes } from '../../hooks/useTabsPermissoes';
 import api from '../../services/api';
 import './Recepcao.css';
 
 const Recepcao = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
+
+  // Definir tabs padrão
+  const tabsPadrao = [
+    { value: 'visitante', label: 'Visitante', icon: UserPlus },
+    { value: 'listar', label: 'Listar Visitantes', icon: List },
+    { value: 'estatisticas', label: 'Estatísticas', icon: BarChart3 }
+  ];
+
+  // Obter tabs visíveis baseado nas permissões
+  const { tabsVisiveis, loading: loadingTabs } = useTabsPermissoes(tabsPadrao);
 
   // Função para obter data e hora atual no formato datetime-local
   const getCurrentDateTime = () => {
@@ -108,27 +119,25 @@ const Recepcao = () => {
         <div className="dashboard-content">
           <h1>Recepção</h1>
           
-          <Tabs defaultValue="visitante" className="recepcao-tabs">
+          <Tabs defaultValue={tabsVisiveis[0]?.value || "visitante"} className="recepcao-tabs">
             <TabsList className="recepcao-tabs-list">
-              <TabsTrigger value="visitante" className="recepcao-tabs-trigger">
-                <UserPlus className="tab-icon" />
-                <span>Visitante</span>
-              </TabsTrigger>
-              <TabsTrigger value="listar" className="recepcao-tabs-trigger">
-                <List className="tab-icon" />
-                <span>Listar Visitantes</span>
-              </TabsTrigger>
-              <TabsTrigger value="estatisticas" className="recepcao-tabs-trigger">
-                <BarChart3 className="tab-icon" />
-                <span>Estatísticas</span>
-              </TabsTrigger>
+              {tabsVisiveis.map((tab) => {
+                const IconComponent = tab.icon;
+                return (
+                  <TabsTrigger key={tab.value} value={tab.value} className="recepcao-tabs-trigger">
+                    {IconComponent && <IconComponent className="tab-icon" />}
+                    <span>{tab.label}</span>
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
             
-            <TabsContent value="visitante" className="recepcao-tabs-content">
-              <div className="tab-content-wrapper">
-                <h2>Cadastrar Visitante</h2>
-                
-                <form onSubmit={handleSubmit} className="visitante-form">
+            {tabsVisiveis.some(t => t.value === 'visitante') && (
+              <TabsContent value="visitante" className="recepcao-tabs-content">
+                <div className="tab-content-wrapper">
+                  <h2>Cadastrar Visitante</h2>
+                  
+                  <form onSubmit={handleSubmit} className="visitante-form">
                   <div className="form-row form-row-2">
                     <div className="form-group">
                       <Label htmlFor="recepcionadoPor">Recepcionado por</Label>
@@ -289,23 +298,28 @@ const Recepcao = () => {
                       {loading ? 'Cadastrando...' : 'Cadastrar Visitante'}
                     </Button>
                   </div>
-                </form>
-              </div>
-            </TabsContent>
+                  </form>
+                </div>
+              </TabsContent>
+            )}
             
-            <TabsContent value="listar" className="recepcao-tabs-content">
-              <div className="tab-content-wrapper">
-                <h2>Lista de Visitantes</h2>
-                <VisitantesTable />
-              </div>
-            </TabsContent>
+            {tabsVisiveis.some(t => t.value === 'listar') && (
+              <TabsContent value="listar" className="recepcao-tabs-content">
+                <div className="tab-content-wrapper">
+                  <h2>Lista de Visitantes</h2>
+                  <VisitantesTable />
+                </div>
+              </TabsContent>
+            )}
 
-            <TabsContent value="estatisticas" className="recepcao-tabs-content">
-              <div className="tab-content-wrapper">
-                <h2>Estatísticas de Visitantes</h2>
-                <EstatisticasVisitantes />
-              </div>
-            </TabsContent>
+            {tabsVisiveis.some(t => t.value === 'estatisticas') && (
+              <TabsContent value="estatisticas" className="recepcao-tabs-content">
+                <div className="tab-content-wrapper">
+                  <h2>Estatísticas de Visitantes</h2>
+                  <EstatisticasVisitantes />
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </main>

@@ -116,7 +116,7 @@ async function login(req, res) {
 
     // Buscar credenciais de acesso
     const resultCred = await pool.query(
-      `SELECT senha_hash, bloqueado_ate, ultimo_login
+      `SELECT senha_hash, tipo_acesso, bloqueado_ate, ultimo_login
        FROM credenciais_acesso WHERE pessoa_id = $1`,
       [pessoa.id]
     );
@@ -158,6 +158,7 @@ async function login(req, res) {
         id: pessoa.id,
         nome: nomeCompleto,
         email: pessoa.email,
+        tipo_acesso: cred.tipo_acesso || null,
       },
     });
   } catch (error) {

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../services/api';
-import { saveAuthData, clearAuthData, getUser, isAuthenticated } from '../utils/auth';
+import { saveAuthData, clearAuthData, getUser, isAuthenticated, getToken } from '../utils/auth';
 
 const AuthContext = createContext({});
 
@@ -101,6 +101,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await api.get('/auth/me');
+      const userData = response.data.user;
+      saveAuthData(getToken(), userData);
+      setUser(userData);
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao atualizar dados do usuário:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Erro ao atualizar dados do usuário',
+      };
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -110,6 +126,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     forgotPassword,
     resetPassword,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
