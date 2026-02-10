@@ -19,37 +19,57 @@ async function register(req, res) {
       return res.status(400).json({ message: 'A senha deve ter no mínimo 6 caracteres' });
     }
 
-    // Verificar se já existe pessoa com este email
-    const pessoaExistente = await pool.query(
+    // Reaproveitar pessoa existente: por email OU por nome+sobrenome sem email (evita duplicata ao criar conta)
+    const pessoaPorEmail = await pool.query(
       'SELECT id, nome FROM pessoas WHERE email = $1',
       [email]
     );
 
     let pessoaId;
 
-    if (pessoaExistente.rows.length > 0) {
-      // Pessoa já existe: verificar se já tem credenciais de acesso
-      const credencialExistente = await pool.query(
-        'SELECT id FROM credenciais_acesso WHERE pessoa_id = $1',
-        [pessoaExistente.rows[0].id]
-      );
-      if (credencialExistente.rows.length > 0) {
-        return res.status(400).json({ message: 'Email já cadastrado' });
-      }
-      pessoaId = pessoaExistente.rows[0].id;
+    if (pessoaPorEmail.rows.length > 0) {
+      pessoaId = pessoaPorEmail.rows[0].id;
     } else {
-      // Criar nova pessoa (nome pode ser "Nome Sobrenome"; sobrenome opcional)
+      // Não achou por email: tentar pessoa com mesmo nome/sobrenome e sem email (ex.: visitante só com telefone)
       const nomePartes = (nome || '').trim().split(/\s+/);
       const nomePrincipal = nomePartes[0] || nome;
       const sobrenome = nomePartes.length > 1 ? nomePartes.slice(1).join(' ') : null;
 
-      const resultPessoa = await pool.query(
-        `INSERT INTO pessoas (nome, sobrenome, email, ativo)
-         VALUES ($1, $2, $3, TRUE)
-         RETURNING id`,
-        [nomePrincipal, sobrenome, email]
+      const pessoaPorNomeSemEmail = await pool.query(
+        `SELECT id FROM pessoas
+         WHERE LOWER(TRIM(nome)) = LOWER(TRIM($1))
+           AND (sobrenome IS NOT DISTINCT FROM $2 OR sobrenome IS NULL)
+           AND (email IS NULL OR TRIM(email) = '')
+           AND ativo = TRUE`,
+        [nomePrincipal, sobrenome]
       );
-      pessoaId = resultPessoa.rows[0].id;
+
+      if (pessoaPorNomeSemEmail.rows.length === 1) {
+        // Uma única pessoa com esse nome sem email: reaproveitar e atualizar email (e sobrenome se veio preenchido)
+        pessoaId = pessoaPorNomeSemEmail.rows[0].id;
+        await pool.query(
+          `UPDATE pessoas SET email = $1, sobrenome = COALESCE(NULLIF(TRIM($2), ''), sobrenome), atualizado_em = NOW() WHERE id = $3`,
+          [email, sobrenome, pessoaId]
+        );
+      } else {
+        // Nenhuma ou mais de uma: criar nova pessoa para não errar o merge
+        const resultPessoa = await pool.query(
+          `INSERT INTO pessoas (nome, sobrenome, email, ativo)
+           VALUES ($1, $2, $3, TRUE)
+           RETURNING id`,
+          [nomePrincipal, sobrenome, email]
+        );
+        pessoaId = resultPessoa.rows[0].id;
+      }
+    }
+
+    // Verificar se já tem credenciais (evitar duas contas para a mesma pessoa)
+    const credencialExistente = await pool.query(
+      'SELECT id FROM credenciais_acesso WHERE pessoa_id = $1',
+      [pessoaId]
+    );
+    if (credencialExistente.rows.length > 0) {
+      return res.status(400).json({ message: 'Email já cadastrado' });
     }
 
     const senhaHash = await hashPassword(senha);

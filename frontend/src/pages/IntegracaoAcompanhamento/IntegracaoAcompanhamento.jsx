@@ -99,7 +99,10 @@ const IntegracaoAcompanhamento = () => {
   // Id do ministério Integração (backend pode retornar id ou ministerio_id)
   const ministerioIntegracaoId = ministerioIntegracao ? (ministerioIntegracao.id ?? ministerioIntegracao.ministerio_id) : null;
 
-  // Carregar ranking de acompanhantes quando estiver na tab Início
+  // Chave para forçar novo carregamento do ranking (ex.: após excluir convertido ou mudar acompanhante)
+  const [rankingRefreshKey, setRankingRefreshKey] = useState(0);
+
+  // Carregar ranking de acompanhantes quando estiver na tab Início (ou ao forçar atualização)
   useEffect(() => {
     if (activeTab !== 'inicio') return;
     let cancelled = false;
@@ -118,6 +121,17 @@ const IntegracaoAcompanhamento = () => {
       })
       .finally(() => { if (!cancelled) setLoadingRanking(false); });
     return () => { cancelled = true; };
+  }, [activeTab, rankingRefreshKey]);
+
+  // Ao voltar para a aba/janela (ex.: após excluir convertido em outra tela), atualizar ranking se estiver na tab Início
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && activeTab === 'inicio') {
+        setRankingRefreshKey(k => k + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [activeTab]);
 
   useEffect(() => {
@@ -333,6 +347,7 @@ const IntegracaoAcompanhamento = () => {
         )
       );
       toast({ title: 'Sucesso', description: 'Acompanhante atualizado.' });
+      setRankingRefreshKey(k => k + 1);
     } catch (e) {
       toast({
         title: 'Erro',

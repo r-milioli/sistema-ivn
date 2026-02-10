@@ -125,55 +125,62 @@ async function integrarVisitante(req, res) {
       return v;
     };
 
-    // Sempre atualizar dados da pessoa (nome e sobrenome são obrigatórios, demais opcionais)
+    // Normalizar strings (trim; null/undefined/'' viram null para COALESCE)
+    const norm = (v) => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'string') {
+        const t = v.trim();
+        return t === '' ? null : t;
+      }
+      return v;
+    };
+
+    // Sempre atualizar todos os campos. Opcionais: COALESCE(NULLIF(trim($n), ''), coluna) = só sobrescreve quando vier valor preenchido (não apaga com null)
     const updateFields = [];
     const updateValues = [];
     let paramIndex = 1;
 
-    // Nome e sobrenome são obrigatórios
     updateFields.push(`nome = $${paramIndex++}`);
     updateValues.push(nome.trim());
-    
-    updateFields.push(`sobrenome = $${paramIndex++}`);
-    updateValues.push(emptyToNull(sobrenome));
 
-    // Demais campos são opcionais - sempre atualizar se vierem no body (mesmo que null)
-    // O frontend sempre envia todos os campos, então vamos atualizar todos
-    updateFields.push(`email = $${paramIndex++}`);
-    updateValues.push(emptyToNull(email));
-    
-    updateFields.push(`telefone = $${paramIndex++}`);
-    updateValues.push(emptyToNull(telefone));
-    
-    updateFields.push(`data_nascimento = $${paramIndex++}`);
+    updateFields.push(`sobrenome = $${paramIndex++}`);
+    updateValues.push(norm(sobrenome) ?? '');
+
+    updateFields.push(`email = COALESCE(NULLIF(TRIM($${paramIndex++}), ''), email)`);
+    updateValues.push(norm(email));
+
+    updateFields.push(`telefone = COALESCE(NULLIF(TRIM($${paramIndex++}), ''), telefone)`);
+    updateValues.push(norm(telefone));
+
+    updateFields.push(`data_nascimento = COALESCE($${paramIndex++}, data_nascimento)`);
     updateValues.push(emptyToNull(dataNascimento));
-    
-    updateFields.push(`sexo = $${paramIndex++}`);
-    updateValues.push(emptyToNull(sexo));
-    
-    updateFields.push(`estado_civil = $${paramIndex++}`);
-    updateValues.push(emptyToNull(estadoCivil));
-    
-    updateFields.push(`cep = $${paramIndex++}`);
-    updateValues.push(emptyToNull(cep));
-    
-    updateFields.push(`rua = $${paramIndex++}`);
-    updateValues.push(emptyToNull(rua));
-    
-    updateFields.push(`numero = $${paramIndex++}`);
-    updateValues.push(emptyToNull(numero));
-    
-    updateFields.push(`complemento = $${paramIndex++}`);
-    updateValues.push(emptyToNull(complemento));
-    
-    updateFields.push(`bairro = $${paramIndex++}`);
-    updateValues.push(emptyToNull(bairro));
-    
-    updateFields.push(`cidade = $${paramIndex++}`);
-    updateValues.push(emptyToNull(cidade));
-    
-    updateFields.push(`estado = $${paramIndex++}`);
-    updateValues.push(emptyToNull(estado));
+
+    updateFields.push(`sexo = COALESCE(NULLIF(TRIM($${paramIndex++}), '')::sexo_enum, sexo)`);
+    updateValues.push(norm(sexo));
+
+    updateFields.push(`estado_civil = COALESCE(NULLIF(TRIM($${paramIndex++}), '')::estado_civil_enum, estado_civil)`);
+    updateValues.push(norm(estadoCivil));
+
+    updateFields.push(`cep = COALESCE(NULLIF(TRIM($${paramIndex++}), ''), cep)`);
+    updateValues.push(norm(cep));
+
+    updateFields.push(`rua = COALESCE(NULLIF(TRIM($${paramIndex++}), ''), rua)`);
+    updateValues.push(norm(rua));
+
+    updateFields.push(`numero = COALESCE(NULLIF(TRIM($${paramIndex++}), ''), numero)`);
+    updateValues.push(norm(numero));
+
+    updateFields.push(`complemento = COALESCE(NULLIF(TRIM($${paramIndex++}), ''), complemento)`);
+    updateValues.push(norm(complemento));
+
+    updateFields.push(`bairro = COALESCE(NULLIF(TRIM($${paramIndex++}), ''), bairro)`);
+    updateValues.push(norm(bairro));
+
+    updateFields.push(`cidade = COALESCE(NULLIF(TRIM($${paramIndex++}), ''), cidade)`);
+    updateValues.push(norm(cidade));
+
+    updateFields.push(`estado = COALESCE(NULLIF(TRIM($${paramIndex++}), '')::estado_brasil_enum, estado)`);
+    updateValues.push(norm(estado));
     
     // Foto de perfil - só atualizar se fornecida
     if (fotoPerfil !== undefined && fotoPerfil !== null) {

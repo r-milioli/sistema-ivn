@@ -247,20 +247,23 @@
 
 .dark .ficha-membros-tabs-list,
 .dark .config-system-tabs-list,
-.dark .relatorio-tabs-list {
+.dark .relatorio-tabs-list,
+.dark .integracao-acompanhamento-tabs-list {
   background: hsl(var(--muted)) !important;
 }
 
 .dark .ficha-membros-tabs-trigger[data-state="active"],
 .dark .config-system-tabs-trigger[data-state="active"],
-.dark .relatorio-tabs-trigger[data-state="active"] {
+.dark .relatorio-tabs-trigger[data-state="active"],
+.dark .integracao-acompanhamento-tabs-trigger[data-state="active"] {
   background: hsl(var(--card)) !important;
   color: hsl(var(--card-foreground)) !important;
 }
 
 .dark .ficha-membros-tabs-trigger:hover,
 .dark .config-system-tabs-trigger:hover,
-.dark .relatorio-tabs-trigger:hover {
+.dark .relatorio-tabs-trigger:hover,
+.dark .integracao-acompanhamento-tabs-trigger:hover {
   background: hsl(var(--accent)) !important;
   color: hsl(var(--accent-foreground)) !important;
 }

@@ -310,29 +310,27 @@ const Integracao = () => {
         fotoPerfilBase64 = await fileToBase64(formData.fotoPerfil);
       }
 
-      // Preparar payload - sempre enviar todos os campos, null quando vazios
+      // Preparar payload: enviar todos os campos do formulário (backend usa COALESCE para não apagar com vazio)
+      const opt = (v) => (v != null && String(v).trim() !== '' ? String(v).trim() : null);
       await api.post('/integracao/integrar-visitante', {
         pessoaId: selectedVisitante.id,
         novoEstagio: formData.novoEstagio,
         observacoes: `Integração realizada via sistema`,
-        // Nome e sobrenome são obrigatórios
-        nome: formData.nome,
-        sobrenome: formData.sobrenome,
-        // Pode incluir no grupo de WhatsApp (sim/nao -> true/false)
+        nome: (formData.nome || '').trim(),
+        sobrenome: (formData.sobrenome || '').trim(),
         podeIncluirGrupoWhatsapp: formData.podeIncluirGrupoWhatsapp === 'sim' ? true : formData.podeIncluirGrupoWhatsapp === 'nao' ? false : null,
-        // Demais campos opcionais - null quando vazios
-        email: formData.email && formData.email.trim() ? formData.email.trim() : null,
-        telefone: formData.telefone && formData.telefone.trim() ? formData.telefone.trim() : null,
-        dataNascimento: formData.dataNascimento && formData.dataNascimento.trim() ? formData.dataNascimento.trim() : null,
-        sexo: formData.sexo && formData.sexo.trim() ? formData.sexo.trim() : null,
-        estadoCivil: formData.estadoCivil && formData.estadoCivil.trim() ? formData.estadoCivil.trim() : null,
-        cep: formData.cep || null,
-        rua: formData.rua || null,
-        numero: formData.numero || null,
-        complemento: formData.complemento || null,
-        bairro: formData.bairro || null,
-        cidade: formData.cidade || null,
-        estado: formData.estado || null,
+        email: opt(formData.email),
+        telefone: opt(formData.telefone),
+        dataNascimento: opt(formData.dataNascimento),
+        sexo: opt(formData.sexo),
+        estadoCivil: opt(formData.estadoCivil),
+        cep: opt(formData.cep),
+        rua: opt(formData.rua),
+        numero: opt(formData.numero),
+        complemento: opt(formData.complemento),
+        bairro: opt(formData.bairro),
+        cidade: opt(formData.cidade),
+        estado: opt(formData.estado),
         fotoPerfil: fotoPerfilBase64 || null
       });
       
