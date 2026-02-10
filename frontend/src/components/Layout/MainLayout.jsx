@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, LogOut, Bell, Cake, User, Home, Users, DollarSign, Calendar, X } from 'lucide-react';
+import { Settings, LogOut, Bell, Cake, User, LayoutDashboard, ClipboardList, Calendar, X } from 'lucide-react';
 import { ModeToggle } from '../Theme/ModeToggle';
 import { useSidebar } from '../ui/sidebar';
 import {
@@ -19,12 +19,15 @@ import {
   SheetDescription,
   SheetTrigger,
 } from '../ui/sheet';
+import { Avatar, AvatarImage, AvatarFallback } from '../ui/avatar';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -36,18 +39,15 @@ import '../Layout/MainLayout.css';
 
 const SidebarCloseButton = () => {
   const { setOpen } = useSidebar();
-  
   return (
-    <div className="sidebar-close-button-wrapper">
-      <button
-        className="sidebar-close-button"
-        onClick={() => setOpen(false)}
-        type="button"
-        aria-label="Fechar sidebar"
-      >
-        <X className="sidebar-close-icon" />
-      </button>
-    </div>
+    <button
+      className="sidebar-close-btn"
+      onClick={() => setOpen(false)}
+      type="button"
+      aria-label="Fechar menu"
+    >
+      <X className="sidebar-close-btn-icon" />
+    </button>
   );
 };
 
@@ -57,10 +57,10 @@ const MainLayout = ({ children }) => {
   const navigate = useNavigate();
 
   const menuItems = [
-    { icon: Home, label: 'Dashboard', path: '/dashboard' },
-    { icon: Users, label: 'Membros', path: '/membros' },
-    { icon: DollarSign, label: 'Finanças', path: '/financas' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+    { icon: ClipboardList, label: 'Ficha de Membros', path: '/ficha-membros' },
     { icon: Calendar, label: 'Eventos', path: '/eventos' },
+    { icon: Settings, label: 'Configurações', path: '/configuracoes' },
   ];
 
   return (
@@ -165,21 +165,26 @@ const MainLayout = ({ children }) => {
         </header>
 
         <div style={{ display: 'flex', width: '100%' }}>
-          <Sidebar>
-            <SidebarContent>
+          <Sidebar className="main-layout-sidebar">
+            <SidebarHeader className="main-layout-sidebar-header">
+              <span className="main-layout-sidebar-title">Navegação</span>
               <SidebarCloseButton />
+            </SidebarHeader>
+            <SidebarContent className="main-layout-sidebar-content">
               <SidebarGroup>
-                <SidebarGroupLabel>Menu</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {menuItems.map((item, index) => {
                       const Icon = item.icon;
+                      const isActive = item.path === location.pathname;
                       return (
                         <SidebarMenuItem key={index}>
-                          <SidebarMenuButton asChild isActive={item.path === location.pathname}>
+                          <SidebarMenuButton asChild isActive={isActive} className="main-layout-nav-item">
                             <Link to={item.path}>
-                              <Icon className="h-4 w-4" />
-                              <span>{item.label}</span>
+                              <span className="main-layout-nav-icon">
+                                <Icon />
+                              </span>
+                              <span className="main-layout-nav-label">{item.label}</span>
                             </Link>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
@@ -189,6 +194,20 @@ const MainLayout = ({ children }) => {
                 </SidebarGroupContent>
               </SidebarGroup>
             </SidebarContent>
+            <SidebarFooter className="main-layout-sidebar-footer">
+              <div className="sidebar-user-block">
+                <Avatar className="sidebar-user-avatar">
+                  <AvatarImage src={user?.fotoPerfil} alt={user?.nome} />
+                  <AvatarFallback className="sidebar-user-avatar-fallback">
+                    {(user?.nome || 'U').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="sidebar-user-info">
+                  <span className="sidebar-user-name">{user?.nome || 'Usuário'}</span>
+                  <span className="sidebar-user-email">{user?.email || ''}</span>
+                </div>
+              </div>
+            </SidebarFooter>
           </Sidebar>
 
           <SidebarInset>

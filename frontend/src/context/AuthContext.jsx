@@ -17,15 +17,19 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há token salvo ao carregar
+    // Verificar se há token salvo ao carregar e obter dados completos (foto, etc.)
     const checkAuth = async () => {
       if (isAuthenticated()) {
         try {
-          const savedUser = getUser();
-          setUser(savedUser);
-          
-          // Verificar se token ainda é válido
-          await api.get('/auth/me');
+          const response = await api.get('/auth/me');
+          const fullUser = response.data?.user;
+          if (fullUser) {
+            setUser(fullUser);
+            const token = getToken();
+            if (token) saveAuthData(token, fullUser);
+          } else {
+            setUser(getUser());
+          }
         } catch (error) {
           // Token inválido, limpar dados
           clearAuthData();

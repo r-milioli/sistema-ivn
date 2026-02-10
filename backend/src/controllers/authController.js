@@ -98,9 +98,9 @@ async function login(req, res) {
       return res.status(400).json({ message: 'Email e senha são obrigatórios' });
     }
 
-    // Buscar pessoa por email
+    // Buscar pessoa por email (inclui foto_perfil para exibir no header)
     const resultPessoa = await pool.query(
-      'SELECT id, nome, sobrenome, email, ativo FROM pessoas WHERE email = $1',
+      'SELECT id, nome, sobrenome, email, ativo, foto_perfil FROM pessoas WHERE email = $1',
       [email]
     );
 
@@ -159,6 +159,7 @@ async function login(req, res) {
         nome: nomeCompleto,
         email: pessoa.email,
         tipo_acesso: cred.tipo_acesso || null,
+        fotoPerfil: pessoa.foto_perfil || null,
       },
     });
   } catch (error) {

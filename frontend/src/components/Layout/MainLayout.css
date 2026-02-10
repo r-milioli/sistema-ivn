@@ -1,2 +1,270 @@
-/* Importar estilos do Dashboard */
+/* Layout principal – importa estilos do Dashboard (header, etc.) */
 @import '../../pages/Dashboard/Dashboard.css';
+
+/* ============================================
+   SIDEBAR MODERNA – modelo atual
+   ============================================ */
+
+/* Container da sidebar: cantos arredondados à direita, sombra suave */
+.main-layout-sidebar [data-slot="sidebar-inner"],
+.main-layout-sidebar [data-sidebar="sidebar"] {
+  background: var(--sidebar-bg, #fafafa) !important;
+  border-right: 1px solid var(--sidebar-border, #e5e7eb) !important;
+  border-radius: 0 16px 16px 0;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.dark .main-layout-sidebar [data-slot="sidebar-inner"],
+.dark .main-layout-sidebar [data-sidebar="sidebar"] {
+  background: hsl(var(--card)) !important;
+  border-right-color: hsl(var(--border)) !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+}
+
+/* Cabeçalho da sidebar */
+.main-layout-sidebar-header {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 16px 16px !important;
+  border-bottom: 1px solid var(--sidebar-border, #e5e7eb);
+  gap: 12px;
+  flex-direction: row !important;
+}
+
+.dark .main-layout-sidebar-header {
+  border-bottom-color: hsl(var(--border));
+}
+
+.main-layout-sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sidebar-muted, #6b7280);
+}
+
+.dark .main-layout-sidebar-title {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Botão fechar */
+.sidebar-close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sidebar-muted, #6b7280);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.sidebar-close-btn:hover {
+  background: var(--sidebar-hover, #f3f4f6);
+  color: var(--foreground, #111);
+}
+
+.dark .sidebar-close-btn:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.sidebar-close-btn-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Conteúdo do menu */
+.main-layout-sidebar-content {
+  padding: 12px 8px 24px !important;
+}
+
+.main-layout-sidebar [data-sidebar="group-content"] {
+  padding: 0;
+}
+
+/* Itens de navegação */
+.main-layout-nav-item {
+  display: flex !important;
+  align-items: center;
+  gap: 12px !important;
+  padding: 12px 14px !important;
+  margin: 4px 6px !important;
+  border-radius: 10px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--foreground, #1f2937) !important;
+  font-size: 14px !important;
+  font-weight: 500;
+  text-decoration: none !important;
+  transition: background 0.2s, color 0.2s;
+  position: relative;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.main-layout-nav-item:hover {
+  background: var(--sidebar-hover, #f3f4f6) !important;
+  color: var(--foreground, #111) !important;
+}
+
+.dark .main-layout-nav-item:hover {
+  background: hsl(var(--accent) / 0.5) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+/* Item ativo: barra lateral + fundo suave */
+.main-layout-nav-item[data-active="true"] {
+  background: var(--sidebar-active-bg, #eff6ff) !important;
+  color: var(--primary, #2563eb) !important;
+}
+
+.main-layout-nav-item[data-active="true"]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  border-radius: 0 2px 2px 0;
+  background: var(--primary, #2563eb);
+}
+
+.dark .main-layout-nav-item[data-active="true"] {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
+.dark .main-layout-nav-item[data-active="true"]::before {
+  background: hsl(var(--primary));
+}
+
+/* Ícone do item */
+.main-layout-nav-icon {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sidebar-muted, #6b7280);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.main-layout-nav-item .main-layout-nav-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.main-layout-nav-item:hover .main-layout-nav-icon {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--foreground, #111);
+}
+
+.dark .main-layout-nav-item:hover .main-layout-nav-icon {
+  background: rgba(255, 255, 255, 0.08);
+  color: hsl(var(--accent-foreground));
+}
+
+.main-layout-nav-item[data-active="true"] .main-layout-nav-icon {
+  background: var(--primary, #2563eb);
+  color: white;
+}
+
+.dark .main-layout-nav-item[data-active="true"] .main-layout-nav-icon {
+  background: hsl(var(--primary));
+  color: white;
+}
+
+.main-layout-nav-label {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Esconder label do grupo (não usamos "Menu" separado) */
+.main-layout-sidebar [data-sidebar="group-label"] {
+  display: none;
+}
+
+/* Rodapé da sidebar: usuário logado (foto + nome + email) */
+.main-layout-sidebar-footer {
+  padding: 16px 12px !important;
+  border-top: 1px solid var(--sidebar-border, #e5e7eb);
+  margin-top: auto;
+}
+
+.dark .main-layout-sidebar-footer {
+  border-top-color: hsl(var(--border));
+}
+
+.sidebar-user-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: var(--sidebar-hover, #f3f4f6);
+  min-width: 0;
+}
+
+.dark .sidebar-user-block {
+  background: hsl(var(--accent) / 0.3);
+}
+
+.sidebar-user-avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.sidebar-user-avatar-fallback {
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--primary, #2563eb);
+  color: white;
+}
+
+.sidebar-user-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground, #1a1a1a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dark .sidebar-user-name {
+  color: hsl(var(--foreground));
+}
+
+.sidebar-user-email {
+  font-size: 12px;
+  color: var(--sidebar-muted, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dark .sidebar-user-email {
+  color: hsl(var(--muted-foreground));
+}
