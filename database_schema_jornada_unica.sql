@@ -666,6 +666,7 @@ CREATE INDEX IF NOT EXISTS idx_conversoes_data_conversao ON conversoes(data_conv
 CREATE INDEX IF NOT EXISTS idx_pessoa_ministerios_pessoa_id ON pessoa_ministerios(pessoa_id);
 CREATE INDEX IF NOT EXISTS idx_pessoa_ministerios_ministerio_id ON pessoa_ministerios(ministerio_id);
 CREATE INDEX IF NOT EXISTS idx_pessoa_ministerios_e_lider ON pessoa_ministerios(e_lider);
+CREATE INDEX IF NOT EXISTS idx_pessoa_ministerios_data_fim ON pessoa_ministerios(data_fim);
 
 -- Índices em matriculas_membresia
 CREATE INDEX IF NOT EXISTS idx_matriculas_pessoa_id ON matriculas_membresia(pessoa_id);
@@ -1186,6 +1187,7 @@ COMMENT ON TABLE jornada_espiritual IS 'Histórico completo da jornada espiritua
 COMMENT ON TABLE credenciais_acesso IS 'Credenciais de login apenas para quem acessa o sistema';
 COMMENT ON TABLE visitas IS 'Registro de cada visita realizada';
 COMMENT ON TABLE conversoes IS 'Registro de conversões';
+COMMENT ON TABLE comentarios_acompanhamento IS 'Comentários do acompanhante sobre o novo convertido; exibidos no modal da Lista de novos convertidos.';
 COMMENT ON TABLE ministerios IS 'Ministérios da igreja';
 COMMENT ON TABLE pessoa_ministerios IS 'Relacionamento entre pessoas e ministérios (líder ou participante)';
 COMMENT ON TABLE matriculas_membresia IS 'Matrículas no curso de membresia';
@@ -1539,7 +1541,7 @@ CREATE TRIGGER update_paginas_tabs_updated_at
 -- =====================================================
 -- TABS DA PÁGINA INTEGRAÇÃO ACOMPANHAMENTO
 -- =====================================================
--- Início, Lista de novos convertidos, Atribuição de acompanhante
+-- Início, Lista de novos convertidos, Admin convertidos, Atribuição de acompanhante
 
 INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
 SELECT
@@ -1582,10 +1584,29 @@ WHERE rota = '/integracao-acompanhamento'
 INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
 SELECT
   id,
+  'Admin convertidos',
+  'admin-convertidos',
+  'ShieldCheck',
+  3,
+  FALSE,
+  FALSE,
+  TRUE,
+  FALSE,
+  TRUE
+FROM paginas_config
+WHERE rota = '/integracao-acompanhamento'
+  AND NOT EXISTS (
+    SELECT 1 FROM paginas_tabs pt
+    WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'admin-convertidos'
+  );
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT
+  id,
   'Atribuição de acompanhante',
   'atribuicao-acompanhante',
   'UserCheck',
-  3,
+  4,
   TRUE,
   FALSE,
   TRUE,
@@ -1596,6 +1617,30 @@ WHERE rota = '/integracao-acompanhamento'
   AND NOT EXISTS (
     SELECT 1 FROM paginas_tabs pt
     WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'atribuicao-acompanhante'
+  );
+
+-- =====================================================
+-- TABS DA PÁGINA FICHA DE MEMBROS
+-- =====================================================
+-- Tab "Ficha de Membro" (minha ficha cadastral)
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT
+  id,
+  'Ficha de Membro',
+  'ficha-membro',
+  'ClipboardList',
+  1,
+  TRUE,
+  FALSE,
+  TRUE,
+  TRUE,
+  TRUE
+FROM paginas_config
+WHERE rota = '/ficha-membros'
+  AND NOT EXISTS (
+    SELECT 1 FROM paginas_tabs pt
+    WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'ficha-membro'
   );
 
 -- =====================================================

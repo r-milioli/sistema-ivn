@@ -4,13 +4,33 @@
 -- Permite configurar visibilidade da tab em Config System > Páginas > Tabs
 -- =====================================================
 
+-- Tab "Admin convertidos" (todos os convertidos, administração)
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT
+  id,
+  'Admin convertidos',
+  'admin-convertidos',
+  'ShieldCheck',
+  3,
+  FALSE,
+  FALSE,
+  TRUE,
+  FALSE,
+  TRUE
+FROM paginas_config
+WHERE rota = '/integracao-acompanhamento'
+  AND NOT EXISTS (
+    SELECT 1 FROM paginas_tabs pt
+    WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'admin-convertidos'
+  );
+
 INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
 SELECT
   id,
   'Atribuição de acompanhante',
   'atribuicao-acompanhante',
   'UserCheck',
-  3,
+  4,
   TRUE,
   FALSE,
   TRUE,

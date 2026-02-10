@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
-import { Home, UserCheck, List, MessageSquare } from 'lucide-react';
+import { Home, UserCheck, List, MessageSquare, ShieldCheck, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTabsPermissoes } from '../../hooks/useTabsPermissoes';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
@@ -22,6 +22,7 @@ import {
 } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import { Label } from '../../components/ui/label';
+import { Input } from '../../components/ui/input';
 import './IntegracaoAcompanhamento.css';
 
 const IntegracaoAcompanhamento = () => {
@@ -31,6 +32,7 @@ const IntegracaoAcompanhamento = () => {
   const tabsPadrao = [
     { value: 'inicio', label: 'Início', icon: Home },
     { value: 'lista-meus-convertidos', label: 'Lista de novos convertidos', icon: List },
+    { value: 'admin-convertidos', label: 'Admin convertidos', icon: ShieldCheck },
     { value: 'atribuicao-acompanhante', label: 'Atribuição de acompanhante', icon: UserCheck },
   ];
 
@@ -45,6 +47,15 @@ const IntegracaoAcompanhamento = () => {
   // Dados da tab Lista de novos convertidos (somente os atribuídos ao usuário logado)
   const [meusConvertidos, setMeusConvertidos] = useState([]);
   const [loadingMeusConvertidos, setLoadingMeusConvertidos] = useState(false);
+
+  // Dados da tab Admin convertidos (todos os convertidos, com paginação e busca)
+  const [adminConvertidos, setAdminConvertidos] = useState([]);
+  const [loadingAdminConvertidos, setLoadingAdminConvertidos] = useState(false);
+  const [adminPagina, setAdminPagina] = useState(1);
+  const [adminPageSize, setAdminPageSize] = useState(10);
+  const [adminTotal, setAdminTotal] = useState(0);
+  const [adminTotalPages, setAdminTotalPages] = useState(0);
+  const [adminSearch, setAdminSearch] = useState('');
 
   // Modal de comentários (lista de novos convertidos)
   const [modalComentarioOpen, setModalComentarioOpen] = useState(false);
@@ -197,6 +208,56 @@ const IntegracaoAcompanhamento = () => {
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  // Páginas para exibição na paginação (admin) — mesmo padrão da página Integração
+  const adminPagesToShow = useMemo(() => {
+    const pages = [];
+    if (adminTotalPages <= 5) {
+      for (let i = 1; i <= adminTotalPages; i++) pages.push(i);
+    } else if (adminPagina <= 3) {
+      for (let i = 1; i <= 5; i++) pages.push(i);
+    } else if (adminPagina >= adminTotalPages - 2) {
+      for (let i = adminTotalPages - 4; i <= adminTotalPages; i++) pages.push(i);
+    } else {
+      for (let i = adminPagina - 2; i <= adminPagina + 2; i++) pages.push(i);
+    }
+    return pages;
+  }, [adminTotalPages, adminPagina]);
+
+  // Ao mudar busca (admin), voltar para página 1
+  useEffect(() => {
+    if (activeTab === 'admin-convertidos') setAdminPagina(1);
+  }, [adminSearch, activeTab]);
+
+  // Carregar todos os convertidos (admin) com paginação e busca
+  useEffect(() => {
+    if (activeTab !== 'admin-convertidos') return;
+    const carregar = async () => {
+      setLoadingAdminConvertidos(true);
+      try {
+        const params = { page: adminPagina, pageSize: adminPageSize };
+        if (adminSearch.trim()) params.search = adminSearch.trim();
+        const res = await api.get('/integracao/novos-convertidos', { params });
+        setAdminConvertidos(res.data.novosConvertidos || []);
+        const pag = res.data.pagination || {};
+        setAdminTotal(pag.total ?? 0);
+        setAdminTotalPages(pag.totalPages ?? 0);
+      } catch (e) {
+        console.error('Erro ao carregar convertidos (admin):', e);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível carregar a lista de convertidos.',
+          variant: 'destructive',
+        });
+        setAdminConvertidos([]);
+        setAdminTotal(0);
+        setAdminTotalPages(0);
+      } finally {
+        setLoadingAdminConvertidos(false);
+      }
+    };
+    carregar();
+  }, [activeTab, adminPagina, adminPageSize, adminSearch, toast]);
+
   // Carregar lista de novos convertidos atribuídos ao usuário logado
   useEffect(() => {
     if (activeTab !== 'lista-meus-convertidos') return;
@@ -298,7 +359,7 @@ const IntegracaoAcompanhamento = () => {
 
             <TabsContent value="inicio" className="integracao-acompanhamento-tabs-content">
               <div className="tab-content-wrapper">
-                <p>Selecione a aba &quot;Lista de novos convertidos&quot; para ver os que estão sob sua responsabilidade, ou &quot;Atribuição de acompanhante&quot; para gerenciar todos.</p>
+                <p>Use &quot;Lista de novos convertidos&quot; para ver os atribuídos a você, &quot;Admin convertidos&quot; para ver todos (com paginação) ou &quot;Atribuição de acompanhante&quot; para gerenciar acompanhantes.</p>
               </div>
             </TabsContent>
 
@@ -360,6 +421,154 @@ const IntegracaoAcompanhamento = () => {
                       </TableBody>
                     </Table>
                   </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="admin-convertidos" className="integracao-acompanhamento-tabs-content">
+              <div className="tab-content-wrapper">
+                <h2>Admin convertidos</h2>
+                <p className="section-description">
+                  Listagem de todos os novos convertidos (administração). Use o botão Comentário para ver e adicionar comentários de acompanhamento.
+                </p>
+
+                <div className="filters-section">
+                  <div className="filters-row">
+                    <div className="filter-group">
+                      <Label htmlFor="search-admin-convertidos">Buscar</Label>
+                      <div className="search-input-wrapper">
+                        <Search className="search-icon" />
+                        <Input
+                          type="text"
+                          id="search-admin-convertidos"
+                          placeholder="Nome, email ou telefone..."
+                          value={adminSearch}
+                          onChange={(e) => setAdminSearch(e.target.value)}
+                          className="form-input search-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {loadingAdminConvertidos ? (
+                  <p>Carregando...</p>
+                ) : (
+                  <>
+                    <div className="table-wrapper">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>Sobrenome</TableHead>
+                            <TableHead>Telefone</TableHead>
+                            <TableHead>Aceita entrar no grupo</TableHead>
+                            <TableHead>Acompanhante</TableHead>
+                            <TableHead>Comentário</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {adminConvertidos.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center">
+                                Nenhum novo convertido encontrado.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            adminConvertidos.map(pessoa => (
+                              <TableRow key={pessoa.id}>
+                                <TableCell className="font-medium">{pessoa.nome}</TableCell>
+                                <TableCell>{pessoa.sobrenome || '-'}</TableCell>
+                                <TableCell>{pessoa.telefone || pessoa.whatsapp || '-'}</TableCell>
+                                <TableCell>
+                                  {pessoa.podeIncluirGrupoWhatsapp === true
+                                    ? 'Sim'
+                                    : pessoa.podeIncluirGrupoWhatsapp === false
+                                      ? 'Não'
+                                      : '-'}
+                                </TableCell>
+                                <TableCell>{pessoa.acompanhadoPor || '-'}</TableCell>
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="btn-comentario"
+                                    onClick={() => abrirModalComentario(pessoa)}
+                                  >
+                                    <MessageSquare className="btn-comentario-icon" />
+                                    Comentário
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {adminTotal > 0 && (
+                      <div className="pagination-section">
+                        <div className="pagination-info">
+                          <span>
+                            Mostrando {((adminPagina - 1) * adminPageSize) + 1} a {Math.min(adminPagina * adminPageSize, adminTotal)} de {adminTotal} novo{adminTotal !== 1 ? 's' : ''} convertido{adminTotal !== 1 ? 's' : ''}
+                          </span>
+                          <div className="page-size-selector">
+                            <Label htmlFor="pageSize-admin-convertidos">Linhas por página:</Label>
+                            <select
+                              id="pageSize-admin-convertidos"
+                              value={adminPageSize}
+                              onChange={(e) => {
+                                setAdminPageSize(Number(e.target.value));
+                                setAdminPagina(1);
+                              }}
+                              className="form-select page-size-select"
+                            >
+                              <option value={5}>5</option>
+                              <option value={10}>10</option>
+                              <option value={20}>20</option>
+                              <option value={50}>50</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="pagination-controls">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAdminPagina(p => Math.max(1, p - 1))}
+                            disabled={adminPagina === 1 || loadingAdminConvertidos}
+                            className="pagination-button"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Anterior
+                          </Button>
+                          <div className="page-numbers">
+                            {adminPagesToShow.map(pageNum => (
+                              <Button
+                                key={pageNum}
+                                variant={adminPagina === pageNum ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setAdminPagina(pageNum)}
+                                className="pagination-button page-number"
+                              >
+                                {pageNum}
+                              </Button>
+                            ))}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAdminPagina(p => Math.min(adminTotalPages, p + 1))}
+                            disabled={adminPagina >= adminTotalPages || loadingAdminConvertidos}
+                            className="pagination-button"
+                          >
+                            Próxima
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </TabsContent>
