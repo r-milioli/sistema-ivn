@@ -249,6 +249,30 @@ const FichaMembros = () => {
     return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
   };
 
+  // Preenche apenas os campos que vêm da tabela pessoas (quando não existe ficha ainda)
+  const preencherFormComPessoa = (p) => {
+    if (!p) return;
+    const nomeCompleto = [p.nome, p.sobrenome].filter(Boolean).join(' ').trim() || '';
+    setFormData(prev => ({
+      ...prev,
+      nome: nomeCompleto || prev.nome,
+      email: p.email || prev.email,
+      cep: p.cep || prev.cep,
+      estado: p.estado || prev.estado,
+      cidade: p.cidade || prev.cidade,
+      bairro: p.bairro || prev.bairro,
+      endereco: p.rua || prev.endereco,
+      numeroEndereco: p.numero || prev.numeroEndereco,
+      complemento: p.complemento || prev.complemento,
+      numeroTelefone: p.telefone || prev.numeroTelefone,
+      numeroCelular: p.whatsapp || prev.numeroCelular,
+      sexo: p.sexo || prev.sexo,
+      estadoCivil: p.estadoCivil || prev.estadoCivil,
+      dataNascimento: toDateInput(p.dataNascimento) || prev.dataNascimento
+    }));
+    setFotoPreview(p.fotoPerfil || null);
+  };
+
   const preencherFormComFicha = (ficha) => {
     const p = ficha.pessoa || {};
     setFormData({
@@ -304,6 +328,7 @@ const FichaMembros = () => {
       foto: null,
       observacoes: ficha.observacoes || ''
     });
+    setFotoPreview(p.fotoPerfil || null);
   };
 
   const carregarMinhaFicha = async () => {
@@ -314,22 +339,25 @@ const FichaMembros = () => {
     try {
       setLoadingFicha(true);
       const { data } = await api.get('/ficha-cadastral/me');
-      setMinhaFicha(data.ficha);
-      preencherFormComFicha(data.ficha);
-    } catch (error) {
-      if (error.response?.status === 404) {
-        setMinhaFicha(null);
-        if (user) {
+      setMinhaFicha(data.ficha ?? null);
+      if (data.ficha) {
+        preencherFormComFicha(data.ficha);
+      } else if (user?.id) {
+        try {
+          const resPessoa = await api.get(`/pessoas/${user.id}`);
+          if (resPessoa.data?.pessoa) preencherFormComPessoa(resPessoa.data.pessoa);
+        } catch (errPessoa) {
+          if (errPessoa.response?.status !== 404) console.error('Erro ao carregar dados da pessoa:', errPessoa);
           setFormData(prev => ({
             ...prev,
             nome: user.nome || prev.nome,
             email: user.email || prev.email
           }));
         }
-      } else {
-        console.error('Erro ao carregar ficha:', error);
-        setMinhaFicha(null);
       }
+    } catch (error) {
+      console.error('Erro ao carregar ficha:', error);
+      setMinhaFicha(null);
     } finally {
       setLoadingFicha(false);
     }

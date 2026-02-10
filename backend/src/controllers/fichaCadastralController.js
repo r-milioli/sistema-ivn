@@ -397,7 +397,8 @@ async function obterMinhaFichaCadastral(req, res) {
       `SELECT fc.*, 
               p.nome, p.sobrenome, p.email, p.telefone, p.whatsapp,
               p.data_nascimento, p.sexo, p.estado_civil,
-              p.cep, p.rua, p.numero, p.complemento, p.bairro, p.cidade, p.estado
+              p.cep, p.rua, p.numero, p.complemento, p.bairro, p.cidade, p.estado,
+              p.foto_perfil
        FROM ficha_cadastral fc
        INNER JOIN pessoas p ON fc.pessoa_id = p.id
        WHERE fc.pessoa_id = $1`,
@@ -405,7 +406,7 @@ async function obterMinhaFichaCadastral(req, res) {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Ficha cadastral não encontrada' });
+      return res.json({ ficha: null });
     }
 
     const row = result.rows[0];
@@ -425,7 +426,8 @@ async function obterMinhaFichaCadastral(req, res) {
       complemento: row.complemento,
       bairro: row.bairro,
       cidade: row.cidade,
-      estado: row.estado
+      estado: row.estado,
+      fotoPerfil: row.foto_perfil || null
     };
 
     res.json({ ficha });
@@ -449,7 +451,8 @@ async function obterFichaCadastral(req, res) {
       `SELECT fc.*, 
               p.nome, p.sobrenome, p.email, p.telefone, p.whatsapp,
               p.data_nascimento, p.sexo, p.estado_civil,
-              p.cep, p.rua, p.numero, p.complemento, p.bairro, p.cidade, p.estado
+              p.cep, p.rua, p.numero, p.complemento, p.bairro, p.cidade, p.estado,
+              p.foto_perfil
        FROM ficha_cadastral fc
        INNER JOIN pessoas p ON fc.pessoa_id = p.id
        WHERE fc.pessoa_id = $1`,
@@ -479,7 +482,8 @@ async function obterFichaCadastral(req, res) {
       complemento: row.complemento,
       bairro: row.bairro,
       cidade: row.cidade,
-      estado: row.estado
+      estado: row.estado,
+      fotoPerfil: row.foto_perfil || null
     };
 
     res.json({ ficha });
