@@ -14,6 +14,7 @@ import Financas from './pages/Financas/Financas';
 import GestaoPessoas from './pages/GestaoPessoas/GestaoPessoas';
 import Configuracoes from './pages/Configuracoes/Configuracoes';
 import Integracao from './pages/Integracao/Integracao';
+import IntegracaoAcompanhamento from './pages/IntegracaoAcompanhamento/IntegracaoAcompanhamento';
 import Eventos from './pages/Eventos/Eventos';
 import Membresia from './pages/Membresia/Membresia';
 import Batismo from './pages/Batismo/Batismo';
@@ -117,6 +118,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Integracao />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/integracao-acompanhamento"
+        element={
+          <ProtectedRoute>
+            <IntegracaoAcompanhamento />
           </ProtectedRoute>
         }
       />

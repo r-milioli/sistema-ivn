@@ -1,0 +1,123 @@
+/* Integração acompanhamento - segue padrão das outras páginas */
+.integracao-acompanhamento-content h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--foreground, #1a1a1a);
+  margin-bottom: 24px;
+}
+
+.integracao-acompanhamento-content .page-description {
+  color: var(--muted-foreground, #666);
+  font-size: 16px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.integracao-acompanhamento-placeholder {
+  padding: 32px;
+  background: var(--card, #fff);
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e5e5);
+  text-align: center;
+  color: var(--muted-foreground, #666);
+}
+
+.integracao-acompanhamento-placeholder p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.no-permission-message {
+  color: var(--muted-foreground, #666);
+  font-size: 15px;
+}
+
+/* Tabs - mesmo padrão das outras páginas */
+.integracao-acompanhamento-tabs {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.integracao-acompanhamento-tabs-list {
+  background: var(--muted, #f5f5f5);
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 24px;
+}
+
+.integracao-acompanhamento-tabs-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted-foreground, #666);
+  transition: all 0.2s;
+  border-radius: 6px;
+}
+
+.integracao-acompanhamento-tabs-trigger:hover {
+  color: var(--foreground, #1a1a1a);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.integracao-acompanhamento-tabs-trigger[data-state="active"] {
+  background: var(--background, white);
+  color: var(--foreground, #1a1a1a);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.integracao-acompanhamento-tabs-content {
+  padding: 0;
+  margin-top: 0;
+}
+
+.tab-content-wrapper {
+  background: var(--card, #fff);
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-content-wrapper h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--foreground, #1a1a1a);
+  margin-bottom: 16px;
+}
+
+.section-description {
+  color: var(--muted-foreground, #666);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.aviso-ministerio {
+  color: var(--muted-foreground, #666);
+  font-size: 14px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--muted, #f5f5f5);
+  border-radius: 6px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.table-wrapper .form-select.select-acompanhante {
+  min-width: 180px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.saving-label {
+  font-size: 12px;
+  color: var(--muted-foreground, #666);
+  margin-left: 8px;
+}
+
+.text-center {
+  text-align: center;
+}

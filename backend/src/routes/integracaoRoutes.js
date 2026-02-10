@@ -55,7 +55,8 @@ const integrarVisitanteValidation = [
     .optional({ checkFalsy: true })
     .isIn(['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'])
     .withMessage('Estado inválido'),
-  body('fotoPerfil').optional({ checkFalsy: true }).isString().withMessage('Foto de perfil deve ser uma string (base64)')
+  body('fotoPerfil').optional({ checkFalsy: true }).isString().withMessage('Foto de perfil deve ser uma string (base64)'),
+  body('podeIncluirGrupoWhatsapp').optional({ checkFalsy: true }).isBoolean().withMessage('podeIncluirGrupoWhatsapp deve ser true ou false')
 ];
 
 // Validações para registrar conversão
@@ -109,7 +110,7 @@ router.get('/ministerios/pessoas', integracaoController.listarPessoasMinisterios
 // Validações para listar novos convertidos
 const listarNovosConvertidosValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('Página deve ser um número inteiro positivo'),
-  query('pageSize').optional().isInt({ min: 1, max: 100 }).withMessage('Tamanho da página deve ser entre 1 e 100'),
+  query('pageSize').optional().isInt({ min: 1, max: 500 }).withMessage('Tamanho da página deve ser entre 1 e 500'),
   query('search').optional().trim().isString().withMessage('Busca deve ser uma string'),
   query('dataVisita')
     .optional()
@@ -122,6 +123,15 @@ const listarNovosConvertidosValidation = [
 ];
 
 router.get('/novos-convertidos', listarNovosConvertidosValidation, handleValidationErrors, integracaoController.listarNovosConvertidos);
+
+const atualizarAcompanhanteValidation = [
+  param('pessoaId').isInt({ min: 1 }).withMessage('pessoaId inválido'),
+  body('acompanhanteId')
+    .optional({ values: 'null', checkFalsy: true })
+    .custom((val) => val === null || val === '' || val === undefined || (Number.isInteger(Number(val)) && Number(val) >= 1))
+    .withMessage('acompanhanteId deve ser um número inteiro positivo ou vazio para remover')
+];
+router.put('/conversoes/:pessoaId/acompanhante', atualizarAcompanhanteValidation, handleValidationErrors, integracaoController.atualizarAcompanhanteConversao);
 
 // Validações para analytics
 const analyticsValidation = [

@@ -59,6 +59,7 @@ function mapRowToPessoa(row) {
     dataOrdenacao: row.data_ordenacao,
     ativo: row.ativo,
     fotoPerfil: row.foto_perfil,
+    podeIncluirGrupoWhatsapp: row.pode_incluir_grupo_whatsapp ?? null,
     criadoEm: row.criado_em,
     atualizadoEm: row.atualizado_em,
   };
@@ -172,6 +173,7 @@ async function listarPessoas(req, res) {
         id, nome, sobrenome, sexo, estado_civil, data_nascimento,
         telefone, email, whatsapp, cep, rua, numero, complemento, bairro, cidade, estado,
         estagio_atual, data_primeira_visita, como_conheceu, cargo_eclesiastico, data_ordenacao, ativo, foto_perfil,
+        pode_incluir_grupo_whatsapp,
         criado_em, atualizado_em
       FROM pessoas
       WHERE 1=1
@@ -306,6 +308,7 @@ async function obterPessoaPorId(req, res) {
         id, nome, sobrenome, sexo, estado_civil, data_nascimento,
         telefone, email, whatsapp, cep, rua, numero, complemento, bairro, cidade, estado,
         estagio_atual, data_primeira_visita, como_conheceu, cargo_eclesiastico, data_ordenacao, ativo, foto_perfil,
+        pode_incluir_grupo_whatsapp,
         criado_em, atualizado_em
        FROM pessoas
        WHERE id = $1`,

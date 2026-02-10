@@ -46,6 +46,7 @@ async function integrarVisitante(req, res) {
       pessoaId, 
       novoEstagio, 
       observacoes,
+      podeIncluirGrupoWhatsapp,
       // Dados da pessoa para atualizar
       nome,
       sobrenome,
@@ -178,6 +179,12 @@ async function integrarVisitante(req, res) {
     if (fotoPerfil !== undefined && fotoPerfil !== null) {
       updateFields.push(`foto_perfil = $${paramIndex++}`);
       updateValues.push(fotoPerfil);
+    }
+
+    // Pode incluir no grupo de WhatsApp (opcional)
+    if (podeIncluirGrupoWhatsapp !== undefined) {
+      updateFields.push(`pode_incluir_grupo_whatsapp = $${paramIndex++}`);
+      updateValues.push(podeIncluirGrupoWhatsapp === true ? true : podeIncluirGrupoWhatsapp === false ? false : null);
     }
 
     // Adicionar atualizado_em
@@ -781,13 +788,19 @@ async function listarPessoasMinisterios(req, res) {
     const conditions = [];
 
     if (ministerioId) {
-      conditions.push(`pm.ministerio_id = $${queryParams.length + 1}`);
-      queryParams.push(ministerioId);
+      const id = parseInt(ministerioId, 10);
+      if (!isNaN(id)) {
+        conditions.push(`pm.ministerio_id = $${queryParams.length + 1}`);
+        queryParams.push(id);
+      }
     }
 
     if (pessoaId) {
-      conditions.push(`pm.pessoa_id = $${queryParams.length + 1}`);
-      queryParams.push(pessoaId);
+      const id = parseInt(pessoaId, 10);
+      if (!isNaN(id)) {
+        conditions.push(`pm.pessoa_id = $${queryParams.length + 1}`);
+        queryParams.push(id);
+      }
     }
 
     if (eLider !== undefined) {
@@ -799,7 +812,8 @@ async function listarPessoasMinisterios(req, res) {
       query += ' AND ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY m.nome, p.nome';
+    // Líderes primeiro, depois nome (útil para dropdown de acompanhantes)
+    query += ' ORDER BY pm.e_lider DESC, p.nome, p.sobrenome';
 
     const result = await pool.query(query, queryParams);
 
@@ -838,8 +852,10 @@ async function listarNovosConvertidos(req, res) {
         p.bairro,
         p.cidade,
         p.como_conheceu,
+        p.pode_incluir_grupo_whatsapp,
         c.data_conversao,
         c.local_conversao,
+        c.acompanhado_por as acompanhado_por_id,
         acompanhado.nome || ' ' || COALESCE(acompanhado.sobrenome, '') as acompanhado_por,
         primeira_visita.data_visita as primeira_visita,
         recepcionado.nome || ' ' || COALESCE(recepcionado.sobrenome, '') as recepcionado_por,
@@ -914,8 +930,10 @@ async function listarNovosConvertidos(req, res) {
       bairro: row.bairro,
       cidade: row.cidade,
       comoConheceu: row.como_conheceu,
+      podeIncluirGrupoWhatsapp: row.pode_incluir_grupo_whatsapp,
       dataConversao: row.data_conversao,
       localConversao: row.local_conversao,
+      acompanhadoPorId: row.acompanhado_por_id ?? null,
       acompanhadoPor: row.acompanhado_por,
       primeiraVisita: row.primeira_visita,
       recepcionadoPor: row.recepcionado_por,
@@ -1104,108 +1122,124 @@ async function obterEstatisticasAnalytics(req, res) {
       nenhum: alunosSemAulas
     };
 
-    // 7. Estatísticas de Batismo
-    const totalAlunosBatismoQuery = await pool.query(
-      `SELECT COUNT(*) as total
-       FROM matriculas_batismo m
-       INNER JOIN pessoas p ON m.pessoa_id = p.id
-       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
-         AND p.ativo = TRUE`,
-      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
-    );
-    const totalAlunosBatismo = parseInt(totalAlunosBatismoQuery.rows[0].total) || 0;
+    // 7. Estatísticas de Batismo (tabelas matriculas_batismo e aulas_batismo podem não existir em bancos antigos)
+    let totalAlunosBatismo = 0;
+    let totalAulasBatismoConcluidas = 0;
+    let alunosBatismoCompletos = 0;
+    let alunosBatismoAlgumaAula = 0;
+    let alunosBatismoSemAulas = 0;
+    let taxaConclusaoBatismo = '0.0';
+    let porMesBatismo = [];
+    let alunosBatismoPorProgresso = { completo: 0, parcial: 0, nenhum: 0 };
 
-    const aulasBatismoQuery = await pool.query(
-      `SELECT 
-         COUNT(CASE WHEN a.concluida = TRUE THEN 1 END) as total_aulas_concluidas,
-         COUNT(CASE WHEN a.concluida = FALSE THEN 1 END) as total_aulas_nao_concluidas
-       FROM matriculas_batismo m
-       INNER JOIN pessoas p ON m.pessoa_id = p.id
-       INNER JOIN aulas_batismo a ON m.id = a.matricula_id
-       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
-         AND p.ativo = TRUE`,
-      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
-    );
-    const totalAulasBatismoConcluidas = parseInt(aulasBatismoQuery.rows[0].total_aulas_concluidas) || 0;
-
-    const alunosBatismoCompletosQuery = await pool.query(
-      `SELECT COUNT(DISTINCT m.id) as total
-       FROM matriculas_batismo m
-       INNER JOIN pessoas p ON m.pessoa_id = p.id
-       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
-         AND p.ativo = TRUE
-         AND (
-           SELECT COUNT(*) 
-           FROM aulas_batismo a 
-           WHERE a.matricula_id = m.id AND a.concluida = TRUE
-         ) = 5`,
-      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
-    );
-    const alunosBatismoCompletos = parseInt(alunosBatismoCompletosQuery.rows[0].total) || 0;
-
-    const alunosBatismoAlgumaAulaQuery = await pool.query(
-      `SELECT COUNT(DISTINCT m.id) as total
-       FROM matriculas_batismo m
-       INNER JOIN pessoas p ON m.pessoa_id = p.id
-       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
-         AND p.ativo = TRUE
-         AND EXISTS (
-           SELECT 1 
-           FROM aulas_batismo a 
-           WHERE a.matricula_id = m.id AND a.concluida = TRUE
-         )`,
-      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
-    );
-    const alunosBatismoAlgumaAula = parseInt(alunosBatismoAlgumaAulaQuery.rows[0].total) || 0;
-
-    const alunosBatismoSemAulasQuery = await pool.query(
-      `SELECT COUNT(DISTINCT m.id) as total
-       FROM matriculas_batismo m
-       INNER JOIN pessoas p ON m.pessoa_id = p.id
-       WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
-         AND p.ativo = TRUE
-         AND NOT EXISTS (
-           SELECT 1 
-           FROM aulas_batismo a 
-           WHERE a.matricula_id = m.id AND a.concluida = TRUE
-         )`,
-      [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
-    );
-    const alunosBatismoSemAulas = parseInt(alunosBatismoSemAulasQuery.rows[0].total) || 0;
-
-    const totalAulasBatismoPossiveis = totalAlunosBatismo * 5;
-    const taxaConclusaoBatismo = totalAulasBatismoPossiveis > 0
-      ? ((totalAulasBatismoConcluidas / totalAulasBatismoPossiveis) * 100).toFixed(1)
-      : '0.0';
-
-    const porMesBatismo = [];
-    for (let i = 5; i >= 0; i--) {
-      const data = new Date();
-      data.setMonth(data.getMonth() - i);
-      const inicioMes = new Date(data.getFullYear(), data.getMonth(), 1);
-      const fimMes = new Date(data.getFullYear(), data.getMonth() + 1, 0);
-
-      const mesBatismoQuery = await pool.query(
-        `SELECT COUNT(*) as quantidade
+    try {
+      const totalAlunosBatismoQuery = await pool.query(
+        `SELECT COUNT(*) as total
          FROM matriculas_batismo m
          INNER JOIN pessoas p ON m.pessoa_id = p.id
          WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
            AND p.ativo = TRUE`,
-        [inicioMes.toISOString().split('T')[0], fimMes.toISOString().split('T')[0]]
+        [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
       );
+      totalAlunosBatismo = parseInt(totalAlunosBatismoQuery.rows[0].total) || 0;
 
-      const mesNome = data.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-      porMesBatismo.push({
-        mes: mesNome,
-        quantidade: parseInt(mesBatismoQuery.rows[0].quantidade)
-      });
+      const aulasBatismoQuery = await pool.query(
+        `SELECT 
+           COUNT(CASE WHEN a.concluida = TRUE THEN 1 END) as total_aulas_concluidas,
+           COUNT(CASE WHEN a.concluida = FALSE THEN 1 END) as total_aulas_nao_concluidas
+         FROM matriculas_batismo m
+         INNER JOIN pessoas p ON m.pessoa_id = p.id
+         INNER JOIN aulas_batismo a ON m.id = a.matricula_id
+         WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+           AND p.ativo = TRUE`,
+        [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+      );
+      totalAulasBatismoConcluidas = parseInt(aulasBatismoQuery.rows[0].total_aulas_concluidas) || 0;
+
+      const alunosBatismoCompletosQuery = await pool.query(
+        `SELECT COUNT(DISTINCT m.id) as total
+         FROM matriculas_batismo m
+         INNER JOIN pessoas p ON m.pessoa_id = p.id
+         WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+           AND p.ativo = TRUE
+           AND (
+             SELECT COUNT(*) 
+             FROM aulas_batismo a 
+             WHERE a.matricula_id = m.id AND a.concluida = TRUE
+           ) = 5`,
+        [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+      );
+      alunosBatismoCompletos = parseInt(alunosBatismoCompletosQuery.rows[0].total) || 0;
+
+      const alunosBatismoAlgumaAulaQuery = await pool.query(
+        `SELECT COUNT(DISTINCT m.id) as total
+         FROM matriculas_batismo m
+         INNER JOIN pessoas p ON m.pessoa_id = p.id
+         WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+           AND p.ativo = TRUE
+           AND EXISTS (
+             SELECT 1 
+             FROM aulas_batismo a 
+             WHERE a.matricula_id = m.id AND a.concluida = TRUE
+           )`,
+        [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+      );
+      alunosBatismoAlgumaAula = parseInt(alunosBatismoAlgumaAulaQuery.rows[0].total) || 0;
+
+      const alunosBatismoSemAulasQuery = await pool.query(
+        `SELECT COUNT(DISTINCT m.id) as total
+         FROM matriculas_batismo m
+         INNER JOIN pessoas p ON m.pessoa_id = p.id
+         WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+           AND p.ativo = TRUE
+           AND NOT EXISTS (
+             SELECT 1 
+             FROM aulas_batismo a 
+             WHERE a.matricula_id = m.id AND a.concluida = TRUE
+           )`,
+        [inicio.toISOString().split('T')[0], fim.toISOString().split('T')[0]]
+      );
+      alunosBatismoSemAulas = parseInt(alunosBatismoSemAulasQuery.rows[0].total) || 0;
+
+      const totalAulasBatismoPossiveis = totalAlunosBatismo * 5;
+      taxaConclusaoBatismo = totalAulasBatismoPossiveis > 0
+        ? ((totalAulasBatismoConcluidas / totalAulasBatismoPossiveis) * 100).toFixed(1)
+        : '0.0';
+
+      for (let i = 5; i >= 0; i--) {
+        const data = new Date();
+        data.setMonth(data.getMonth() - i);
+        const inicioMes = new Date(data.getFullYear(), data.getMonth(), 1);
+        const fimMes = new Date(data.getFullYear(), data.getMonth() + 1, 0);
+
+        const mesBatismoQuery = await pool.query(
+          `SELECT COUNT(*) as quantidade
+           FROM matriculas_batismo m
+           INNER JOIN pessoas p ON m.pessoa_id = p.id
+           WHERE DATE(m.data_matricula) >= $1 AND DATE(m.data_matricula) <= $2
+             AND p.ativo = TRUE`,
+          [inicioMes.toISOString().split('T')[0], fimMes.toISOString().split('T')[0]]
+        );
+
+        const mesNome = data.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+        porMesBatismo.push({
+          mes: mesNome,
+          quantidade: parseInt(mesBatismoQuery.rows[0].quantidade)
+        });
+      }
+
+      alunosBatismoPorProgresso = {
+        completo: alunosBatismoCompletos,
+        parcial: alunosBatismoAlgumaAula - alunosBatismoCompletos,
+        nenhum: alunosBatismoSemAulas
+      };
+    } catch (err) {
+      if (err.code === '42P01') {
+        console.warn('Tabelas matriculas_batismo/aulas_batismo não existem. Estatísticas de batismo retornadas como zero.');
+      } else {
+        throw err;
+      }
     }
-
-    const alunosBatismoPorProgresso = {
-      completo: alunosBatismoCompletos,
-      parcial: alunosBatismoAlgumaAula - alunosBatismoCompletos,
-      nenhum: alunosBatismoSemAulas
-    };
 
     res.json({
       totalNovosConvertidos,
@@ -1633,6 +1667,57 @@ async function atualizarStatusAulaBatismo(req, res) {
   }
 }
 
+/**
+ * Atualizar acompanhante de um novo convertido (conversão)
+ * PUT /integracao/conversoes/:pessoaId/acompanhante { acompanhanteId: number | null }
+ */
+async function atualizarAcompanhanteConversao(req, res) {
+  try {
+    const { pessoaId } = req.params;
+    const { acompanhanteId } = req.body;
+
+    const idPessoa = parseInt(pessoaId);
+    if (isNaN(idPessoa)) {
+      return res.status(400).json({ message: 'pessoaId inválido' });
+    }
+
+    const acompanhanteIdNum = acompanhanteId === null || acompanhanteId === undefined || acompanhanteId === ''
+      ? null
+      : parseInt(acompanhanteId);
+    if (acompanhanteIdNum !== null && isNaN(acompanhanteIdNum)) {
+      return res.status(400).json({ message: 'acompanhanteId inválido' });
+    }
+
+    let result = await pool.query(
+      `UPDATE conversoes SET acompanhado_por = $1, atualizado_em = CURRENT_TIMESTAMP WHERE pessoa_id = $2 RETURNING id`,
+      [acompanhanteIdNum, idPessoa]
+    );
+
+    // Se não existe registro de conversão, criar um (pessoa pode estar como Novo Convertido sem registro em conversoes)
+    if (result.rows.length === 0) {
+      if (acompanhanteIdNum === null) {
+        return res.status(404).json({
+          message: 'Conversão não encontrada para esta pessoa. Registre a conversão antes de remover o acompanhante.'
+        });
+      }
+      await pool.query(
+        `INSERT INTO conversoes (pessoa_id, data_conversao, local_conversao, acompanhado_por)
+         VALUES ($1, CURRENT_TIMESTAMP, 'Não informado', $2)
+         ON CONFLICT (pessoa_id) DO UPDATE SET acompanhado_por = EXCLUDED.acompanhado_por, atualizado_em = CURRENT_TIMESTAMP`,
+        [idPessoa, acompanhanteIdNum]
+      );
+    }
+
+    res.json({ message: 'Acompanhante atualizado com sucesso', acompanhado_por: acompanhanteIdNum });
+  } catch (error) {
+    console.error('Erro ao atualizar acompanhante:', error);
+    res.status(500).json({
+      message: 'Erro ao atualizar acompanhante',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   integrarVisitante,
   registrarConversao,
@@ -1643,6 +1728,7 @@ module.exports = {
   adicionarPessoaMinisterio,
   listarPessoasMinisterios,
   listarNovosConvertidos,
+  atualizarAcompanhanteConversao,
   obterEstatisticasAnalytics,
   buscarPessoasComFicha,
   matricularBatismo,

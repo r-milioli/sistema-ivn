@@ -42,7 +42,8 @@ import {
   UserCheck,
   FileText,
   Server,
-  ClipboardList
+  ClipboardList,
+  ListChecks
 } from 'lucide-react';
 import MainLayout from '../../components/Layout/MainLayout';
 import './Dashboard.css';
@@ -53,7 +54,7 @@ const iconMap = {
   Heart, BookOpen, Zap, Video, Smile, Bike, Home, Crown, ChefHat, Radio,
   Globe, Shield, UserCircle, MessageCircle, Cross, GraduationCap, Coffee,
   UsersRound, Activity, User, UserRound, Calendar, Drama, Mic, HeartPulse,
-  UserCog, Droplet, UserCheck, FileText, Server, ClipboardList, Settings
+  UserCog, Droplet, UserCheck, FileText, Server, ClipboardList, Settings, ListChecks
 };
 
 const Dashboard = () => {
@@ -126,6 +127,11 @@ const Dashboard = () => {
       icon: Users, 
       label: 'Integração', 
       path: '/integracao'
+    },
+    { 
+      icon: ListChecks, 
+      label: 'Integração acompanhamento', 
+      path: '/integracao-acompanhamento'
     },
     { 
       icon: Hammer, 

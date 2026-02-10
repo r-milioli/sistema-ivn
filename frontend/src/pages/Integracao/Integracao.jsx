@@ -57,6 +57,7 @@ const Integracao = () => {
     cidade: '',
     estado: '',
     novoEstagio: '',
+    podeIncluirGrupoWhatsapp: '',
     fotoPerfil: null
   });
 
@@ -130,6 +131,7 @@ const Integracao = () => {
       cidade: pessoa.cidade || '',
       estado: pessoa.estado || '',
       novoEstagio: '',
+      podeIncluirGrupoWhatsapp: pessoa.podeIncluirGrupoWhatsapp === true ? 'sim' : pessoa.podeIncluirGrupoWhatsapp === false ? 'nao' : '',
       fotoPerfil: null
     });
     setFotoPerfilPreview(pessoa.fotoPerfil || null);
@@ -238,6 +240,7 @@ const Integracao = () => {
       cidade: '',
       estado: '',
       novoEstagio: '',
+      podeIncluirGrupoWhatsapp: '',
       fotoPerfil: null
     });
     setFotoPerfilPreview(null);
@@ -315,6 +318,8 @@ const Integracao = () => {
         // Nome e sobrenome são obrigatórios
         nome: formData.nome,
         sobrenome: formData.sobrenome,
+        // Pode incluir no grupo de WhatsApp (sim/nao -> true/false)
+        podeIncluirGrupoWhatsapp: formData.podeIncluirGrupoWhatsapp === 'sim' ? true : formData.podeIncluirGrupoWhatsapp === 'nao' ? false : null,
         // Demais campos opcionais - null quando vazios
         email: formData.email && formData.email.trim() ? formData.email.trim() : null,
         telefone: formData.telefone && formData.telefone.trim() ? formData.telefone.trim() : null,
@@ -781,7 +786,7 @@ const Integracao = () => {
                       </div>
                     </div>
 
-                    <div className="form-row">
+                    <div className="form-row form-row-2">
                       <div className="form-group">
                         <Label htmlFor="estadoCivil">Estado Civil</Label>
                         <select
@@ -797,6 +802,20 @@ const Integracao = () => {
                           <option value="divorciado">Divorciado(a)</option>
                           <option value="viuvo">Viúvo(a)</option>
                           <option value="uniao-estavel">União Estável</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <Label htmlFor="podeIncluirGrupoWhatsapp">Pode incluir no grupo de WhatsApp</Label>
+                        <select
+                          id="podeIncluirGrupoWhatsapp"
+                          name="podeIncluirGrupoWhatsapp"
+                          value={formData.podeIncluirGrupoWhatsapp}
+                          onChange={handleChange}
+                          className="form-select"
+                        >
+                          <option value="">Selecione (opcional)</option>
+                          <option value="sim">Sim</option>
+                          <option value="nao">Não</option>
                         </select>
                       </div>
                     </div>

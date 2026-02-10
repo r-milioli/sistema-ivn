@@ -153,6 +153,7 @@ CREATE TABLE IF NOT EXISTS pessoas (
   telefone VARCHAR(20),
   email VARCHAR(255),
   whatsapp VARCHAR(20), -- Pode ser diferente do telefone
+  pode_incluir_grupo_whatsapp BOOLEAN DEFAULT NULL, -- Se a pessoa pode ser incluída no grupo de WhatsApp (integração)
   
   -- Endereço
   cep VARCHAR(10),
@@ -439,6 +440,9 @@ CREATE TABLE IF NOT EXISTS aulas_membresia (
 
 -- =====================================================
 -- CURSO DE BATISMO
+-- =====================================================
+-- Obrigatório para: página Batismo, endpoint /integracao/analytics.
+-- Não remover: o analytics de integração depende de matriculas_batismo e aulas_batismo.
 -- =====================================================
 
 -- Tabela de matrículas em batismo
@@ -1478,7 +1482,8 @@ INSERT INTO paginas_config (rota, nome, icone, pagina_visivel_geral, card_visive
   ('/mulheres', 'Mulheres', 'UserRound', TRUE, TRUE, 37),
   ('/jovem-casais', 'Jovem Casais', 'HeartPulse', TRUE, TRUE, 38),
   ('/teatro', 'Teatro', 'Drama', TRUE, TRUE, 39),
-  ('/coral', 'Coral', 'Mic', TRUE, TRUE, 40)
+  ('/coral', 'Coral', 'Mic', TRUE, TRUE, 40),
+  ('/integracao-acompanhamento', 'Integração acompanhamento', 'ListChecks', TRUE, TRUE, 41)
 ON CONFLICT (rota) DO NOTHING;
 
 -- =====================================================
