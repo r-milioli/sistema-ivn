@@ -134,6 +134,9 @@ const atualizarAcompanhanteValidation = [
 ];
 router.put('/conversoes/:pessoaId/acompanhante', atualizarAcompanhanteValidation, handleValidationErrors, integracaoController.atualizarAcompanhanteConversao);
 
+// Ranking de integrantes do ministério Integração por quantidade de pessoas acompanhadas
+router.get('/acompanhamento/ranking', integracaoController.obterRankingAcompanhantes);
+
 const comentarioConversaoValidation = [
   param('pessoaId').isInt({ min: 1 }).withMessage('pessoaId inválido'),
   body('comentario').trim().notEmpty().withMessage('Comentário é obrigatório'),

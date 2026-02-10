@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
-import { Home, UserCheck, List, MessageSquare, ShieldCheck, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, UserCheck, List, MessageSquare, ShieldCheck, Search, ChevronLeft, ChevronRight, Trophy, Users } from 'lucide-react';
 import { useTabsPermissoes } from '../../hooks/useTabsPermissoes';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
@@ -65,6 +65,11 @@ const IntegracaoAcompanhamento = () => {
   const [novoComentarioTexto, setNovoComentarioTexto] = useState('');
   const [salvandoComentario, setSalvandoComentario] = useState(false);
 
+  // Analytics tab Início: ranking de acompanhantes
+  const [rankingTop10, setRankingTop10] = useState([]);
+  const [rankingTodos, setRankingTodos] = useState([]);
+  const [loadingRanking, setLoadingRanking] = useState(false);
+
   // Carregar ministerios e participantes do ministério Integração
   const [ministerios, setMinisterios] = useState([]);
   useEffect(() => {
@@ -93,6 +98,27 @@ const IntegracaoAcompanhamento = () => {
 
   // Id do ministério Integração (backend pode retornar id ou ministerio_id)
   const ministerioIntegracaoId = ministerioIntegracao ? (ministerioIntegracao.id ?? ministerioIntegracao.ministerio_id) : null;
+
+  // Carregar ranking de acompanhantes quando estiver na tab Início
+  useEffect(() => {
+    if (activeTab !== 'inicio') return;
+    let cancelled = false;
+    setLoadingRanking(true);
+    api.get('/integracao/acompanhamento/ranking')
+      .then(res => {
+        if (cancelled) return;
+        setRankingTop10(res.data.top10 || []);
+        setRankingTodos(res.data.todos || []);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRankingTop10([]);
+          setRankingTodos([]);
+        }
+      })
+      .finally(() => { if (!cancelled) setLoadingRanking(false); });
+    return () => { cancelled = true; };
+  }, [activeTab]);
 
   useEffect(() => {
     if (!ministerioIntegracaoId) {
@@ -358,8 +384,66 @@ const IntegracaoAcompanhamento = () => {
             </TabsList>
 
             <TabsContent value="inicio" className="integracao-acompanhamento-tabs-content">
-              <div className="tab-content-wrapper">
-                <p>Use &quot;Lista de novos convertidos&quot; para ver os atribuídos a você, &quot;Admin convertidos&quot; para ver todos (com paginação) ou &quot;Atribuição de acompanhante&quot; para gerenciar acompanhantes.</p>
+              <div className="tab-content-wrapper tab-inicio-wrapper">
+                <section className="ranking-acompanhantes-section">
+                  <h2 className="ranking-title">
+                    <Trophy className="ranking-title-icon" />
+                    Top 10 — quem mais acompanha
+                  </h2>
+                  {loadingRanking ? (
+                    <p className="ranking-loading">Carregando analytics...</p>
+                  ) : rankingTop10.length === 0 ? (
+                    <p className="ranking-vazio">Nenhum integrante do ministério Integração ou ainda não há acompanhamentos atribuídos.</p>
+                  ) : (
+                    <div className="ranking-bars">
+                      {rankingTop10.map((item, index) => {
+                        const maxVal = Math.max(...rankingTop10.map(i => i.totalAcompanhados), 1);
+                        const pct = (item.totalAcompanhados / maxVal) * 100;
+                        return (
+                          <div key={item.pessoaId} className="ranking-bar-row">
+                            <span className="ranking-bar-pos">#{index + 1}</span>
+                            <div className="ranking-bar-content">
+                              <div className="ranking-bar-info">
+                                <span className="ranking-bar-nome">{item.nomeCompleto}</span>
+                                <span className="ranking-bar-num">{item.totalAcompanhados} {item.totalAcompanhados === 1 ? 'pessoa' : 'pessoas'}</span>
+                              </div>
+                              <div className="ranking-bar-track">
+                                <div className="ranking-bar-fill" style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+
+                <section className="tabela-integrantes-section">
+                  <h2 className="tabela-integrantes-title">
+                    <Users className="tabela-integrantes-icon" />
+                    Todos os integrantes
+                  </h2>
+                  {loadingRanking ? (
+                    <p className="ranking-loading">Carregando...</p>
+                  ) : (
+                    <div className="integrantes-cards-wrapper">
+                      {rankingTodos.length === 0 ? (
+                        <p className="ranking-vazio">Nenhum integrante no ministério Integração no momento.</p>
+                      ) : (
+                        <div className="integrantes-cards">
+                          {rankingTodos.map((item, index) => (
+                            <div key={item.pessoaId} className="integrante-card">
+                              <span className="integrante-card-pos">#{index + 1}</span>
+                              <span className="integrante-card-nome">{item.nomeCompleto}</span>
+                              <span className="integrante-card-total">{item.totalAcompanhados}</span>
+                              <span className="integrante-card-label">acompanhados</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
               </div>
             </TabsContent>
 

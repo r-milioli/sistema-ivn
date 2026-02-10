@@ -1725,6 +1725,47 @@ async function atualizarAcompanhanteConversao(req, res) {
 }
 
 /**
+ * Ranking de integrantes do ministério Integração por quantidade de novos convertidos acompanhados
+ * GET /integracao/acompanhamento/ranking
+ * Retorna: { top10: [...], todos: [...] } com pessoa_id, nome_completo, total_acompanhados
+ */
+async function obterRankingAcompanhantes(req, res) {
+  try {
+    const query = `
+      SELECT
+        p.id as pessoa_id,
+        p.nome,
+        p.sobrenome,
+        (p.nome || ' ' || COALESCE(p.sobrenome, '')) AS nome_completo,
+        COUNT(c.pessoa_id)::INTEGER AS total_acompanhados
+      FROM pessoa_ministerios pm
+      INNER JOIN pessoas p ON pm.pessoa_id = p.id
+      INNER JOIN ministerios m ON pm.ministerio_id = m.id
+      LEFT JOIN conversoes c ON c.acompanhado_por = p.id
+      WHERE pm.data_fim IS NULL
+        AND (m.nome ILIKE 'Integração' OR m.nome ILIKE 'Integracao' OR m.nome ILIKE 'integração')
+      GROUP BY p.id, p.nome, p.sobrenome
+      ORDER BY total_acompanhados DESC, p.nome, p.sobrenome
+    `;
+    const result = await pool.query(query);
+    const todos = result.rows.map(row => ({
+      pessoaId: row.pessoa_id,
+      nomeCompleto: row.nome_completo,
+      totalAcompanhados: row.total_acompanhados
+    }));
+    const top10 = todos.slice(0, 10);
+
+    res.json({ top10, todos });
+  } catch (error) {
+    console.error('Erro ao obter ranking de acompanhantes:', error);
+    res.status(500).json({
+      message: 'Erro ao obter ranking de acompanhantes',
+      error: error.message
+    });
+  }
+}
+
+/**
  * Listar comentários do acompanhante sobre um novo convertido
  * GET /integracao/conversoes/:pessoaId/comentarios
  * Retorna apenas comentários do usuário logado (autor_pessoa_id = req.user.id)
@@ -1819,6 +1860,7 @@ module.exports = {
   listarComentariosConversao,
   criarComentarioConversao,
   obterEstatisticasAnalytics,
+  obterRankingAcompanhantes,
   buscarPessoasComFicha,
   matricularBatismo,
   listarMatriculasBatismo,
