@@ -112,6 +112,7 @@ const listarNovosConvertidosValidation = [
   query('page').optional().isInt({ min: 1 }).withMessage('Página deve ser um número inteiro positivo'),
   query('pageSize').optional().isInt({ min: 1, max: 500 }).withMessage('Tamanho da página deve ser entre 1 e 500'),
   query('search').optional().trim().isString().withMessage('Busca deve ser uma string'),
+  query('somenteMeus').optional().isIn(['true', 'false']).withMessage('somenteMeus deve ser true ou false'),
   query('dataVisita')
     .optional()
     .custom((value) => {
@@ -132,6 +133,13 @@ const atualizarAcompanhanteValidation = [
     .withMessage('acompanhanteId deve ser um número inteiro positivo ou vazio para remover')
 ];
 router.put('/conversoes/:pessoaId/acompanhante', atualizarAcompanhanteValidation, handleValidationErrors, integracaoController.atualizarAcompanhanteConversao);
+
+const comentarioConversaoValidation = [
+  param('pessoaId').isInt({ min: 1 }).withMessage('pessoaId inválido'),
+  body('comentario').trim().notEmpty().withMessage('Comentário é obrigatório'),
+];
+router.get('/conversoes/:pessoaId/comentarios', integracaoController.listarComentariosConversao);
+router.post('/conversoes/:pessoaId/comentarios', comentarioConversaoValidation, handleValidationErrors, integracaoController.criarComentarioConversao);
 
 // Validações para analytics
 const analyticsValidation = [

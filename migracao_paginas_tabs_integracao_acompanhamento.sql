@@ -10,7 +10,7 @@ SELECT
   'Atribuição de acompanhante',
   'atribuicao-acompanhante',
   'UserCheck',
-  2,
+  3,
   TRUE,
   FALSE,
   TRUE,
@@ -41,4 +41,24 @@ WHERE rota = '/integracao-acompanhamento'
   AND NOT EXISTS (
     SELECT 1 FROM paginas_tabs pt
     WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'inicio'
+  );
+
+-- Tab "Lista de novos convertidos" (somente os atribuídos ao usuário logado)
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT
+  id,
+  'Lista de novos convertidos',
+  'lista-meus-convertidos',
+  'List',
+  2,
+  TRUE,
+  FALSE,
+  TRUE,
+  TRUE,
+  TRUE
+FROM paginas_config
+WHERE rota = '/integracao-acompanhamento'
+  AND NOT EXISTS (
+    SELECT 1 FROM paginas_tabs pt
+    WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'lista-meus-convertidos'
   );

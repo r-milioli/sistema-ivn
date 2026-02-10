@@ -834,7 +834,7 @@ async function listarPessoasMinisterios(req, res) {
  */
 async function listarNovosConvertidos(req, res) {
   try {
-    const { search, dataVisita, page = 1, pageSize = 10 } = req.query;
+    const { search, dataVisita, page = 1, pageSize = 10, somenteMeus } = req.query;
 
     const pageNum = parseInt(page);
     const pageSizeNum = parseInt(pageSize);
@@ -879,6 +879,12 @@ async function listarNovosConvertidos(req, res) {
 
     const queryParams = [];
     let paramIndex = 1;
+
+    if (somenteMeus === 'true' && req.user?.id) {
+      query += ` AND c.acompanhado_por = $${paramIndex}`;
+      queryParams.push(req.user.id);
+      paramIndex++;
+    }
 
     if (search) {
       query += ` AND (
@@ -1718,6 +1724,87 @@ async function atualizarAcompanhanteConversao(req, res) {
   }
 }
 
+/**
+ * Listar comentários do acompanhante sobre um novo convertido
+ * GET /integracao/conversoes/:pessoaId/comentarios
+ * Retorna apenas comentários do usuário logado (autor_pessoa_id = req.user.id)
+ */
+async function listarComentariosConversao(req, res) {
+  try {
+    const { pessoaId } = req.params;
+    const autorId = req.user?.id;
+    if (!autorId) {
+      return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+    const idPessoa = parseInt(pessoaId, 10);
+    if (isNaN(idPessoa)) {
+      return res.status(400).json({ message: 'pessoaId inválido' });
+    }
+    const result = await pool.query(
+      `SELECT id, comentario, criado_em
+       FROM comentarios_acompanhamento
+       WHERE pessoa_id = $1 AND autor_pessoa_id = $2
+       ORDER BY criado_em ASC`,
+      [idPessoa, autorId]
+    );
+    const comentarios = result.rows.map(row => ({
+      id: row.id,
+      comentario: row.comentario,
+      criadoEm: row.criado_em,
+    }));
+    res.json({ comentarios });
+  } catch (error) {
+    console.error('Erro ao listar comentários:', error);
+    res.status(500).json({
+      message: 'Erro ao listar comentários',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Adicionar comentário do acompanhante sobre um novo convertido
+ * POST /integracao/conversoes/:pessoaId/comentarios { comentario: string }
+ */
+async function criarComentarioConversao(req, res) {
+  try {
+    const { pessoaId } = req.params;
+    const { comentario } = req.body;
+    const autorId = req.user?.id;
+    if (!autorId) {
+      return res.status(401).json({ message: 'Usuário não autenticado' });
+    }
+    const idPessoa = parseInt(pessoaId, 10);
+    if (isNaN(idPessoa)) {
+      return res.status(400).json({ message: 'pessoaId inválido' });
+    }
+    const texto = typeof comentario === 'string' ? comentario.trim() : '';
+    if (!texto) {
+      return res.status(400).json({ message: 'Comentário é obrigatório' });
+    }
+    const result = await pool.query(
+      `INSERT INTO comentarios_acompanhamento (pessoa_id, autor_pessoa_id, comentario)
+       VALUES ($1, $2, $3)
+       RETURNING id, comentario, criado_em`,
+      [idPessoa, autorId, texto]
+    );
+    const row = result.rows[0];
+    res.status(201).json({
+      comentario: {
+        id: row.id,
+        comentario: row.comentario,
+        criadoEm: row.criado_em,
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao criar comentário:', error);
+    res.status(500).json({
+      message: 'Erro ao salvar comentário',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   integrarVisitante,
   registrarConversao,
@@ -1729,6 +1816,8 @@ module.exports = {
   listarPessoasMinisterios,
   listarNovosConvertidos,
   atualizarAcompanhanteConversao,
+  listarComentariosConversao,
+  criarComentarioConversao,
   obterEstatisticasAnalytics,
   buscarPessoasComFicha,
   matricularBatismo,

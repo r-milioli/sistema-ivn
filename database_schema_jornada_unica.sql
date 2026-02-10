@@ -285,6 +285,16 @@ CREATE TABLE IF NOT EXISTS conversoes (
   atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Comentários do acompanhante sobre o novo convertido (persistentes, com data)
+CREATE TABLE IF NOT EXISTS comentarios_acompanhamento (
+  id SERIAL PRIMARY KEY,
+  pessoa_id INTEGER NOT NULL REFERENCES pessoas(id) ON DELETE CASCADE,
+  autor_pessoa_id INTEGER NOT NULL REFERENCES pessoas(id) ON DELETE CASCADE,
+  comentario TEXT NOT NULL,
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_comentarios_acompanhamento_pessoa_autor ON comentarios_acompanhamento(pessoa_id, autor_pessoa_id);
+
 -- =====================================================
 -- FICHA CADASTRAL COMPLETA
 -- =====================================================
@@ -1525,6 +1535,68 @@ CREATE TRIGGER update_paginas_tabs_updated_at
   BEFORE UPDATE ON paginas_tabs
   FOR EACH ROW
   EXECUTE FUNCTION update_paginas_tabs_updated_at();
+
+-- =====================================================
+-- TABS DA PÁGINA INTEGRAÇÃO ACOMPANHAMENTO
+-- =====================================================
+-- Início, Lista de novos convertidos, Atribuição de acompanhante
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT
+  id,
+  'Início',
+  'inicio',
+  'Home',
+  1,
+  TRUE,
+  TRUE,
+  TRUE,
+  TRUE,
+  TRUE
+FROM paginas_config
+WHERE rota = '/integracao-acompanhamento'
+  AND NOT EXISTS (
+    SELECT 1 FROM paginas_tabs pt
+    WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'inicio'
+  );
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT
+  id,
+  'Lista de novos convertidos',
+  'lista-meus-convertidos',
+  'List',
+  2,
+  TRUE,
+  FALSE,
+  TRUE,
+  TRUE,
+  TRUE
+FROM paginas_config
+WHERE rota = '/integracao-acompanhamento'
+  AND NOT EXISTS (
+    SELECT 1 FROM paginas_tabs pt
+    WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'lista-meus-convertidos'
+  );
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT
+  id,
+  'Atribuição de acompanhante',
+  'atribuicao-acompanhante',
+  'UserCheck',
+  3,
+  TRUE,
+  FALSE,
+  TRUE,
+  TRUE,
+  TRUE
+FROM paginas_config
+WHERE rota = '/integracao-acompanhamento'
+  AND NOT EXISTS (
+    SELECT 1 FROM paginas_tabs pt
+    WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'atribuicao-acompanhante'
+  );
 
 -- =====================================================
 -- FIM DO SCHEMA REFATORADO
