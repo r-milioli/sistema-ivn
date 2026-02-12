@@ -1,0 +1,48 @@
+# Dependências (serão instaladas no build)
+frontend/node_modules
+backend/node_modules
+node_modules
+
+# Builds locais
+frontend/build
+
+# Git
+.git
+.gitignore
+
+# Docs
+md/
+*.md
+!database_schema_jornada_unica.sql
+
+# Envs locais (usamos variáveis do docker-compose)
+frontend/.env
+backend/.env
+.env
+
+# SQL de migração (schema já vai pelo docker-compose)
+migrations/
+sql/
+
+# IDE / OS
+.vscode
+.cursor
+.idea
+*.swp
+*.swo
+*~
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Uploads locais
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore

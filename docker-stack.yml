@@ -1,0 +1,65 @@
+# =====================================================
+# SISTEMA IVN - Docker Stack (Swarm)
+# Deploy em produção com Traefik + SSL
+# =====================================================
+
+version: "3.8"
+
+services:
+  app:
+    image: automacaodebaixocusto/sistema-igreja:v1.0.0
+    
+    networks:
+      - network_public
+    
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+
+      # Banco de dados (PostgreSQL externo do servidor)
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-igreja_db}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+    
+    volumes:
+      - uploads:/app/uploads
+    
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.sistema-ivn.rule=Host(`ivn.exemplo.top`)"
+        - "traefik.http.routers.sistema-ivn.entrypoints=websecure"
+        - "traefik.http.routers.sistema-ivn.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.sistema-ivn.loadbalancer.server.port=5000"
+        - "traefik.docker.network=network_public"
+
+networks:
+  network_public:
+    external: true
+
+volumes:
+  uploads:
+    driver: local

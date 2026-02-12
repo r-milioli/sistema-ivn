@@ -177,7 +177,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* URL principal: login. Quem já estiver autenticado é redirecionado pelo PublicRoute em /login */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

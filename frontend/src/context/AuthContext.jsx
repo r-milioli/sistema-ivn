@@ -17,11 +17,17 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há token salvo ao carregar e obter dados completos (foto, etc.)
+    const AUTH_CHECK_TIMEOUT_MS = 8000; // evita spinner infinito se a API não responder
+
     const checkAuth = async () => {
       if (isAuthenticated()) {
         try {
-          const response = await api.get('/auth/me');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), AUTH_CHECK_TIMEOUT_MS);
+
+          const response = await api.get('/auth/me', { signal: controller.signal });
+          clearTimeout(timeoutId);
+
           const fullUser = response.data?.user;
           if (fullUser) {
             setUser(fullUser);
@@ -31,7 +37,9 @@ export const AuthProvider = ({ children }) => {
             setUser(getUser());
           }
         } catch (error) {
-          // Token inválido, limpar dados
+          if (error.name === 'AbortError') {
+            console.warn('Verificação de autenticação expirou (timeout). Redirecionando para login.');
+          }
           clearAuthData();
           setUser(null);
         }

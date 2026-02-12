@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
@@ -41,6 +42,20 @@ app.use('/api/paginas-tabs', paginasTabsRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API está funcionando' });
 });
+
+// Em produção, servir o frontend React buildado
+if (process.env.NODE_ENV === 'production') {
+  const frontendBuild = path.join(__dirname, '..', 'public');
+  app.use(express.static(frontendBuild));
+
+  // Qualquer rota que não seja /api/* devolve o index.html (SPA)
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
+      return next();
+    }
+    res.sendFile(path.join(frontendBuild, 'index.html'));
+  });
+}
 
 // Middleware de tratamento de erros
 app.use((err, req, res, next) => {
