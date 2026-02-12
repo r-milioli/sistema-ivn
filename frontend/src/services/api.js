@@ -2,6 +2,9 @@ import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+/** Origem do backend (sem /api) para montar URLs de uploads/fotos */
+export const API_ORIGIN = API_URL.replace(/\/api\/?$/, '') || (typeof window !== 'undefined' ? window.location.origin : '');
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {

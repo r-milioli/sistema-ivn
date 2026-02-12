@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Settings, LogOut, Bell, Cake, User, LayoutDashboard, ClipboardList, Calendar, X } from 'lucide-react';
+import api, { API_ORIGIN } from '../../services/api';
 import { ModeToggle } from '../Theme/ModeToggle';
 import { useSidebar } from '../ui/sidebar';
 import {
@@ -51,10 +52,94 @@ const SidebarCloseButton = () => {
   );
 };
 
+const STORAGE_KEY_ANIVERSARIANTES_LIDOS = 'aniversariantes-lidos';
+
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getLidosCount() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ANIVERSARIANTES_LIDOS);
+    if (!raw) return 0;
+    const data = JSON.parse(raw);
+    return data[getTodayKey()] ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function setLidosCount(count) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ANIVERSARIANTES_LIDOS);
+    const data = raw ? JSON.parse(raw) : {};
+    data[getTodayKey()] = count;
+    localStorage.setItem(STORAGE_KEY_ANIVERSARIANTES_LIDOS, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Erro ao salvar aniversariantes lidos', e);
+  }
+}
+
+function formatDataNascimento(str) {
+  if (!str) return '';
+  const [y, m, d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Converte path ou base64 de foto em URL utilizável pelo <img src> */
+function getAvatarUrl(src) {
+  const s = typeof src === 'string' ? src.trim() : '';
+  if (!s) return null;
+  if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:')) return s;
+  if (/^[A-Za-z0-9+/=]+$/.test(s) && s.length > 100) {
+    return `data:image/jpeg;base64,${s}`;
+  }
+  const pathNorm = s.replace(/\\/g, '/');
+  const path = pathNorm.startsWith('/') ? pathNorm : `/${pathNorm}`;
+  return `${API_ORIGIN}${path}`;
+}
+
 const MainLayout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [aniversariantes, setAniversariantes] = useState([]);
+  const [loadingAniversariantes, setLoadingAniversariantes] = useState(true);
+  const [sheetAniversariantesOpen, setSheetAniversariantesOpen] = useState(false);
+  const [lidosCount, setLidosCountState] = useState(0);
+
+  const totalHoje = aniversariantes.length;
+  const unreadCount = Math.max(0, totalHoje - lidosCount);
+
+  const carregarAniversariantes = useCallback(async () => {
+    try {
+      setLoadingAniversariantes(true);
+      const { data } = await api.get('/aniversariantes-do-dia');
+      setAniversariantes(data.aniversariantes ?? []);
+      setLidosCountState(getLidosCount());
+    } catch (err) {
+      console.error('Erro ao carregar aniversariantes do dia', err);
+      setAniversariantes([]);
+      setLidosCountState(0);
+    } finally {
+      setLoadingAniversariantes(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarAniversariantes();
+  }, [carregarAniversariantes]);
+
+  const handleSheetAniversariantesOpen = (open) => {
+    setSheetAniversariantesOpen(open);
+    if (open && aniversariantes.length > 0) {
+      const count = aniversariantes.length;
+      setLidosCount(count);
+      setLidosCountState(count);
+    }
+  };
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -98,10 +183,17 @@ const MainLayout = ({ children }) => {
             
             <div className="header-right">
               <ModeToggle />
-              <Sheet>
+              <Sheet open={sheetAniversariantesOpen} onOpenChange={handleSheetAniversariantesOpen}>
                 <SheetTrigger asChild>
                   <button className="icon-button aniversariantes-button" type="button" aria-label="Aniversariantes do dia">
-                    <Cake className="header-icon" />
+                    <span className="aniversariantes-icon-wrap">
+                      <Cake className="header-icon" />
+                      {unreadCount > 0 && (
+                        <span className="aniversariantes-badge" aria-label={`${unreadCount} não lidos`}>
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 </SheetTrigger>
                 <SheetContent side="right" className="notificacoes-sheet">
@@ -111,8 +203,37 @@ const MainLayout = ({ children }) => {
                       Pessoas que fazem aniversário hoje.
                     </SheetDescription>
                   </SheetHeader>
-                  <div className="notificacoes-body">
-                    <p className="notificacoes-empty">Sem aniversariantes hoje.</p>
+                  <div className="notificacoes-body aniversariantes-body">
+                    {loadingAniversariantes ? (
+                      <p className="notificacoes-empty">Carregando...</p>
+                    ) : aniversariantes.length === 0 ? (
+                      <p className="notificacoes-empty">Sem aniversariantes hoje.</p>
+                    ) : (
+                      <ul className="aniversariantes-list">
+                        {aniversariantes.map((p) => (
+                          <li key={p.id} className="aniversariantes-list-item">
+                            <Avatar className="aniversariantes-avatar">
+                              <AvatarImage src={getAvatarUrl(p.fotoPerfil)} alt={p.nome} />
+                              <AvatarFallback className="aniversariantes-avatar-fallback">
+                                {((p.nome || '').trim().charAt(0) + (p.sobrenome || '').trim().charAt(0)).toUpperCase() || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="aniversariantes-info">
+                              <span className="aniversariantes-nome">
+                                {[p.nome, p.sobrenome].filter(Boolean).join(' ')}
+                              </span>
+                              <span className="aniversariantes-meta">
+                                {formatDataNascimento(p.dataNascimento)}
+                                {p.idade != null && ` · ${p.idade} ${p.idade === 1 ? 'ano' : 'anos'}`}
+                              </span>
+                              {p.estagioAtual && (
+                                <span className="aniversariantes-estagio">{p.estagioAtual}</span>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 </SheetContent>
               </Sheet>
@@ -197,7 +318,7 @@ const MainLayout = ({ children }) => {
             <SidebarFooter className="main-layout-sidebar-footer">
               <div className="sidebar-user-block">
                 <Avatar className="sidebar-user-avatar">
-                  <AvatarImage src={user?.fotoPerfil} alt={user?.nome} />
+                  <AvatarImage src={getAvatarUrl(user?.fotoPerfil)} alt={user?.nome} />
                   <AvatarFallback className="sidebar-user-avatar-fallback">
                     {(user?.nome || 'U').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase() || 'U'}
                   </AvatarFallback>

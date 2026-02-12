@@ -533,6 +533,49 @@ async function deletarPessoa(req, res) {
   }
 }
 
+/**
+ * Lista aniversariantes do dia (mês e dia = hoje, ativo = true).
+ * Retorna id, nome, sobrenome, data_nascimento, foto_perfil, estagio_atual e idade (anos que faz/fez hoje).
+ */
+async function aniversariantesDoDia(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT id, nome, sobrenome, data_nascimento, foto_perfil, estagio_atual
+       FROM pessoas
+       WHERE data_nascimento IS NOT NULL
+         AND ativo = TRUE
+         AND EXTRACT(MONTH FROM data_nascimento) = EXTRACT(MONTH FROM CURRENT_DATE)
+         AND EXTRACT(DAY FROM data_nascimento) = EXTRACT(DAY FROM CURRENT_DATE)
+       ORDER BY nome, sobrenome`
+    );
+
+    const currentYear = new Date().getFullYear();
+    const list = result.rows.map((row) => {
+      const dataNasc = row.data_nascimento instanceof Date
+        ? row.data_nascimento
+        : new Date(row.data_nascimento);
+      const year = dataNasc.getFullYear();
+      const month = String(dataNasc.getMonth() + 1).padStart(2, '0');
+      const day = String(dataNasc.getDate()).padStart(2, '0');
+      const idade = currentYear - year;
+      return {
+        id: row.id,
+        nome: row.nome,
+        sobrenome: row.sobrenome,
+        dataNascimento: `${year}-${month}-${day}`,
+        fotoPerfil: row.foto_perfil,
+        estagioAtual: row.estagio_atual || null,
+        idade,
+      };
+    });
+
+    res.json({ aniversariantes: list });
+  } catch (error) {
+    console.error('Erro ao listar aniversariantes do dia:', error);
+    res.status(500).json({ message: 'Erro ao listar aniversariantes', error: error.message });
+  }
+}
+
 module.exports = {
   criarPessoa,
   listarPessoas,
@@ -541,4 +584,5 @@ module.exports = {
   atualizarPessoa,
   updateMe,
   deletarPessoa,
+  aniversariantesDoDia,
 };
