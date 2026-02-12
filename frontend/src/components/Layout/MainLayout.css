@@ -198,11 +198,34 @@
   display: none;
 }
 
-/* Rodapé da sidebar: usuário logado (foto + nome + email) */
+/* Rodapé da sidebar: botão Sair + usuário logado */
 .main-layout-sidebar-footer {
-  padding: 16px 12px !important;
+  padding: 12px 12px 16px !important;
   border-top: 1px solid var(--sidebar-border, #e5e7eb);
   margin-top: auto;
+}
+
+.main-layout-sidebar-footer .sidebar-user-block {
+  margin-top: 12px;
+}
+
+/* Botão Sair na sidebar */
+.main-layout-nav-item-logout {
+  cursor: pointer;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.main-layout-nav-item-logout:hover {
+  background: rgba(220, 38, 38, 0.08) !important;
+  color: #dc2626 !important;
+}
+
+.main-layout-nav-item-logout:hover .main-layout-nav-icon {
+  background: rgba(220, 38, 38, 0.15) !important;
+  color: #dc2626 !important;
 }
 
 .dark .main-layout-sidebar-footer {

@@ -1,3 +1,7 @@
+/**
+ * Dark mode desabilitado - ícone removido do menu superior.
+ * Este componente não está em uso no MainLayout.
+ */
 import React from 'react';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';

@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 require('dotenv').config();
+const { apiLimiter } = require('./middleware/rateLimitMiddleware');
 
 const authRoutes = require('./routes/authRoutes');
 const visitantesRoutes = require('./routes/visitantesRoutes');
@@ -19,8 +21,31 @@ const emailRoutes = require('./routes/emailRoutes');
 
 const app = express();
 
-// Middlewares
-app.use(cors());
+// Middlewares de segurança
+app.use(helmet({
+  contentSecurityPolicy: false, // Desabilitar CSP para não quebrar frontend
+  crossOriginEmbedderPolicy: false
+}));
+
+// CORS - Se ALLOWED_ORIGINS estiver definido, usa a lista; senão permite qualquer origem
+const allowedOriginsRaw = (process.env.ALLOWED_ORIGINS || '').trim();
+const allowedOrigins = allowedOriginsRaw
+  ? allowedOriginsRaw.split(',').map((o) => o.trim()).filter(Boolean)
+  : null;
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (!allowedOrigins) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Origem não permitida pelo CORS'));
+  },
+  credentials: true
+}));
+
+// Rate limiting global para todas as rotas API
+app.use('/api/', apiLimiter);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 

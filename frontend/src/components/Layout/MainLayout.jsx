@@ -3,7 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Settings, LogOut, Bell, Cake, User, LayoutDashboard, ClipboardList, Calendar, X } from 'lucide-react';
 import api, { API_ORIGIN } from '../../services/api';
-import { ModeToggle } from '../Theme/ModeToggle';
+// Dark mode desabilitado - ícone removido do menu superior
+// import { ModeToggle } from '../Theme/ModeToggle';
 import { useSidebar } from '../ui/sidebar';
 import {
   DropdownMenu,
@@ -163,7 +164,7 @@ const MainLayout = ({ children }) => {
             </div>
             
             <div className="header-right">
-              <ModeToggle />
+              {/* Dark mode desabilitado - ModeToggle removido */}
               <Sheet open={sheetAniversariantesOpen} onOpenChange={handleSheetAniversariantesOpen}>
                 <SheetTrigger asChild>
                   <button className="icon-button aniversariantes-button" type="button" aria-label="Aniversariantes do dia">
@@ -308,6 +309,19 @@ const MainLayout = ({ children }) => {
               </SidebarGroup>
             </SidebarContent>
             <SidebarFooter className="main-layout-sidebar-footer">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    className="main-layout-nav-item main-layout-nav-item-logout"
+                    onClick={logout}
+                  >
+                    <span className="main-layout-nav-icon">
+                      <LogOut />
+                    </span>
+                    <span className="main-layout-nav-label">Sair</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
               <div className="sidebar-user-block">
                 <Avatar className="sidebar-user-avatar">
                   <AvatarImage src={getAvatarUrl(user?.fotoPerfil)} alt={user?.nome} />

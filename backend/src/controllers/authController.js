@@ -138,7 +138,7 @@ async function login(req, res) {
 
     // Buscar credenciais de acesso
     const resultCred = await pool.query(
-      `SELECT senha_hash, tipo_acesso, bloqueado_ate, ultimo_login
+      `SELECT senha_hash, tipo_acesso, bloqueado_ate, tentativas_login_falhas, ultimo_login
        FROM credenciais_acesso WHERE pessoa_id = $1`,
       [pessoa.id]
     );
@@ -151,8 +151,12 @@ async function login(req, res) {
 
     const cred = resultCred.rows[0];
 
+    // Verificar se conta está bloqueada
     if (cred.bloqueado_ate && new Date() < new Date(cred.bloqueado_ate)) {
-      return res.status(401).json({ message: 'Conta temporariamente bloqueada. Tente mais tarde.' });
+      const minutosRestantes = Math.ceil((new Date(cred.bloqueado_ate) - new Date()) / 60000);
+      return res.status(401).json({ 
+        message: `Conta temporariamente bloqueada. Tente novamente em ${minutosRestantes} minuto(s).` 
+      });
     }
 
     if (!cred.senha_hash) {
@@ -161,12 +165,45 @@ async function login(req, res) {
 
     const senhaValida = await comparePassword(senha, cred.senha_hash);
     if (!senhaValida) {
-      return res.status(401).json({ message: 'Email ou senha incorretos' });
+      // Incrementar tentativas de login falhadas
+      const novasTentativas = (cred.tentativas_login_falhas || 0) + 1;
+      const MAX_TENTATIVAS = 5;
+      const BLOQUEIO_MINUTOS = 15;
+
+      if (novasTentativas >= MAX_TENTATIVAS) {
+        // Bloquear conta por 15 minutos
+        const bloqueadoAte = new Date();
+        bloqueadoAte.setMinutes(bloqueadoAte.getMinutes() + BLOQUEIO_MINUTOS);
+
+        await pool.query(
+          `UPDATE credenciais_acesso 
+           SET tentativas_login_falhas = $1, bloqueado_ate = $2 
+           WHERE pessoa_id = $3`,
+          [novasTentativas, bloqueadoAte, pessoa.id]
+        );
+
+        return res.status(401).json({ 
+          message: `Conta bloqueada por ${BLOQUEIO_MINUTOS} minutos após ${MAX_TENTATIVAS} tentativas falhadas.` 
+        });
+      } else {
+        // Apenas incrementar contador
+        await pool.query(
+          'UPDATE credenciais_acesso SET tentativas_login_falhas = $1 WHERE pessoa_id = $2',
+          [novasTentativas, pessoa.id]
+        );
+
+        const tentativasRestantes = MAX_TENTATIVAS - novasTentativas;
+        return res.status(401).json({ 
+          message: `Email ou senha incorretos. ${tentativasRestantes} tentativa(s) restante(s).` 
+        });
+      }
     }
 
-    // Atualizar último login (opcional, não bloqueia resposta)
+    // Login bem-sucedido: resetar tentativas e atualizar último login
     pool.query(
-      'UPDATE credenciais_acesso SET ultimo_login = CURRENT_TIMESTAMP WHERE pessoa_id = $1',
+      `UPDATE credenciais_acesso 
+       SET ultimo_login = CURRENT_TIMESTAMP, tentativas_login_falhas = 0, bloqueado_ate = NULL 
+       WHERE pessoa_id = $1`,
       [pessoa.id]
     ).catch(() => {});
 

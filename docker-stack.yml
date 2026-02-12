@@ -43,6 +43,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-Sistema IVN <noreply@exemplo.com>}
+
+      # CORS - Origens permitidas
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     
     volumes:
       - uploads:/app/uploads

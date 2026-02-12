@@ -4,6 +4,7 @@ const { body } = require('express-validator');
 const authController = require('../controllers/authController');
 const authMiddleware = require('../middleware/authMiddleware');
 const handleValidationErrors = require('../middleware/validationMiddleware');
+const { loginLimiter, forgotPasswordLimiter, registerLimiter } = require('../middleware/rateLimitMiddleware');
 
 // Validações
 const registerValidation = [
@@ -26,10 +27,10 @@ const resetPasswordValidation = [
   body('senha').isLength({ min: 6 }).withMessage('Senha deve ter no mínimo 6 caracteres'),
 ];
 
-// Rotas públicas
-router.post('/register', registerValidation, handleValidationErrors, authController.register);
-router.post('/login', loginValidation, handleValidationErrors, authController.login);
-router.post('/forgot-password', forgotPasswordValidation, handleValidationErrors, authController.forgotPassword);
+// Rotas públicas (com rate limiting)
+router.post('/register', registerLimiter, registerValidation, handleValidationErrors, authController.register);
+router.post('/login', loginLimiter, loginValidation, handleValidationErrors, authController.login);
+router.post('/forgot-password', forgotPasswordLimiter, forgotPasswordValidation, handleValidationErrors, authController.forgotPassword);
 router.post('/reset-password', resetPasswordValidation, handleValidationErrors, authController.resetPassword);
 
 // Rotas protegidas
