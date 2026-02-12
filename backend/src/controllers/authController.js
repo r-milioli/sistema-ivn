@@ -3,6 +3,7 @@ const storageService = require('../services/storageService');
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateToken } = require('../utils/jwt');
 const crypto = require('crypto');
+const emailService = require('../services/emailService');
 
 /**
  * Registrar novo usuário (schema jornada única)
@@ -201,7 +202,7 @@ async function forgotPassword(req, res) {
       return res.status(400).json({ message: 'Email é obrigatório' });
     }
 
-    const resultPessoa = await pool.query('SELECT id FROM pessoas WHERE email = $1', [email]);
+    const resultPessoa = await pool.query('SELECT id, nome FROM pessoas WHERE email = $1', [email]);
     if (resultPessoa.rows.length === 0) {
       return res.json({
         message: 'Se o email existir, você receberá instruções para recuperar sua senha',
@@ -209,6 +210,7 @@ async function forgotPassword(req, res) {
     }
 
     const pessoaId = resultPessoa.rows[0].id;
+    const nome = resultPessoa.rows[0].nome;
 
     // Só gera token se a pessoa tiver credenciais de acesso
     const resultCred = await pool.query(
@@ -232,13 +234,26 @@ async function forgotPassword(req, res) {
       [tokenRecuperacao, tokenExpira, pessoaId]
     );
 
+    // Enviar email com link de redefinição
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetUrl = `${frontendUrl}/reset-password?token=${tokenRecuperacao}`;
+    
+    try {
+      await emailService.sendPasswordResetEmail(email, nome, resetUrl);
+      console.log(`[Auth] Email de redefinição enviado para ${email}`);
+    } catch (emailError) {
+      console.error('[Auth] Erro ao enviar email de redefinição:', emailError.message);
+      // Não falha a requisição se email falhar; token fica salvo no banco
+    }
+
     if (process.env.NODE_ENV === 'development') {
-      console.log(`Token de recuperação para ${email}: ${tokenRecuperacao}`);
+      console.log(`[Dev] Token de recuperação para ${email}: ${tokenRecuperacao}`);
+      console.log(`[Dev] Link: ${resetUrl}`);
     }
 
     res.json({
       message: 'Se o email existir, você receberá instruções para recuperar sua senha',
-      ...(process.env.NODE_ENV === 'development' && { token: tokenRecuperacao }),
+      ...(process.env.NODE_ENV === 'development' && { token: tokenRecuperacao, resetUrl }),
     });
   } catch (error) {
     console.error('Erro ao solicitar recuperação de senha:', error);

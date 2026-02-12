@@ -60,12 +60,10 @@ async function criarSaida(req, res) {
     let comprovantePath = null;
 
     if (req.file) {
-      console.log(`[Saídas] Comprovante recebido: ${req.file.originalname}, tamanho: ${req.file.buffer.length} bytes`);
       comprovanteNome = req.file.originalname;
       const ext = path.extname(req.file.originalname).toLowerCase() || '';
       const key = comprovanteKey() + ext;
       comprovantePath = await storageService.upload(key, req.file.buffer, req.file.mimetype);
-      console.log(`[Saídas] Comprovante salvo: ${comprovantePath}`);
     }
 
     // Inserir saída financeira (schema jornada única: registrado_por referencia pessoas)

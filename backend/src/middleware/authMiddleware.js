@@ -56,4 +56,29 @@ async function authMiddleware(req, res, next) {
   }
 }
 
+/**
+ * Middleware para verificar role/tipo de acesso
+ * @param {Array<string>} rolesPermitidas - Ex: ['admin', 'Pastor']
+ */
+function checkRole(rolesPermitidas) {
+  return (req, res, next) => {
+    if (!req.user || !req.user.tipoAcesso) {
+      return res.status(403).json({ message: 'Acesso negado: tipo de acesso não identificado' });
+    }
+    
+    const tipoAcessoLower = (req.user.tipoAcesso || '').toLowerCase();
+    const rolesLower = rolesPermitidas.map(r => r.toLowerCase());
+    
+    if (!rolesLower.includes(tipoAcessoLower)) {
+      return res.status(403).json({ 
+        message: `Acesso negado: requer permissão de ${rolesPermitidas.join(' ou ')}` 
+      });
+    }
+    
+    next();
+  };
+}
+
 module.exports = authMiddleware;
+module.exports.authenticateToken = authMiddleware; // alias
+module.exports.checkRole = checkRole;

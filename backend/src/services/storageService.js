@@ -60,7 +60,6 @@ async function ensureBucketExists() {
   try {
     await client.send(new CreateBucketCommand({ Bucket: bucket }));
     bucketEnsured = true;
-    console.log(`[Storage S3] Bucket criado: ${bucket}`);
   } catch (e) {
     const msg = (e.message || '').toLowerCase();
     if (msg.includes('already own') || msg.includes('already exists') || e.name === 'BucketAlreadyOwnedByYou') {
@@ -81,25 +80,22 @@ async function ensureBucketExists() {
  */
 async function upload(key, buffer, contentType) {
   if (config.type === 's3') {
-    console.log(`[Storage S3] Iniciando upload: key=${key}, tamanho=${buffer.length} bytes, type=${contentType}`);
     const client = getS3Client();
     if (!client) throw new Error('Cliente S3 não disponível');
     await ensureBucketExists();
     const bucket = (config.s3.bucket || 'sistema-ivn').trim();
     const { PutObjectCommand } = require('@aws-sdk/client-s3');
     try {
-      const result = await client.send(new PutObjectCommand({
+      await client.send(new PutObjectCommand({
         Bucket: bucket,
         Key: key,
         Body: buffer,
         ContentType: contentType || 'application/octet-stream'
       }));
-      console.log(`[Storage S3] Upload concluído: ${key} - ETag: ${result.ETag || '(sem etag)'}`);
     } catch (e) {
-      console.error(`[Storage S3] ERRO no upload de ${key}:`, e.name, '-', e.message);
+      console.error(`[Storage S3] Erro no upload de ${key}:`, e.message);
       if (e.name === 'NoSuchBucket' || (e.message && e.message.includes('does not exist'))) {
-        console.error('[Storage S3] Bucket não encontrado:', bucket, '- Endpoint:', config.s3.endpoint);
-        console.error('[Storage S3] No MinIO/Docker use S3_ENDPOINT com o host correto (ex: http://minio:9000), não localhost se MinIO estiver em outro container.');
+        console.error('[Storage S3] Bucket:', bucket, '- Endpoint:', config.s3.endpoint);
       }
       throw e;
     }
@@ -233,12 +229,8 @@ async function prepareFotoPerfilForSave(base64OrPath, prefix, uniqueId) {
     !base64OrPath.startsWith('http') &&
     !base64OrPath.startsWith('/') &&
     !base64OrPath.startsWith(STORAGE_PREFIX);
-  if (!isBase64) {
-    console.log(`[Storage S3] prepareFotoPerfil: não é base64, retornando original (length=${(base64OrPath || '').length})`);
-    return base64OrPath;
-  }
+  if (!isBase64) return base64OrPath;
 
-  console.log(`[Storage S3] prepareFotoPerfil: detectado base64, iniciando upload (prefix=${prefix}, id=${uniqueId})`);
   try {
     let buffer = Buffer.from(base64OrPath, 'base64');
     if (base64OrPath.includes(',')) {
@@ -246,17 +238,9 @@ async function prepareFotoPerfilForSave(base64OrPath, prefix, uniqueId) {
       buffer = Buffer.from(b64 || base64OrPath, 'base64');
     }
     const key = `${prefix}/${uniqueId}-${Date.now()}.jpg`;
-    const result = await upload(key, buffer, 'image/jpeg');
-    console.log(`[Storage S3] prepareFotoPerfil: upload OK, retornando ${result}`);
-    return result;
+    return await upload(key, buffer, 'image/jpeg');
   } catch (e) {
-    const msg = e.message || '';
-    console.error('[Storage S3] Erro ao fazer upload de foto:', msg);
-    if (msg.toLowerCase().includes('bucket') && msg.toLowerCase().includes('exist')) {
-      console.error('[Storage S3] Endpoint usado:', config.s3?.endpoint || '(não definido)');
-      console.error('[Storage S3] Bucket usado:', (config.s3?.bucket || 'sistema-ivn').trim());
-      console.error('[Storage S3] Em produção, use S3_ENDPOINT com o host do MinIO (ex: http://minio:9000), não localhost.');
-    }
+    console.error('[Storage S3] Erro ao fazer upload de foto:', e.message);
     return base64OrPath;
   }
 }
