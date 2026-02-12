@@ -482,6 +482,7 @@ async function updateMe(req, res) {
     }
 
     const emptyToNull = (v) => (v != null && String(v).trim() !== '' ? v : null);
+    // Só prepara nova foto se o cliente enviou (base64); senão mantém a atual no banco
     const fotoPerfilToSave = fotoPerfil != null && String(fotoPerfil).trim() !== ''
       ? await storageService.prepareFotoPerfilForSave(fotoPerfil, 'fotos-perfil', String(pessoaId))
       : null;
@@ -490,7 +491,7 @@ async function updateMe(req, res) {
        SET nome = $1, sobrenome = $2, sexo = $3, estado_civil = $4, data_nascimento = $5,
            telefone = $6, email = COALESCE($7, email), cep = $8, rua = $9, numero = $10,
            complemento = $11, bairro = $12, cidade = $13, estado = $14,
-           foto_perfil = $15,
+           foto_perfil = COALESCE($15, foto_perfil),
            atualizado_em = CURRENT_TIMESTAMP
        WHERE id = $16
        RETURNING id, nome, sobrenome, sexo, estado_civil, data_nascimento,

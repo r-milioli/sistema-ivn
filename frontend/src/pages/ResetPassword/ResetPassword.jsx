@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { PasswordInput } from '../../components/ui/password-input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import './ResetPassword.css';
@@ -89,8 +90,7 @@ const ResetPassword = () => {
             
             <div className="form-group">
               <Label htmlFor="senha">Nova Senha</Label>
-              <Input
-                type="password"
+              <PasswordInput
                 id="senha"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
@@ -104,8 +104,7 @@ const ResetPassword = () => {
 
             <div className="form-group">
               <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
-              <Input
-                type="password"
+              <PasswordInput
                 id="confirmarSenha"
                 value={confirmarSenha}
                 onChange={(e) => setConfirmarSenha(e.target.value)}

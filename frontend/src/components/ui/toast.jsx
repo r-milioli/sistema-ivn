@@ -23,9 +23,15 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "border bg-background text-foreground",
+        default: "border border-gray-200 bg-white text-gray-900",
+        success:
+          "border border-emerald-200 bg-emerald-50/95 text-emerald-800",
         destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
+          "border border-rose-200 bg-rose-50/95 text-rose-800",
+        warning:
+          "border border-amber-200 bg-amber-50/95 text-amber-800",
+        info:
+          "border border-sky-200 bg-sky-50/95 text-sky-800",
       },
     },
     defaultVariants: {
@@ -59,7 +65,12 @@ const ToastClose = React.forwardRef(({ className, ...props }, ref) => (
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+      "absolute right-2 top-2 rounded-md p-1 opacity-0 transition-opacity focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100",
+      "text-gray-500 hover:text-gray-700",
+      "group-[.bg-rose-50]:text-rose-600 group-[.bg-rose-50]:hover:text-rose-800",
+      "group-[.bg-emerald-50]:text-emerald-600 group-[.bg-emerald-50]:hover:text-emerald-800",
+      "group-[.bg-amber-50]:text-amber-600 group-[.bg-amber-50]:hover:text-amber-800",
+      "group-[.bg-sky-50]:text-sky-600 group-[.bg-sky-50]:hover:text-sky-800",
       className
     )}
     toast-close=""

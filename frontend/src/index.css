@@ -370,3 +370,86 @@
     overflow: hidden;
   }
 }
+
+/* ========== Password input com toggle de visualizar senha ========== */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+}
+
+.password-input-wrapper .password-input-field {
+  padding-right: 44px !important;
+}
+
+.password-input-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.password-input-toggle:hover {
+  color: #374151;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.password-input-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* ========== Alertas do sistema - cores pastel ========== */
+.error-message {
+  background: #fef2f2 !important;
+  color: #b91c1c !important;
+  border-left: 4px solid #fca5a5 !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  margin-bottom: 16px !important;
+  font-size: 14px !important;
+}
+
+.success-message {
+  background: #f0fdf4 !important;
+  color: #15803d !important;
+  border-left: 4px solid #86efac !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  margin-bottom: 16px !important;
+  font-size: 14px !important;
+}
+
+.warning-message {
+  background: #fffbeb !important;
+  color: #b45309 !important;
+  border-left: 4px solid #fde68a !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  margin-bottom: 16px !important;
+  font-size: 14px !important;
+}
+
+.info-message {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-left: 4px solid #93c5fd !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  margin-bottom: 16px !important;
+  font-size: 14px !important;
+}

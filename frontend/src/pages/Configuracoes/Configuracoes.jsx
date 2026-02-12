@@ -4,6 +4,7 @@ import MainLayout from '../../components/Layout/MainLayout';
 import BackToDashboard from '../../components/BackToDashboard/BackToDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Input } from '../../components/ui/input';
+import { PasswordInput } from '../../components/ui/password-input';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { User, Settings, Upload, X, Camera } from 'lucide-react';
@@ -104,13 +105,21 @@ const Configuracoes = () => {
     if (file) {
       // Validar tipo de arquivo
       if (!file.type.startsWith('image/')) {
-        setMessage({ type: 'error', text: 'Por favor, selecione apenas arquivos de imagem.' });
+        toast({
+          title: 'Erro',
+          description: 'Por favor, selecione apenas arquivos de imagem.',
+          variant: 'destructive',
+        });
         return;
       }
       
       // Validar tamanho (máximo 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        setMessage({ type: 'error', text: 'A imagem deve ter no máximo 5MB.' });
+        toast({
+          title: 'Erro',
+          description: 'A imagem deve ter no máximo 5MB.',
+          variant: 'destructive',
+        });
         return;
       }
 
@@ -174,6 +183,7 @@ const Configuracoes = () => {
         toast({
           title: 'Sucesso',
           description: 'Email atualizado com sucesso!',
+          variant: 'success',
         });
         // Atualizar formData também
         setFormData(prev => ({ ...prev, email: sistemaFormData.email }));
@@ -208,6 +218,7 @@ const Configuracoes = () => {
         toast({
           title: 'Sucesso',
           description: 'Senha atualizada com sucesso!',
+          variant: 'success',
         });
       }
 
@@ -223,6 +234,7 @@ const Configuracoes = () => {
         toast({
           title: 'Info',
           description: 'Nenhuma alteração foi feita.',
+          variant: 'info',
         });
       }
     } catch (error) {
@@ -274,7 +286,8 @@ const Configuracoes = () => {
         setFormData(prev => ({ ...prev, ...endereco }));
         toast({ 
           title: 'CEP encontrado', 
-          description: 'Endereço preenchido automaticamente.' 
+          description: 'Endereço preenchido automaticamente.',
+          variant: 'success',
         });
       } else {
         toast({ 
@@ -344,6 +357,7 @@ const Configuracoes = () => {
       toast({
         title: 'Sucesso',
         description: 'Perfil atualizado com sucesso!',
+        variant: 'success',
       });
 
       // Atualizar preview da foto se foi alterada
@@ -739,8 +753,7 @@ const Configuracoes = () => {
                   <div className="form-row">
                     <div className="form-group">
                       <Label htmlFor="senhaAtual">Senha Atual</Label>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         id="senhaAtual"
                         name="senhaAtual"
                         value={sistemaFormData.senhaAtual}
@@ -754,8 +767,7 @@ const Configuracoes = () => {
                   <div className="form-row form-row-2">
                     <div className="form-group">
                       <Label htmlFor="novaSenha">Nova Senha</Label>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         id="novaSenha"
                         name="novaSenha"
                         value={sistemaFormData.novaSenha}
@@ -767,8 +779,7 @@ const Configuracoes = () => {
                     </div>
                     <div className="form-group">
                       <Label htmlFor="confirmarSenha">Confirmar Nova Senha</Label>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         id="confirmarSenha"
                         name="confirmarSenha"
                         value={sistemaFormData.confirmarSenha}

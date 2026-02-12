@@ -21,6 +21,9 @@ const emailRoutes = require('./routes/emailRoutes');
 
 const app = express();
 
+// Trust proxy: necessário quando atrás de Traefik/nginx (express-rate-limit usa X-Forwarded-For para o IP real)
+app.set('trust proxy', 1);
+
 // Middlewares de segurança
 app.use(helmet({
   contentSecurityPolicy: false, // Desabilitar CSP para não quebrar frontend
