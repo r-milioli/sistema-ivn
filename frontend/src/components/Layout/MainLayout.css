@@ -315,19 +315,49 @@
   gap: 12px;
 }
 
+/* Não lido: cinza bem claro para destacar o que ainda falta ser lido */
 .aniversariantes-list-item {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--muted, #f5f5f5);
-  border: 1px solid var(--border, #e5e7eb);
+  background: #e8eaed;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.aniversariantes-list-item:hover {
+  background: #dde0e5;
 }
 
 .dark .aniversariantes-list-item {
-  background: hsl(var(--muted) / 0.5);
+  background: hsl(220 12% 22%);
   border-color: hsl(var(--border));
+}
+
+.dark .aniversariantes-list-item:hover {
+  background: hsl(220 12% 26%);
+}
+
+/* Lido: fundo neutro/suave, sem destaque */
+.aniversariantes-list-item-visto {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: transparent;
+}
+
+.aniversariantes-list-item-visto:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .aniversariantes-list-item-visto {
+  background: hsl(var(--muted) / 0.25);
+  border-color: transparent;
+}
+
+.dark .aniversariantes-list-item-visto:hover {
+  background: hsl(var(--muted) / 0.35);
 }
 
 .aniversariantes-avatar {

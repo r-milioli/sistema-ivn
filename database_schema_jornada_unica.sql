@@ -244,6 +244,26 @@ CREATE TABLE IF NOT EXISTS credenciais_acesso (
 );
 
 -- =====================================================
+-- ANIVERSARIANTES VISTOS (notificação lida por linha)
+-- =====================================================
+-- Registra quais aniversariantes do dia o usuário marcou como visto (clique na linha).
+-- Permite toggle: lido / não lido. Badge de não lidos = total do dia − vistos.
+
+CREATE TABLE IF NOT EXISTS aniversariantes_vistos (
+  id SERIAL PRIMARY KEY,
+  pessoa_id_quem_viu INTEGER NOT NULL REFERENCES pessoas(id) ON DELETE CASCADE,
+  pessoa_id_aniversariante INTEGER NOT NULL REFERENCES pessoas(id) ON DELETE CASCADE,
+  data_referencia DATE NOT NULL,
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(pessoa_id_quem_viu, pessoa_id_aniversariante, data_referencia)
+);
+
+CREATE INDEX IF NOT EXISTS idx_aniversariantes_vistos_quem_data
+  ON aniversariantes_vistos(pessoa_id_quem_viu, data_referencia);
+
+COMMENT ON TABLE aniversariantes_vistos IS 'Registro de quais aniversariantes do dia o usuário marcou como visto (clique na linha)';
+
+-- =====================================================
 -- VISITAS REGISTRADAS
 -- =====================================================
 -- Cada visita é registrada (permite ver frequência, datas específicas, etc)

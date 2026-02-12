@@ -535,7 +535,7 @@ async function deletarPessoa(req, res) {
 
 /**
  * Lista aniversariantes do dia (mês e dia = hoje, ativo = true).
- * Retorna id, nome, sobrenome, data_nascimento, foto_perfil, estagio_atual e idade (anos que faz/fez hoje).
+ * Retorna aniversariantes e idsVistosHoje (ids das linhas que o usuário já clicou/marcou como vistas hoje).
  */
 async function aniversariantesDoDia(req, res) {
   try {
@@ -569,10 +569,79 @@ async function aniversariantesDoDia(req, res) {
       };
     });
 
-    res.json({ aniversariantes: list });
+    let idsVistosHoje = [];
+    if (req.user && req.user.id) {
+      const vistos = await pool.query(
+        `SELECT pessoa_id_aniversariante FROM aniversariantes_vistos
+         WHERE pessoa_id_quem_viu = $1 AND data_referencia = CURRENT_DATE`,
+        [req.user.id]
+      );
+      idsVistosHoje = vistos.rows.map((r) => r.pessoa_id_aniversariante);
+    }
+
+    res.json({ aniversariantes: list, idsVistosHoje });
   } catch (error) {
     console.error('Erro ao listar aniversariantes do dia:', error);
     res.status(500).json({ message: 'Erro ao listar aniversariantes', error: error.message });
+  }
+}
+
+/**
+ * Marca uma linha (aniversariante) como vista pelo usuário (persistente).
+ */
+async function marcarAniversarianteVisto(req, res) {
+  try {
+    const pessoaIdQuemViu = req.user?.id;
+    if (!pessoaIdQuemViu) {
+      return res.status(401).json({ message: 'Não autenticado' });
+    }
+
+    const pessoaIdAniversariante = req.body?.pessoaIdAniversariante ?? req.params?.id;
+    const id = parseInt(pessoaIdAniversariante, 10);
+    if (!id || Number.isNaN(id)) {
+      return res.status(400).json({ message: 'pessoaIdAniversariante é obrigatório' });
+    }
+
+    await pool.query(
+      `INSERT INTO aniversariantes_vistos (pessoa_id_quem_viu, pessoa_id_aniversariante, data_referencia)
+       VALUES ($1, $2, CURRENT_DATE)
+       ON CONFLICT (pessoa_id_quem_viu, pessoa_id_aniversariante, data_referencia) DO NOTHING`,
+      [pessoaIdQuemViu, id]
+    );
+
+    res.json({ ok: true, visto: true });
+  } catch (error) {
+    console.error('Erro ao marcar aniversariante como visto:', error);
+    res.status(500).json({ message: 'Erro ao marcar como visto', error: error.message });
+  }
+}
+
+/**
+ * Desmarca uma linha (aniversariante) como vista — volta a "não lido".
+ */
+async function desmarcarAniversarianteVisto(req, res) {
+  try {
+    const pessoaIdQuemViu = req.user?.id;
+    if (!pessoaIdQuemViu) {
+      return res.status(401).json({ message: 'Não autenticado' });
+    }
+
+    const pessoaIdAniversariante = req.body?.pessoaIdAniversariante ?? req.params?.id;
+    const id = parseInt(pessoaIdAniversariante, 10);
+    if (!id || Number.isNaN(id)) {
+      return res.status(400).json({ message: 'pessoaIdAniversariante é obrigatório' });
+    }
+
+    await pool.query(
+      `DELETE FROM aniversariantes_vistos
+       WHERE pessoa_id_quem_viu = $1 AND pessoa_id_aniversariante = $2 AND data_referencia = CURRENT_DATE`,
+      [pessoaIdQuemViu, id]
+    );
+
+    res.json({ ok: true, visto: false });
+  } catch (error) {
+    console.error('Erro ao desmarcar aniversariante como visto:', error);
+    res.status(500).json({ message: 'Erro ao desmarcar como visto', error: error.message });
   }
 }
 
@@ -585,4 +654,6 @@ module.exports = {
   updateMe,
   deletarPessoa,
   aniversariantesDoDia,
+  marcarAniversarianteVisto,
+  desmarcarAniversarianteVisto,
 };

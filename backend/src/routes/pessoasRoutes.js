@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, query } = require('express-validator');
 const authMiddleware = require('../middleware/authMiddleware');
-const { criarPessoa, listarPessoas, buscarPessoas, obterPessoaPorId, atualizarPessoa, updateMe, deletarPessoa, aniversariantesDoDia } = require('../controllers/pessoasController');
+const { criarPessoa, listarPessoas, buscarPessoas, obterPessoaPorId, atualizarPessoa, updateMe, deletarPessoa, aniversariantesDoDia, marcarAniversarianteVisto, desmarcarAniversarianteVisto } = require('../controllers/pessoasController');
 const handleValidationErrors = require('../middleware/validationMiddleware');
 const { criarOuAtualizarAtribuicao, obterAtribuicao, listarMinisterios, obterCargosEclesiasticosEndpoint, obterEstagiosEspirituaisEndpoint, obterTiposAcessoEndpoint } = require('../controllers/atribuicoesController');
 
@@ -74,6 +74,8 @@ router.get('/pessoas', authMiddleware, listarPessoas);
 router.get('/pessoas/buscar', authMiddleware, buscarPessoas);
 // Rota em /api/aniversariantes-do-dia para não ser confundida com GET /pessoas/:id
 router.get('/aniversariantes-do-dia', authMiddleware, aniversariantesDoDia);
+router.post('/aniversariantes-do-dia/marcar-visto', authMiddleware, marcarAniversarianteVisto);
+router.post('/aniversariantes-do-dia/desmarcar-visto', authMiddleware, desmarcarAniversarianteVisto);
 // Rota para atualizar perfil do usuário logado (deve vir antes de /:id)
 // Usa validação específica que só exige nome e email
 router.put('/pessoas/me', authMiddleware, validarPerfil, handleValidationErrors, updateMe);

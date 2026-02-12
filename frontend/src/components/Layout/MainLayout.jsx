@@ -52,35 +52,6 @@ const SidebarCloseButton = () => {
   );
 };
 
-const STORAGE_KEY_ANIVERSARIANTES_LIDOS = 'aniversariantes-lidos';
-
-function getTodayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function getLidosCount() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_ANIVERSARIANTES_LIDOS);
-    if (!raw) return 0;
-    const data = JSON.parse(raw);
-    return data[getTodayKey()] ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
-function setLidosCount(count) {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_ANIVERSARIANTES_LIDOS);
-    const data = raw ? JSON.parse(raw) : {};
-    data[getTodayKey()] = count;
-    localStorage.setItem(STORAGE_KEY_ANIVERSARIANTES_LIDOS, JSON.stringify(data));
-  } catch (e) {
-    console.warn('Erro ao salvar aniversariantes lidos', e);
-  }
-}
-
 function formatDataNascimento(str) {
   if (!str) return '';
   const [y, m, d] = str.split('-');
@@ -108,21 +79,21 @@ const MainLayout = ({ children }) => {
   const [aniversariantes, setAniversariantes] = useState([]);
   const [loadingAniversariantes, setLoadingAniversariantes] = useState(true);
   const [sheetAniversariantesOpen, setSheetAniversariantesOpen] = useState(false);
-  const [lidosCount, setLidosCountState] = useState(0);
+  const [idsVistosHoje, setIdsVistosHoje] = useState([]);
 
   const totalHoje = aniversariantes.length;
-  const unreadCount = Math.max(0, totalHoje - lidosCount);
+  const unreadCount = Math.max(0, totalHoje - idsVistosHoje.length);
 
   const carregarAniversariantes = useCallback(async () => {
     try {
       setLoadingAniversariantes(true);
       const { data } = await api.get('/aniversariantes-do-dia');
       setAniversariantes(data.aniversariantes ?? []);
-      setLidosCountState(getLidosCount());
+      setIdsVistosHoje(data.idsVistosHoje ?? []);
     } catch (err) {
       console.error('Erro ao carregar aniversariantes do dia', err);
       setAniversariantes([]);
-      setLidosCountState(0);
+      setIdsVistosHoje([]);
     } finally {
       setLoadingAniversariantes(false);
     }
@@ -134,10 +105,20 @@ const MainLayout = ({ children }) => {
 
   const handleSheetAniversariantesOpen = (open) => {
     setSheetAniversariantesOpen(open);
-    if (open && aniversariantes.length > 0) {
-      const count = aniversariantes.length;
-      setLidosCount(count);
-      setLidosCountState(count);
+  };
+
+  const handleToggleLinhaVista = async (pessoaIdAniversariante) => {
+    const visto = idsVistosHoje.includes(pessoaIdAniversariante);
+    try {
+      if (visto) {
+        await api.post('/aniversariantes-do-dia/desmarcar-visto', { pessoaIdAniversariante });
+        setIdsVistosHoje((prev) => prev.filter((id) => id !== pessoaIdAniversariante));
+      } else {
+        await api.post('/aniversariantes-do-dia/marcar-visto', { pessoaIdAniversariante });
+        setIdsVistosHoje((prev) => [...prev, pessoaIdAniversariante]);
+      }
+    } catch (err) {
+      console.warn('Erro ao alterar estado de visualização', err);
     }
   };
 
@@ -210,8 +191,18 @@ const MainLayout = ({ children }) => {
                       <p className="notificacoes-empty">Sem aniversariantes hoje.</p>
                     ) : (
                       <ul className="aniversariantes-list">
-                        {aniversariantes.map((p) => (
-                          <li key={p.id} className="aniversariantes-list-item">
+                        {aniversariantes.map((p) => {
+                          const visto = idsVistosHoje.includes(p.id);
+                          return (
+                          <li
+                            key={p.id}
+                            className={`aniversariantes-list-item ${visto ? 'aniversariantes-list-item-visto' : ''}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleToggleLinhaVista(p.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggleLinhaVista(p.id); } }}
+                            aria-label={visto ? `Marcado como lido. Clique para marcar como não lido: ${[p.nome, p.sobrenome].filter(Boolean).join(' ')}` : `Não lido. Clique para marcar como lido: ${[p.nome, p.sobrenome].filter(Boolean).join(' ')}`}
+                          >
                             <Avatar className="aniversariantes-avatar">
                               <AvatarImage src={getAvatarUrl(p.fotoPerfil)} alt={p.nome} />
                               <AvatarFallback className="aniversariantes-avatar-fallback">
@@ -231,7 +222,8 @@ const MainLayout = ({ children }) => {
                               )}
                             </div>
                           </li>
-                        ))}
+                          );
+                        })}
                       </ul>
                     )}
                   </div>
