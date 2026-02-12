@@ -753,9 +753,10 @@
 
 .estatisticas-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
   gap: 20px;
   margin-bottom: 32px;
+  max-width: 100%;
 }
 
 .stat-card {
@@ -765,6 +766,20 @@
   padding: 0;
   transition: all 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-width: 0;
+}
+
+/* Grid dos gráficos (evita minmax(400px) quebrando no mobile) */
+.estatisticas-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+  max-width: 100%;
+}
+
+.estatisticas-charts-grid > * {
+  min-width: 0;
 }
 
 .stat-card:hover {
@@ -805,6 +820,64 @@
 @media (max-width: 768px) {
   .estatisticas-summary {
     grid-template-columns: 1fr;
+  }
+
+  .estatisticas-charts-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* Barras de progresso – Análises e Estatísticas */
+.progresso-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.progresso-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.progresso-bar-track {
+  height: 20px;
+  min-width: 80px;
+  max-width: 200px;
+  width: 100%;
+  flex: 1 1 0;
+  background-color: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progresso-bar-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .progresso-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .progresso-bar-group {
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .progresso-bar-track {
+    max-width: none;
+    flex: 1 1 0;
   }
 }
 
@@ -1092,5 +1165,437 @@
   .relatorio-download-button {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* ============================================
+   MOBILE – Integração (768px e abaixo)
+   ============================================ */
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 20px 16px;
+  }
+
+  .dashboard-content h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-content p {
+    font-size: 15px;
+  }
+
+  .integracao-tabs {
+    margin-top: 16px;
+  }
+
+  .integracao-tabs-list {
+    padding: 4px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .integracao-tabs-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .integracao-tabs-list .tab-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .integracao-tabs-trigger {
+    padding: 10px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .tab-content-wrapper {
+    padding: 20px 16px;
+    border-radius: 10px;
+  }
+
+  .tab-content-wrapper h2 {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
+  .tab-content-wrapper p {
+    font-size: 13px;
+  }
+
+  .search-section {
+    margin-bottom: 20px;
+  }
+
+  .form-input.search-input,
+  .search-input {
+    height: 48px;
+    line-height: 48px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .search-icon {
+    left: 14px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .search-results {
+    max-height: 260px;
+    margin-top: 8px;
+    border-radius: 10px;
+  }
+
+  .search-result-item {
+    padding: 14px 16px;
+  }
+
+  .selected-person {
+    margin-top: 12px;
+    padding: 14px;
+    border-radius: 10px;
+    gap: 12px;
+  }
+
+  .selected-person-name {
+    font-size: 15px;
+  }
+
+  .selected-person-details {
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .clear-selection-button {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .no-selection-message {
+    margin-top: 20px;
+    padding: 20px 16px;
+    border-radius: 10px;
+  }
+
+  .no-selection-message p {
+    font-size: 14px;
+  }
+
+  .pessoa-form {
+    margin-top: 20px;
+  }
+
+  .form-message {
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+
+  .form-row,
+  .form-row-2 {
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    height: 48px;
+    line-height: 48px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .form-textarea {
+    min-height: 100px;
+    padding: 12px 14px;
+  }
+
+  .form-actions {
+    margin-top: 24px;
+    padding-top: 20px;
+    gap: 10px;
+  }
+
+  .submit-button,
+  .cancel-button {
+    padding: 14px 24px;
+    min-height: 48px;
+    border-radius: 10px;
+  }
+
+  .form-section-divider {
+    margin: 24px 0 20px 0;
+    padding-top: 20px;
+  }
+
+  .form-section-divider h3 {
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+
+  .section-description,
+  .field-hint {
+    font-size: 13px;
+  }
+
+  .foto-perfil-wrapper {
+    gap: 12px;
+  }
+
+  .foto-avatar {
+    width: 100px;
+    height: 100px;
+  }
+
+  .avatar-edit-icon-button,
+  .avatar-remove-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .foto-upload-controls {
+    width: 100%;
+  }
+
+  .filters-section {
+    padding: 16px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+  }
+
+  .filters-row {
+    gap: 12px;
+  }
+
+  .filter-group label {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .visitantes-table-container {
+    margin-top: 20px;
+  }
+
+  .table-wrapper {
+    border-radius: 10px;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-wrapper th,
+  .table-wrapper td {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .table-wrapper input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+
+  .pagination-section {
+    margin-top: 16px;
+    padding: 12px 0;
+    gap: 12px;
+  }
+
+  .pagination-button {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .page-size-select {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 16px;
+  }
+
+  .page-number {
+    min-width: 32px;
+    padding: 6px;
+  }
+
+  .estatisticas-summary {
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card-header {
+    padding: 14px 16px;
+  }
+
+  .stat-card-title {
+    font-size: 13px;
+  }
+
+  .stat-card-content {
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-size: 26px;
+    margin-bottom: 6px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  .relatorios-section {
+    margin-top: 32px;
+  }
+
+  .relatorio-form {
+    margin-bottom: 24px;
+  }
+
+  .relatorios-gerados-title {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
+  .relatorios-empty {
+    padding: 32px 20px;
+    font-size: 14px;
+  }
+
+  .relatorio-item-content {
+    padding: 16px;
+  }
+
+  .relatorio-item-nome {
+    font-size: 15px;
+  }
+
+  .relatorio-download-button {
+    min-height: 44px;
+    padding: 12px 16px;
+    justify-content: center;
+  }
+
+  .search-no-results {
+    padding: 14px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+}
+
+/* ============================================
+   MOBILE PEQUENO – Integração (480px e abaixo)
+   ============================================ */
+@media (max-width: 480px) {
+  .dashboard-content {
+    padding: 16px 12px;
+  }
+
+  .dashboard-content h1 {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .integracao-tabs-trigger {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .tab-content-wrapper {
+    padding: 16px 12px;
+  }
+
+  .tab-content-wrapper h2 {
+    font-size: 17px;
+    margin-bottom: 16px;
+  }
+
+  .search-section {
+    margin-bottom: 16px;
+  }
+
+  .selected-person {
+    padding: 12px;
+  }
+
+  .selected-person-name {
+    font-size: 14px;
+  }
+
+  .form-row,
+  .form-row-2 {
+    margin-bottom: 14px;
+  }
+
+  .form-group label {
+    font-size: 12px;
+  }
+
+  .form-section-divider h3 {
+    font-size: 15px;
+  }
+
+  .foto-avatar {
+    width: 88px;
+    height: 88px;
+  }
+
+  .filters-section {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .table-wrapper th,
+  .table-wrapper td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .pagination-section {
+    margin-top: 12px;
+  }
+
+  .pagination-info {
+    font-size: 13px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  .relatorios-gerados-title {
+    font-size: 17px;
+    margin-bottom: 16px;
+  }
+
+  .relatorio-item-content {
+    padding: 14px;
+  }
+
+  .no-selection-message {
+    padding: 16px 12px;
+  }
+}
+
+/* Safe area para Integração no mobile */
+@supports (padding: max(0px)) {
+  @media (max-width: 768px) {
+    .dashboard-main:has(.integracao-tabs) {
+      padding-left: max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
   }
 }

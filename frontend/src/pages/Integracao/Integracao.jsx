@@ -1572,12 +1572,7 @@ const Analytics = () => {
       </div>
 
       {/* Cards de Resumo */}
-      <div className="estatisticas-summary" style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-        gap: '20px',
-        marginBottom: '32px'
-      }}>
+      <div className="estatisticas-summary">
         <Card className="stat-card">
           <CardHeader className="stat-card-header">
             <CardTitle className="stat-card-title">Novos Convertidos</CardTitle>
@@ -1700,12 +1695,7 @@ const Analytics = () => {
       </div>
 
       {/* Gráficos e Estatísticas Detalhadas */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
-        gap: '24px',
-        marginBottom: '32px'
-      }}>
+      <div className="estatisticas-charts-grid">
         {/* Progresso dos Alunos */}
         <Card>
           <CardHeader>
@@ -1713,64 +1703,49 @@ const Analytics = () => {
           </CardHeader>
           <CardContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="progresso-row">
                 <span>Completos (5 aulas)</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '200px',
-                    height: '20px',
-                    backgroundColor: '#e5e7eb',
-                    borderRadius: '10px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: `${estatisticas.totalAlunosMembresia > 0 ? (estatisticas.alunosPorProgresso.completo / estatisticas.totalAlunosMembresia) * 100 : 0}%`,
-                      height: '100%',
-                      backgroundColor: '#8b5cf6',
-                      transition: 'width 0.3s ease'
-                    }} />
+                <div className="progresso-bar-group">
+                  <div className="progresso-bar-track">
+                    <div
+                      className="progresso-bar-fill"
+                      style={{
+                        width: `${estatisticas.totalAlunosMembresia > 0 ? (estatisticas.alunosPorProgresso.completo / estatisticas.totalAlunosMembresia) * 100 : 0}%`,
+                        backgroundColor: '#8b5cf6'
+                      }}
+                    />
                   </div>
                   <strong>{estatisticas.alunosPorProgresso.completo}</strong>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="progresso-row">
                 <span>Parcial (1-4 aulas)</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '200px',
-                    height: '20px',
-                    backgroundColor: '#e5e7eb',
-                    borderRadius: '10px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: `${estatisticas.totalAlunosMembresia > 0 ? (estatisticas.alunosPorProgresso.parcial / estatisticas.totalAlunosMembresia) * 100 : 0}%`,
-                      height: '100%',
-                      backgroundColor: '#06b6d4',
-                      transition: 'width 0.3s ease'
-                    }} />
+                <div className="progresso-bar-group">
+                  <div className="progresso-bar-track">
+                    <div
+                      className="progresso-bar-fill"
+                      style={{
+                        width: `${estatisticas.totalAlunosMembresia > 0 ? (estatisticas.alunosPorProgresso.parcial / estatisticas.totalAlunosMembresia) * 100 : 0}%`,
+                        backgroundColor: '#06b6d4'
+                      }}
+                    />
                   </div>
                   <strong>{estatisticas.alunosPorProgresso.parcial}</strong>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="progresso-row">
                 <span>Nenhuma aula</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '200px',
-                    height: '20px',
-                    backgroundColor: '#e5e7eb',
-                    borderRadius: '10px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: `${estatisticas.totalAlunosMembresia > 0 ? (estatisticas.alunosPorProgresso.nenhum / estatisticas.totalAlunosMembresia) * 100 : 0}%`,
-                      height: '100%',
-                      backgroundColor: '#ef4444',
-                      transition: 'width 0.3s ease'
-                    }} />
+                <div className="progresso-bar-group">
+                  <div className="progresso-bar-track">
+                    <div
+                      className="progresso-bar-fill"
+                      style={{
+                        width: `${estatisticas.totalAlunosMembresia > 0 ? (estatisticas.alunosPorProgresso.nenhum / estatisticas.totalAlunosMembresia) * 100 : 0}%`,
+                        backgroundColor: '#ef4444'
+                      }}
+                    />
                   </div>
                   <strong>{estatisticas.alunosPorProgresso.nenhum}</strong>
                 </div>
@@ -1823,64 +1798,49 @@ const Analytics = () => {
           </CardHeader>
           <CardContent>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="progresso-row">
                 <span>Completos (5 aulas)</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '200px',
-                    height: '20px',
-                    backgroundColor: '#e5e7eb',
-                    borderRadius: '10px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.completo / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
-                      height: '100%',
-                      backgroundColor: '#0369a1',
-                      transition: 'width 0.3s ease'
-                    }} />
+                <div className="progresso-bar-group">
+                  <div className="progresso-bar-track">
+                    <div
+                      className="progresso-bar-fill"
+                      style={{
+                        width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.completo / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
+                        backgroundColor: '#0369a1'
+                      }}
+                    />
                   </div>
                   <strong>{estatisticas.alunosBatismoPorProgresso?.completo || 0}</strong>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="progresso-row">
                 <span>Parcial (1-4 aulas)</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '200px',
-                    height: '20px',
-                    backgroundColor: '#e5e7eb',
-                    borderRadius: '10px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.parcial / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
-                      height: '100%',
-                      backgroundColor: '#0891b2',
-                      transition: 'width 0.3s ease'
-                    }} />
+                <div className="progresso-bar-group">
+                  <div className="progresso-bar-track">
+                    <div
+                      className="progresso-bar-fill"
+                      style={{
+                        width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.parcial / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
+                        backgroundColor: '#0891b2'
+                      }}
+                    />
                   </div>
                   <strong>{estatisticas.alunosBatismoPorProgresso?.parcial || 0}</strong>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="progresso-row">
                 <span>Nenhuma aula</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '200px',
-                    height: '20px',
-                    backgroundColor: '#e5e7eb',
-                    borderRadius: '10px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.nenhum / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
-                      height: '100%',
-                      backgroundColor: '#ef4444',
-                      transition: 'width 0.3s ease'
-                    }} />
+                <div className="progresso-bar-group">
+                  <div className="progresso-bar-track">
+                    <div
+                      className="progresso-bar-fill"
+                      style={{
+                        width: `${(estatisticas.totalAlunosBatismo || 0) > 0 && estatisticas.alunosBatismoPorProgresso ? (estatisticas.alunosBatismoPorProgresso.nenhum / estatisticas.totalAlunosBatismo) * 100 : 0}%`,
+                        backgroundColor: '#ef4444'
+                      }}
+                    />
                   </div>
                   <strong>{estatisticas.alunosBatismoPorProgresso?.nenhum || 0}</strong>
                 </div>
@@ -1891,7 +1851,7 @@ const Analytics = () => {
       </div>
 
       {/* Gráficos de Matrículas por Mês */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+      <div className="estatisticas-charts-grid">
       <Card>
         <CardHeader>
           <CardTitle>Matrículas Membresia por Mês</CardTitle>

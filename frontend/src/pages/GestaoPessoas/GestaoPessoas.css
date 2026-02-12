@@ -608,7 +608,7 @@
   padding: 8px;
 }
 
-/* Responsive */
+/* Responsive base */
 @media (max-width: 768px) {
   .form-row-2 {
     grid-template-columns: 1fr;
@@ -678,6 +678,367 @@
 
   .add-autor-button {
     width: 100%;
+  }
+}
+
+/* ============================================
+   MOBILE – Gestão de Pessoas (768px e abaixo)
+   ============================================ */
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 20px 16px;
+  }
+
+  .dashboard-content h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-content p {
+    font-size: 15px;
+  }
+
+  .gestao-pessoas-tabs {
+    margin-top: 16px;
+  }
+
+  .gestao-pessoas-tabs-list {
+    padding: 4px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .gestao-pessoas-tabs-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gestao-pessoas-tabs-list .tab-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .gestao-pessoas-tabs-trigger {
+    padding: 10px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .tab-content-wrapper {
+    padding: 20px 16px;
+    border-radius: 10px;
+  }
+
+  .tab-content-wrapper h2 {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
+  .tab-content-wrapper p {
+    font-size: 13px;
+  }
+
+  .search-section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+  }
+
+  .search-input,
+  .form-input.search-input {
+    height: 48px;
+    line-height: 48px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .search-icon {
+    left: 14px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .search-results {
+    max-height: 260px;
+    margin-top: 8px;
+    border-radius: 10px;
+  }
+
+  .search-result-item {
+    padding: 14px 16px;
+  }
+
+  .result-item-name {
+    font-size: 14px;
+  }
+
+  .result-item-details {
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .selected-person {
+    margin-top: 12px;
+    padding: 14px;
+    border-radius: 10px;
+    gap: 12px;
+  }
+
+  .selected-person-name {
+    font-size: 15px;
+  }
+
+  .selected-person-details {
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .clear-selection-button {
+    min-height: 44px;
+    padding: 10px 16px !important;
+  }
+
+  .no-selection-message {
+    margin-top: 24px;
+    padding: 20px 16px;
+    border-radius: 10px;
+  }
+
+  .no-selection-message p {
+    font-size: 14px;
+  }
+
+  .pessoa-form {
+    margin-top: 20px;
+  }
+
+  .form-message {
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+
+  .form-row,
+  .form-row-2 {
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    height: 48px;
+    line-height: 48px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .form-textarea {
+    min-height: 100px;
+    padding: 12px 14px;
+  }
+
+  .form-actions {
+    margin-top: 24px;
+    gap: 10px;
+  }
+
+  .submit-button,
+  .cancel-button {
+    padding: 14px 24px !important;
+    min-height: 48px;
+    border-radius: 10px;
+  }
+
+  .edit-form-section {
+    margin-top: 24px;
+  }
+
+  .filters-section {
+    padding: 16px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+  }
+
+  .filters-row {
+    gap: 12px;
+    margin-bottom: 0;
+  }
+
+  .filter-group label {
+    font-size: 13px;
+  }
+
+  .pessoas-table-container {
+    margin-top: 20px;
+  }
+
+  .table-wrapper {
+    border-radius: 10px;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-wrapper th,
+  .table-wrapper td {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .table-actions {
+    gap: 6px;
+  }
+
+  .action-button {
+    min-height: 40px;
+    padding: 8px 12px !important;
+    justify-content: center;
+  }
+
+  .action-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .pagination-section {
+    margin-top: 16px;
+    padding: 12px 0;
+    gap: 12px;
+    border-radius: 0;
+  }
+
+  .pagination-button {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .page-size-select {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 16px;
+  }
+
+  .page-number {
+    min-width: 32px;
+    padding: 6px;
+  }
+
+  .autores-select-wrapper {
+    gap: 10px;
+  }
+
+  .add-autor-button {
+    min-height: 48px;
+    padding: 12px 16px !important;
+  }
+
+  .autor-tag {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .search-no-results {
+    padding: 14px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+}
+
+/* ============================================
+   MOBILE PEQUENO – Gestão de Pessoas (480px e abaixo)
+   ============================================ */
+@media (max-width: 480px) {
+  .dashboard-content {
+    padding: 16px 12px;
+  }
+
+  .dashboard-content h1 {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .gestao-pessoas-tabs-trigger {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .tab-content-wrapper {
+    padding: 16px 12px;
+  }
+
+  .tab-content-wrapper h2 {
+    font-size: 17px;
+    margin-bottom: 16px;
+  }
+
+  .search-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+
+  .selected-person {
+    padding: 12px;
+  }
+
+  .selected-person-name {
+    font-size: 14px;
+  }
+
+  .form-row,
+  .form-row-2 {
+    margin-bottom: 14px;
+  }
+
+  .form-group label {
+    font-size: 12px;
+  }
+
+  .filters-section {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .table-wrapper th,
+  .table-wrapper td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .pagination-section {
+    margin-top: 12px;
+  }
+
+  .pagination-info {
+    font-size: 13px;
+  }
+
+  .autor-tag {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .no-selection-message {
+    padding: 16px 12px;
+  }
+}
+
+/* Safe area para Gestão de Pessoas no mobile */
+@supports (padding: max(0px)) {
+  @media (max-width: 768px) {
+    .dashboard-main:has(.gestao-pessoas-tabs) {
+      padding-left: max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
   }
 }
 

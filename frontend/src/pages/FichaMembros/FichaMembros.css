@@ -472,7 +472,7 @@
   gap: 8px;
 }
 
-/* Responsive */
+/* Responsive base */
 @media (max-width: 768px) {
   .form-row-2,
   .form-row-3 {
@@ -489,6 +489,321 @@
 
   .header-title h1 {
     font-size: 24px;
+  }
+}
+
+/* ============================================
+   MOBILE – Ficha de Membros (768px e abaixo)
+   ============================================ */
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 20px 16px;
+  }
+
+  .dashboard-content h1 {
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-content p {
+    font-size: 15px;
+  }
+
+  .ficha-membros-tabs {
+    margin-top: 16px;
+  }
+
+  .ficha-membros-tabs-list {
+    padding: 4px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .ficha-membros-tabs-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ficha-membros-tabs-list .tab-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .ficha-membros-tabs-trigger {
+    padding: 10px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .tab-content-wrapper {
+    padding: 20px 16px;
+    border-radius: 10px;
+  }
+
+  .tab-content-wrapper h2 {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
+  .ficha-membros-header {
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+  }
+
+  .header-description {
+    font-size: 13px;
+  }
+
+  .progress-container {
+    margin-bottom: 24px;
+  }
+
+  .progress-bar {
+    height: 10px;
+  }
+
+  .ficha-form {
+    max-width: 100%;
+  }
+
+  .form-section {
+    padding: 16px;
+    margin-bottom: 28px;
+    border-radius: 10px;
+  }
+
+  .section-title {
+    font-size: 17px;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+  }
+
+  .form-row,
+  .form-row-2,
+  .form-row-3 {
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    height: 48px;
+    line-height: 48px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .form-textarea {
+    min-height: 100px;
+    padding: 12px 14px;
+  }
+
+  .form-checkbox {
+    width: 22px;
+    height: 22px;
+  }
+
+  .checkbox-label {
+    font-size: 14px;
+  }
+
+  .form-actions {
+    margin-top: 28px;
+    padding-top: 20px;
+    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nav-button,
+  .submit-button {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+    padding: 14px 24px;
+    border-radius: 10px;
+  }
+
+  .nav-button.next-button {
+    margin-left: 0;
+  }
+
+  .submit-button {
+    margin-left: 0;
+  }
+
+  .button-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .foto-perfil-wrapper {
+    gap: 12px;
+  }
+
+  .foto-avatar {
+    width: 100px;
+    height: 100px;
+  }
+
+  .avatar-edit-icon-button,
+  .avatar-remove-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .foto-upload-controls {
+    width: 100%;
+  }
+
+  .ficha-salva-container {
+    margin-top: 24px;
+    padding-top: 24px;
+  }
+
+  .ficha-salva-title {
+    font-size: 18px;
+    margin-bottom: 14px;
+  }
+
+  .fichas-lista {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .ficha-salva-card {
+    padding: 18px;
+    border-radius: 10px;
+  }
+
+  .ficha-salva-header {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+  }
+
+  .ficha-salva-foto {
+    margin-left: 0;
+    margin-top: 12px;
+  }
+
+  .ficha-salva-avatar {
+    width: 64px;
+    height: 64px;
+  }
+
+  .ficha-salva-details {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .ficha-salva-actions {
+    padding-top: 14px;
+  }
+
+  .ficha-edit-button {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .ficha-salva-loading,
+  .ficha-salva-empty {
+    padding: 20px 16px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+}
+
+/* ============================================
+   MOBILE PEQUENO – Ficha de Membros (480px e abaixo)
+   ============================================ */
+@media (max-width: 480px) {
+  .dashboard-content {
+    padding: 16px 12px;
+  }
+
+  .dashboard-content h1 {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+
+  .ficha-membros-tabs-trigger {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .tab-content-wrapper {
+    padding: 16px 12px;
+  }
+
+  .tab-content-wrapper h2 {
+    font-size: 17px;
+    margin-bottom: 16px;
+  }
+
+  .ficha-membros-header {
+    margin-bottom: 16px;
+  }
+
+  .form-section {
+    padding: 14px;
+    margin-bottom: 24px;
+  }
+
+  .section-title {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+
+  .form-row,
+  .form-row-2,
+  .form-row-3 {
+    margin-bottom: 14px;
+  }
+
+  .form-group label {
+    font-size: 12px;
+  }
+
+  .form-actions {
+    margin-top: 24px;
+    padding-top: 16px;
+  }
+
+  .ficha-salva-card {
+    padding: 14px;
+  }
+
+  .ficha-salva-nome {
+    font-size: 16px;
+  }
+
+  .detail-value {
+    font-size: 13px;
+  }
+}
+
+/* Safe area para Ficha de Membros no mobile */
+@supports (padding: max(0px)) {
+  @media (max-width: 768px) {
+    .dashboard-main:has(.ficha-membros-tabs) {
+      padding-left: max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
   }
 }
 

@@ -290,3 +290,83 @@
 .dark .header-description {
   border-color: hsl(var(--border)) !important;
 }
+
+/* ============================================
+   TABS INTERNAS – Mobile: apenas ícones
+   ============================================
+   Em viewport mobile, as tabs das páginas (Recepção, Finanças, etc.)
+   exibem só o ícone; o texto fica oculto visualmente mas acessível.
+   */
+@media (max-width: 768px) {
+  [class*="-tabs-trigger"] > span {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    clip-path: inset(50%) !important;
+  }
+
+  [class*="-tabs-trigger"] {
+    padding: 12px !important;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  [class*="-tabs-trigger"] .tab-icon {
+    margin: 0 !important;
+  }
+}
+
+/* ============================================
+   FILTRO DE PESQUISA – Evitar overflow na tela
+   ============================================ */
+.filters-section {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.filter-group {
+  min-width: 0;
+}
+
+.search-input-wrapper {
+  min-width: 0;
+  width: 100%;
+}
+
+.search-input-wrapper input,
+.search-input-wrapper .form-input,
+.search-input-wrapper .search-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.search-section {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.search-section .form-group,
+.search-section .search-input-wrapper {
+  min-width: 0;
+}
+
+/* Em grid de filtros, forçar coluna única no mobile para não estourar */
+@media (max-width: 768px) {
+  .filters-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .filters-section {
+    overflow: hidden;
+  }
+}
