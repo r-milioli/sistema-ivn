@@ -182,10 +182,12 @@ async function integrarVisitante(req, res) {
     updateFields.push(`estado = COALESCE(NULLIF(TRIM($${paramIndex++}), '')::estado_brasil_enum, estado)`);
     updateValues.push(norm(estado));
     
-    // Foto de perfil - só atualizar se fornecida
+    // Foto de perfil - só atualizar se fornecida (pode enviar para S3 se configurado)
     if (fotoPerfil !== undefined && fotoPerfil !== null) {
+      const storageService = require('../services/storageService');
+      const fotoPerfilToSave = await storageService.prepareFotoPerfilForSave(fotoPerfil, 'fotos-perfil', String(pessoaId));
       updateFields.push(`foto_perfil = $${paramIndex++}`);
-      updateValues.push(fotoPerfil);
+      updateValues.push(fotoPerfilToSave);
     }
 
     // Pode incluir no grupo de WhatsApp (opcional)

@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const storageService = require('../services/storageService');
 const { hashPassword, comparePassword } = require('../utils/password');
 const { generateToken } = require('../utils/jwt');
 const crypto = require('crypto');
@@ -179,7 +180,7 @@ async function login(req, res) {
         nome: nomeCompleto,
         email: pessoa.email,
         tipo_acesso: cred.tipo_acesso || null,
-        fotoPerfil: pessoa.foto_perfil || null,
+        fotoPerfil: storageService.resolveFotoPerfil(pessoa.foto_perfil) || null,
       },
     });
   } catch (error) {
@@ -333,7 +334,7 @@ async function getMe(req, res) {
       bairro: row.bairro || '',
       cidade: row.cidade || '',
       estado: row.estado || '',
-      fotoPerfil: row.foto_perfil || null,
+      fotoPerfil: storageService.resolveFotoPerfil(row.foto_perfil) || null,
       criado_em: row.criado_em,
       tipo_acesso: row.tipo_acesso || null,
     };

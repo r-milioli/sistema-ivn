@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const storageService = require('../services/storageService');
 
 /**
  * Mapear linha do banco para objeto de ficha cadastral
@@ -427,7 +428,7 @@ async function obterMinhaFichaCadastral(req, res) {
       bairro: row.bairro,
       cidade: row.cidade,
       estado: row.estado,
-      fotoPerfil: row.foto_perfil || null
+      fotoPerfil: storageService.resolveFotoPerfil(row.foto_perfil) || null
     };
 
     res.json({ ficha });
@@ -483,7 +484,7 @@ async function obterFichaCadastral(req, res) {
       bairro: row.bairro,
       cidade: row.cidade,
       estado: row.estado,
-      fotoPerfil: row.foto_perfil || null
+      fotoPerfil: storageService.resolveFotoPerfil(row.foto_perfil) || null
     };
 
     res.json({ ficha });

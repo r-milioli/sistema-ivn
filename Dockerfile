@@ -4,7 +4,7 @@
 # =====================================================
 
 # ---- Estágio 1: Build do Frontend React ----
-FROM node:18-alpine AS frontend-build
+FROM node:20-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
@@ -25,7 +25,7 @@ RUN npm run build
 
 
 # ---- Estágio 2: Imagem final (Backend + Frontend buildado) ----
-FROM node:18-alpine
+FROM node:20-alpine
 
 LABEL maintainer="Sistema IVN"
 LABEL description="Sistema de Gestão de Igreja - Frontend + Backend"

@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const storageService = require('../services/storageService');
 
 // Estágios do schema jornada única (estagio_espiritual_enum)
 const ESTAGIOS_VALIDOS = [
@@ -58,7 +59,7 @@ function mapRowToPessoa(row) {
     cargoEclesiastico: row.cargo_eclesiastico,
     dataOrdenacao: row.data_ordenacao,
     ativo: row.ativo,
-    fotoPerfil: row.foto_perfil,
+    fotoPerfil: storageService.resolveFotoPerfil(row.foto_perfil),
     podeIncluirGrupoWhatsapp: row.pode_incluir_grupo_whatsapp ?? null,
     criadoEm: row.criado_em,
     atualizadoEm: row.atualizado_em,
@@ -386,6 +387,9 @@ async function atualizarPessoa(req, res) {
     }
 
     const emptyToNull = (v) => (v != null && String(v).trim() !== '' ? v : null);
+    const fotoPerfilToSave = fotoPerfil != null && String(fotoPerfil).trim() !== ''
+      ? await storageService.prepareFotoPerfilForSave(fotoPerfil, 'fotos-perfil', id)
+      : null;
     const result = await pool.query(
       `UPDATE pessoas 
        SET nome = $1, sobrenome = $2, sexo = $3, estado_civil = $4, data_nascimento = $5,
@@ -408,7 +412,7 @@ async function atualizarPessoa(req, res) {
         nome, emptyToNull(sobrenome), emptyToNull(sexo), emptyToNull(estadoCivil), emptyToNull(dataNascimento), telefone, emptyToNull(email),
         emptyToNull(whatsapp), emptyToNull(cep), emptyToNull(rua), emptyToNull(numero), emptyToNull(complemento), emptyToNull(bairro), emptyToNull(cidade), emptyToNull(estado),
         emptyToNull(estagioAtual), emptyToNull(dataPrimeiraVisita), emptyToNull(comoConheceu),
-        emptyToNull(cargoEclesiastico), emptyToNull(dataOrdenacao), ativo !== undefined ? ativo : null, emptyToNull(fotoPerfil),
+        emptyToNull(cargoEclesiastico), emptyToNull(dataOrdenacao), ativo !== undefined ? ativo : null, emptyToNull(fotoPerfilToSave),
         id
       ]
     );
@@ -478,6 +482,9 @@ async function updateMe(req, res) {
     }
 
     const emptyToNull = (v) => (v != null && String(v).trim() !== '' ? v : null);
+    const fotoPerfilToSave = fotoPerfil != null && String(fotoPerfil).trim() !== ''
+      ? await storageService.prepareFotoPerfilForSave(fotoPerfil, 'fotos-perfil', String(pessoaId))
+      : null;
     const result = await pool.query(
       `UPDATE pessoas 
        SET nome = $1, sobrenome = $2, sexo = $3, estado_civil = $4, data_nascimento = $5,
@@ -494,7 +501,7 @@ async function updateMe(req, res) {
         telefone, emptyToNull(email),
         emptyToNull(cep), emptyToNull(rua), emptyToNull(numero), emptyToNull(complemento), 
         emptyToNull(bairro), emptyToNull(cidade), emptyToNull(estado),
-        emptyToNull(fotoPerfil),
+        emptyToNull(fotoPerfilToSave),
         pessoaId
       ]
     );
@@ -563,7 +570,7 @@ async function aniversariantesDoDia(req, res) {
         nome: row.nome,
         sobrenome: row.sobrenome,
         dataNascimento: `${year}-${month}-${day}`,
-        fotoPerfil: row.foto_perfil,
+        fotoPerfil: storageService.resolveFotoPerfil(row.foto_perfil),
         estagioAtual: row.estagio_atual || null,
         idade,
       };

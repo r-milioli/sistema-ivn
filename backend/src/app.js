@@ -14,6 +14,7 @@ const ministeriosRoutes = require('./routes/ministeriosRoutes');
 const fichaCadastralRoutes = require('./routes/fichaCadastralRoutes');
 const paginasConfigRoutes = require('./routes/paginasConfigRoutes');
 const paginasTabsRoutes = require('./routes/paginasTabsRoutes');
+const storageRoutes = require('./routes/storageRoutes');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api', pessoasRoutes);
 app.use('/api', fichaCadastralRoutes);
 app.use('/api/paginas-config', paginasConfigRoutes);
 app.use('/api/paginas-tabs', paginasTabsRoutes);
+app.use('/api/storage', storageRoutes);
 
 // Rota de teste
 app.get('/api/health', (req, res) => {
