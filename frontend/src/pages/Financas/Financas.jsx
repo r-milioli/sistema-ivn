@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
+import BackToDashboard from '../../components/BackToDashboard/BackToDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -749,6 +750,7 @@ const Financas = () => {
     <MainLayout>
       <main className="dashboard-main">
         <div className="dashboard-content">
+          <BackToDashboard />
           <h1>Finanças</h1>
           
           <Tabs defaultValue="analytics" className="financas-tabs">

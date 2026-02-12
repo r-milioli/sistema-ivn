@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
+import BackToDashboard from '../../components/BackToDashboard/BackToDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import {
   Table,
@@ -364,6 +365,7 @@ const IntegracaoAcompanhamento = () => {
       <MainLayout>
         <main className="dashboard-main">
           <div className="dashboard-content integracao-acompanhamento-content">
+            <BackToDashboard />
             <h1>Integração acompanhamento</h1>
             <p className="no-permission-message">Você não tem permissão para acessar as abas desta página.</p>
           </div>
@@ -376,6 +378,7 @@ const IntegracaoAcompanhamento = () => {
     <MainLayout>
       <main className="dashboard-main">
         <div className="dashboard-content integracao-acompanhamento-content">
+          <BackToDashboard />
           <h1>Integração acompanhamento</h1>
           <p className="page-description">
             Acompanhamento do processo de integração de visitantes e novos convertidos.

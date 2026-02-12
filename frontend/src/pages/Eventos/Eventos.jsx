@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
+import BackToDashboard from '../../components/BackToDashboard/BackToDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -481,6 +482,7 @@ const Eventos = () => {
     <MainLayout>
       <main className="dashboard-main">
         <div className="dashboard-content">
+          <BackToDashboard />
           <h1>Eventos</h1>
           
           <Tabs defaultValue="agenda" className="eventos-tabs">

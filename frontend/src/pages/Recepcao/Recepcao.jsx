@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
+import BackToDashboard from '../../components/BackToDashboard/BackToDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -119,6 +120,7 @@ const Recepcao = () => {
       <MainLayout>
         <main className="dashboard-main">
           <div className="dashboard-content">
+            <BackToDashboard />
             <h1>Recepção</h1>
             <div className="tab-content-wrapper" style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
               <p>Você não tem permissão para acessar as abas desta página.</p>
@@ -134,6 +136,7 @@ const Recepcao = () => {
     <MainLayout>
       <main className="dashboard-main">
         <div className="dashboard-content">
+          <BackToDashboard />
           <h1>Recepção</h1>
           
           <Tabs defaultValue={tabsVisiveis[0]?.value || "visitante"} className="recepcao-tabs">

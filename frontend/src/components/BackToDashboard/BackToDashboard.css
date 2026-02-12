@@ -1,0 +1,49 @@
+/* Ícone único com fundo pastel – alinhado ao sistema */
+.back-to-dashboard {
+  margin-bottom: 20px;
+}
+
+.back-to-dashboard-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #e8f0fe; /* azul pastel */
+  color: #5a7fb8;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+
+.back-to-dashboard-btn:hover {
+  background: #d2e3fc;
+  color: #4a6fa8;
+  transform: translateX(-2px);
+}
+
+.back-to-dashboard-btn:focus-visible {
+  outline: 2px solid #5a7fb8;
+  outline-offset: 2px;
+}
+
+.back-to-dashboard-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* Dark mode – pastel mais escuro */
+.dark .back-to-dashboard-btn {
+  background: hsl(220 30% 22%);
+  color: hsl(220 40% 75%);
+}
+
+.dark .back-to-dashboard-btn:hover {
+  background: hsl(220 30% 28%);
+  color: hsl(220 45% 85%);
+}
+
+.dark .back-to-dashboard-btn:focus-visible {
+  outline-color: hsl(220 40% 75%);
+}

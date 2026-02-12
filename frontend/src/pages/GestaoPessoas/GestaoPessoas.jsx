@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
+import BackToDashboard from '../../components/BackToDashboard/BackToDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -920,6 +921,7 @@ const GestaoPessoas = () => {
     <MainLayout>
       <main className="dashboard-main">
         <div className="dashboard-content">
+          <BackToDashboard />
           <h1>Gestão de Pessoas</h1>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="gestao-pessoas-tabs">

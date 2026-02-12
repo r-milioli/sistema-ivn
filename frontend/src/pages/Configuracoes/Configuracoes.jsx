@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../components/Layout/MainLayout';
+import BackToDashboard from '../../components/BackToDashboard/BackToDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -368,9 +369,10 @@ const Configuracoes = () => {
   return (
     <MainLayout>
       <main className="dashboard-main">
-        <div className="dashboard-content">
+<div className="dashboard-content">
+          <BackToDashboard />
           <h1>Configurações</h1>
-          
+
           <Tabs defaultValue="perfil" className="configuracoes-tabs">
             <TabsList className="configuracoes-tabs-list">
               <TabsTrigger value="perfil" className="configuracoes-tabs-trigger">
