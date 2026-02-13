@@ -585,8 +585,13 @@
     width: 100%;
   }
 
-  .search-results-dropdown {
+  .search-section .form-group {
     position: relative;
+  }
+
+  .search-results-dropdown {
+    position: absolute;
+    margin-top: 4px;
   }
 
   .selected-person-card {

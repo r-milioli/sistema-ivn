@@ -491,7 +491,8 @@
   }
 
   .search-results {
-    position: relative;
+    position: absolute;
+    margin-top: 4px;
   }
 
   .selected-person {
@@ -1233,6 +1234,10 @@
     margin-bottom: 20px;
   }
 
+  .search-section .form-group {
+    position: relative;
+  }
+
   .form-input.search-input,
   .search-input {
     height: 48px;
@@ -1249,7 +1254,7 @@
 
   .search-results {
     max-height: 260px;
-    margin-top: 8px;
+    margin-top: 4px;
     border-radius: 10px;
   }
 
