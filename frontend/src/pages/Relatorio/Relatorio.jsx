@@ -226,6 +226,7 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
         toast({
           title: 'Sucesso!',
           description: 'Relatório atualizado com sucesso!',
+          variant: 'success',
         });
         
         onSaveSuccess();
@@ -236,6 +237,7 @@ const RelatorioForm = ({ editingId, onCancelEdit, onSaveSuccess }) => {
         toast({
           title: 'Sucesso!',
           description: 'Relatório criado com sucesso!',
+          variant: 'success',
         });
 
         setFormData({
@@ -441,6 +443,7 @@ const RelatoriosGerados = ({ onEdit, refreshKey }) => {
       toast({
         title: 'Sucesso!',
         description: 'Relatório baixado com sucesso!',
+        variant: 'success',
       });
     } catch (error) {
       toast({
@@ -561,6 +564,7 @@ const RelatoriosAtribuidosMim = () => {
       toast({
         title: 'Sucesso!',
         description: 'Relatório baixado com sucesso!',
+        variant: 'success',
       });
     } catch (error) {
       toast({

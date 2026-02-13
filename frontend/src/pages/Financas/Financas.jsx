@@ -10,6 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Heart, Gift, Receipt, Calculator, ArrowUpCircle, ArrowDownCircle, Plus, X, PlusCircle, Edit, Trash2, ChevronLeft, ChevronRight, MinusCircle, Paperclip, FileText, Search } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
+import { compressImageForUpload } from '../../utils/compressImage';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -363,6 +364,7 @@ const Financas = () => {
         toast({
           title: 'Sucesso',
           description: 'Entrada atualizada com sucesso!',
+          variant: 'success',
         });
       } else {
         // Criar nova entrada
@@ -370,6 +372,7 @@ const Financas = () => {
         toast({
           title: 'Sucesso',
           description: 'Entrada cadastrada com sucesso!',
+          variant: 'success',
         });
       }
       
@@ -437,6 +440,7 @@ const Financas = () => {
       toast({
         title: 'Sucesso',
         description: 'Entrada deletada com sucesso!',
+        variant: 'success',
       });
       await loadEntradas();
       await loadRelatorio();
@@ -494,14 +498,27 @@ const Financas = () => {
   }, [totalPages, currentPage]);
 
   // Handlers para o formulário de Nova Saída
-  const handleNovaSaidaChange = (e) => {
+  const handleNovaSaidaChange = async (e) => {
     const { name, value, files } = e.target;
     if (name === 'comprovante' && files && files.length > 0) {
-      setNovaSaidaForm(prev => ({
-        ...prev,
-        comprovante: files[0],
-        comprovanteNome: files[0].name
-      }));
+      const file = files[0];
+      try {
+        const fileToUse = file.type.startsWith('image/')
+          ? await compressImageForUpload(file, { maxWidth: 1920, maxHeight: 1920, quality: 0.9 })
+          : file;
+        setNovaSaidaForm(prev => ({
+          ...prev,
+          comprovante: fileToUse,
+          comprovanteNome: fileToUse.name
+        }));
+      } catch (err) {
+        console.error('Erro ao comprimir comprovante:', err);
+        setNovaSaidaForm(prev => ({
+          ...prev,
+          comprovante: file,
+          comprovanteNome: file.name
+        }));
+      }
     } else {
       setNovaSaidaForm(prev => ({
         ...prev,
@@ -576,6 +593,7 @@ const Financas = () => {
         toast({
           title: 'Sucesso',
           description: 'Saída atualizada com sucesso!',
+          variant: 'success',
         });
       } else {
         // Criar nova saída
@@ -587,6 +605,7 @@ const Financas = () => {
         toast({
           title: 'Sucesso',
           description: 'Saída cadastrada com sucesso!',
+          variant: 'success',
         });
       }
       
@@ -654,6 +673,7 @@ const Financas = () => {
       toast({
         title: 'Sucesso',
         description: 'Saída deletada com sucesso!',
+        variant: 'success',
       });
       await loadSaidas();
       await loadRelatorio();

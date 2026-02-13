@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 import api from '../../services/api';
+import { compressImageForUpload } from '../../utils/compressImage';
 import './Integracao.css';
 
 const VIA_CEP_URL = 'https://viacep.com.br/ws';
@@ -178,7 +179,8 @@ const Integracao = () => {
         setFormData(prev => ({ ...prev, ...endereco }));
         toast({ 
           title: 'CEP encontrado', 
-          description: 'Endereço preenchido automaticamente.' 
+          description: 'Endereço preenchido automaticamente.',
+          variant: 'success',
         });
       } else {
         toast({ 
@@ -190,29 +192,28 @@ const Integracao = () => {
     }
   };
 
-  const handleFotoChange = (e) => {
+  const handleFotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validar tipo de arquivo
       if (!file.type.startsWith('image/')) {
         setMessage({ type: 'error', text: 'Por favor, selecione apenas arquivos de imagem.' });
         return;
       }
-      
-      // Validar tamanho (máximo 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setMessage({ type: 'error', text: 'A imagem deve ter no máximo 5MB.' });
         return;
       }
 
-      setFormData(prev => ({ ...prev, fotoPerfil: file }));
-      
-      // Criar preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoPerfilPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageForUpload(file, { maxWidth: 1024, maxHeight: 1024, quality: 0.88 });
+        setFormData(prev => ({ ...prev, fotoPerfil: compressed }));
+        const reader = new FileReader();
+        reader.onloadend = () => setFotoPerfilPreview(reader.result);
+        reader.readAsDataURL(compressed);
+      } catch (err) {
+        console.error('Erro ao comprimir imagem:', err);
+        setMessage({ type: 'error', text: 'Erro ao processar imagem. Tente novamente.' });
+      }
     }
   };
 
@@ -338,6 +339,7 @@ const Integracao = () => {
       toast({
         title: 'Sucesso',
         description: 'Visitante integrado com sucesso!',
+        variant: 'success',
       });
       
       // Limpar formulário após sucesso
@@ -500,6 +502,7 @@ const Integracao = () => {
       toast({
         title: 'Sucesso',
         description: 'Novo convertido cadastrado com sucesso!',
+        variant: 'success',
       });
 
       setNovoConvertidoFormData({

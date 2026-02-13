@@ -132,6 +132,35 @@ function toast({
   }
 }
 
+// Métodos auxiliares para facilitar o uso
+toast.success = (props) => {
+  if (typeof props === 'string') {
+    return toast({ title: 'Sucesso', description: props, variant: 'success' })
+  }
+  return toast({ ...props, variant: 'success' })
+}
+
+toast.error = (props) => {
+  if (typeof props === 'string') {
+    return toast({ title: 'Erro', description: props, variant: 'destructive' })
+  }
+  return toast({ ...props, variant: 'destructive' })
+}
+
+toast.warning = (props) => {
+  if (typeof props === 'string') {
+    return toast({ title: 'Aviso', description: props, variant: 'warning' })
+  }
+  return toast({ ...props, variant: 'warning' })
+}
+
+toast.info = (props) => {
+  if (typeof props === 'string') {
+    return toast({ title: 'Informação', description: props, variant: 'info' })
+  }
+  return toast({ ...props, variant: 'info' })
+}
+
 function useToast() {
   const [state, setState] = React.useState(memoryState)
 

@@ -214,6 +214,7 @@ const Membresia = () => {
       toast({
         title: 'Sucesso',
         description: 'Matrícula realizada com sucesso!',
+        variant: 'success',
       });
 
       // Recarregar matrículas
@@ -245,6 +246,7 @@ const Membresia = () => {
       toast({
         title: 'Sucesso',
         description: `Aula ${aulaNumero} ${novaConcluida ? 'marcada como concluída' : 'desmarcada'} com sucesso!`,
+        variant: 'success',
       });
 
       // Recarregar matrículas
@@ -704,6 +706,7 @@ const ListarMembros = ({ alunosMembresia, onReload }) => {
       toast({
         title: 'Sucesso',
         description: `${alunoParaTornarMembro.nomeCompleto} foi promovido a membro com sucesso!`,
+        variant: 'success',
       });
 
       setTornarMembroDialogOpen(false);
@@ -802,6 +805,7 @@ const ListarMembros = ({ alunosMembresia, onReload }) => {
       toast({
         title: 'Sucesso',
         description: `${alunoParaTornarMembro.nomeCompleto} foi revertido para aluno de membresia com sucesso!`,
+        variant: 'success',
       });
 
       setTornarMembroDialogOpen(false);

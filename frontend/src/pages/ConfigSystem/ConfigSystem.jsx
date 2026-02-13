@@ -127,6 +127,7 @@ const MinisteriosTab = () => {
         toast({
           title: 'Sucesso!',
           description: 'Ministério atualizado com sucesso!',
+          variant: 'success',
         });
       } else {
         // Criar novo ministério
@@ -134,6 +135,7 @@ const MinisteriosTab = () => {
         toast({
           title: 'Sucesso!',
           description: 'Ministério criado com sucesso!',
+          variant: 'success',
         });
       }
 
@@ -188,6 +190,7 @@ const MinisteriosTab = () => {
       toast({
         title: 'Sucesso!',
         description: 'Ministério excluído com sucesso!',
+        variant: 'success',
       });
       await loadMinisterios();
     } catch (error) {
@@ -433,6 +436,7 @@ const PaginasTab = () => {
       toast({
         title: 'Sucesso!',
         description: `Card ${newValue ? 'visível' : 'oculto'} com sucesso!`,
+        variant: 'success',
       });
     } catch (error) {
       console.error('Erro ao atualizar visibilidade do card:', error);
@@ -498,6 +502,7 @@ const PaginasTab = () => {
       toast({
         title: 'Sucesso!',
         description: 'Visibilidade da página atualizada com sucesso!',
+        variant: 'success',
       });
 
       setModalVisibilidadeAberto(false);
@@ -543,6 +548,7 @@ const PaginasTab = () => {
           toast({
             title: 'Sucesso!',
             description: `${tabsAtualizadas.length} tab(s) sincronizada(s) com sucesso!`,
+            variant: 'success',
           });
         }
       } else {
@@ -574,6 +580,7 @@ const PaginasTab = () => {
       toast({
         title: 'Sucesso!',
         description: 'Permissão atualizada com sucesso!',
+        variant: 'success',
       });
     } catch (error) {
       console.error('Erro ao atualizar permissão:', error);
@@ -788,6 +795,7 @@ const PaginasTab = () => {
                         toast({
                           title: 'Sucesso!',
                           description: 'Tabs sincronizadas com sucesso!',
+                          variant: 'success',
                         });
                       } catch (error) {
                         console.error('Erro ao sincronizar:', error);

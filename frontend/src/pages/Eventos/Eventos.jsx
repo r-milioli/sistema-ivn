@@ -152,6 +152,7 @@ const Eventos = () => {
         toast({
           title: 'Sucesso',
           description: 'Evento atualizado com sucesso!',
+          variant: 'success',
         });
       } else {
         // Adicionar novo evento
@@ -159,6 +160,7 @@ const Eventos = () => {
         toast({
           title: 'Sucesso',
           description: 'Evento cadastrado com sucesso!',
+          variant: 'success',
         });
       }
       clearForm();
@@ -206,6 +208,7 @@ const Eventos = () => {
       toast({
         title: 'Sucesso',
         description: 'Evento excluído com sucesso!',
+        variant: 'success',
       });
       if (editingEventId === eventoParaExcluir) {
         clearForm();

@@ -231,7 +231,7 @@ const IntegracaoAcompanhamento = () => {
       const res = await api.post(`/integracao/conversoes/${modalComentarioPessoa.id}/comentarios`, { comentario: texto });
       setComentariosModal(prev => [...prev, res.data.comentario]);
       setNovoComentarioTexto('');
-      toast({ title: 'Comentário adicionado.' });
+      toast({ title: 'Comentário adicionado.', variant: 'success', });
     } catch (e) {
       toast({
         title: 'Erro',
@@ -347,7 +347,7 @@ const IntegracaoAcompanhamento = () => {
             : p
         )
       );
-      toast({ title: 'Sucesso', description: 'Acompanhante atualizado.' });
+      toast({ title: 'Sucesso', description: 'Acompanhante atualizado.', variant: 'success', });
       setRankingRefreshKey(k => k + 1);
     } catch (e) {
       toast({

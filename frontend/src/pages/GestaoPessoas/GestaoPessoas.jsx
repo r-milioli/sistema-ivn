@@ -332,6 +332,7 @@ const GestaoPessoas = () => {
       toast({
         title: 'Sucesso',
         description: 'Pessoa cadastrada com sucesso!',
+        variant: 'success',
       });
       setFormData({
         nome: '',
@@ -434,7 +435,7 @@ const GestaoPessoas = () => {
     const endereco = await fetchViaCep(cep);
     if (endereco) {
       setFormData(prev => ({ ...prev, ...endereco }));
-      toast({ title: 'CEP encontrado', description: 'Endereço preenchido automaticamente.' });
+      toast({ title: 'CEP encontrado', description: 'Endereço preenchido automaticamente.', variant: 'success', });
     } else {
       toast({ title: 'CEP não encontrado', description: 'Verifique o número e tente novamente.', variant: 'destructive' });
     }
@@ -444,7 +445,7 @@ const GestaoPessoas = () => {
     const endereco = await fetchViaCep(cep);
     if (endereco) {
       setEditFormData(prev => ({ ...prev, ...endereco }));
-      toast({ title: 'CEP encontrado', description: 'Endereço preenchido automaticamente.' });
+      toast({ title: 'CEP encontrado', description: 'Endereço preenchido automaticamente.', variant: 'success', });
     } else {
       toast({ title: 'CEP não encontrado', description: 'Verifique o número e tente novamente.', variant: 'destructive' });
     }
@@ -477,6 +478,7 @@ const GestaoPessoas = () => {
       toast({
         title: 'Sucesso',
         description: 'Pessoa atualizada com sucesso!',
+        variant: 'success',
       });
       setSelectedPerson(null);
       setEditFormData({
@@ -591,6 +593,7 @@ const GestaoPessoas = () => {
       toast({
         title: 'Sucesso',
         description: 'Pessoa excluída com sucesso!',
+        variant: 'success',
       });
       // Se a pessoa excluída estava selecionada, limpar seleção
       if (selectedPerson?.id === pessoaParaExcluir) {
@@ -890,6 +893,7 @@ const GestaoPessoas = () => {
       toast({
         title: 'Sucesso',
         description: 'Atribuições salvas com sucesso!',
+        variant: 'success',
       });
     } catch (error) {
       toast({

@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '../../components/ui/avatar';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
+import { compressImageForUpload } from '../../utils/compressImage';
 import './Configuracoes.css';
 
 const VIA_CEP_URL = 'https://viacep.com.br/ws';
@@ -100,10 +101,9 @@ const Configuracoes = () => {
     }
   }, [authUser, toast]);
 
-  const handleFotoChange = (e) => {
+  const handleFotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validar tipo de arquivo
       if (!file.type.startsWith('image/')) {
         toast({
           title: 'Erro',
@@ -112,8 +112,6 @@ const Configuracoes = () => {
         });
         return;
       }
-      
-      // Validar tamanho (máximo 5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: 'Erro',
@@ -123,14 +121,20 @@ const Configuracoes = () => {
         return;
       }
 
-      setFotoPerfil(file);
-      
-      // Criar preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoPerfilPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageForUpload(file, { maxWidth: 1024, maxHeight: 1024, quality: 0.88 });
+        setFotoPerfil(compressed);
+        const reader = new FileReader();
+        reader.onloadend = () => setFotoPerfilPreview(reader.result);
+        reader.readAsDataURL(compressed);
+      } catch (err) {
+        console.error('Erro ao comprimir imagem:', err);
+        toast({
+          title: 'Erro',
+          description: 'Erro ao processar imagem. Tente novamente.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 

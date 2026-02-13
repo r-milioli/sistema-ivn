@@ -194,6 +194,7 @@ const Batismo = () => {
       toast({
         title: 'Sucesso',
         description: 'Matrícula de batismo realizada com sucesso!',
+        variant: 'success',
       });
 
       await loadMatriculas();
@@ -220,6 +221,7 @@ const Batismo = () => {
       toast({
         title: 'Sucesso',
         description: novaConcluida ? 'Aula marcada como concluída.' : 'Aula desmarcada.',
+        variant: 'success',
       });
 
       await loadMatriculas();
@@ -667,6 +669,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
       toast({
         title: 'Sucesso',
         description: `${alunoParaTornarMembro.nomeCompleto} foi promovido a batizado com sucesso!`,
+        variant: 'success',
       });
 
       setTornarMembroDialogOpen(false);
@@ -757,6 +760,7 @@ const ListarMembros = ({ alunosBatismo, onReload }) => {
       toast({
         title: 'Sucesso',
         description: `${alunoParaTornarMembro.nomeCompleto} foi revertido para aluno de batismo com sucesso!`,
+        variant: 'success',
       });
 
       setTornarMembroDialogOpen(false);

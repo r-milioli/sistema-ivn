@@ -88,6 +88,7 @@ const Recepcao = () => {
       toast({
         title: 'Sucesso!',
         description: 'Visitante cadastrado com sucesso!',
+        variant: 'success',
       });
 
       setFormData({

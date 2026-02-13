@@ -164,6 +164,7 @@ const FichaMembros = () => {
           toast({
             title: 'Sucesso!',
             description: 'Endereço preenchido automaticamente.',
+            variant: 'success',
           });
         } else {
           toast({
@@ -456,6 +457,7 @@ const FichaMembros = () => {
       toast({
         title: 'Sucesso!',
         description: 'Ficha cadastral salva com sucesso!',
+        variant: 'success',
       });
       
       setFoto(null);
