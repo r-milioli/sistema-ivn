@@ -14,11 +14,16 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { useAuth } from '../../context/AuthContext';
-import { UserPlus, List, Search, BarChart3, Paperclip, X, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { UserPlus, List, Search, BarChart3, Paperclip, X, ChevronLeft, ChevronRight, Eye, Plus } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useTabsPermissoes } from '../../hooks/useTabsPermissoes';
-import api from '../../services/api';
+import api, { API_ORIGIN } from '../../services/api';
 import './Kids.css';
+
+function fullPhotoUrl(path) {
+  if (!path) return '';
+  return path.startsWith('http') ? path : `${API_ORIGIN}${path.startsWith('/') ? '' : '/'}${path}`;
+}
 
 function getCurrentDateTime() {
   const now = new Date();
@@ -82,6 +87,11 @@ const Kids = () => {
     [formData.dataNascimentoCrianca]
   );
 
+  const [loading, setLoading] = useState(false);
+  const [previewCrianca, setPreviewCrianca] = useState(null);
+  const [previewResponsavel, setPreviewResponsavel] = useState(null);
+  const [activeTab, setActiveTab] = useState(tabsVisiveis[0]?.value || 'cadastro-kids');
+
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -90,9 +100,49 @@ const Kids = () => {
     }));
   }, [user]);
 
-  const [loading, setLoading] = useState(false);
-  const [previewCrianca, setPreviewCrianca] = useState(null);
-  const [previewResponsavel, setPreviewResponsavel] = useState(null);
+  useEffect(() => {
+    if (!loadingTabs && tabsVisiveis.length > 0 && !tabsVisiveis.some(t => t.value === activeTab)) {
+      setActiveTab(tabsVisiveis[0].value);
+    }
+  }, [loadingTabs, tabsVisiveis, activeTab]);
+
+  // Preencher formulário da tab Cadastro com dados de um kid (retorno) e ir para a tab
+  const preencherCadastroComKid = (kid) => {
+    if (previewCrianca && previewCrianca.startsWith('blob:')) URL.revokeObjectURL(previewCrianca);
+    if (previewResponsavel && previewResponsavel.startsWith('blob:')) URL.revokeObjectURL(previewResponsavel);
+    // Mostrar as fotos do kid como preview (URLs); arquivos não são enviados a menos que o usuário escolha novos
+    setPreviewCrianca(kid.fotoCrianca ? fullPhotoUrl(kid.fotoCrianca) : null);
+    setPreviewResponsavel(kid.fotoResponsavel ? fullPhotoUrl(kid.fotoResponsavel) : null);
+    const dataNasc = kid.dataNascimentoCrianca
+      ? (kid.dataNascimentoCrianca.includes('T')
+          ? kid.dataNascimentoCrianca.slice(0, 10)
+          : kid.dataNascimentoCrianca)
+      : '';
+    setFormData({
+      recepcionadoPor: user?.nome || '',
+      diaVisita: getCurrentDateTime(),
+      fotoCrianca: null,
+      fotoCriancaNome: kid.fotoCrianca ? '(foto anterior exibida – envie nova para alterar)' : '',
+      nomeCrianca: kid.nomeCrianca || '',
+      dataNascimentoCrianca: dataNasc,
+      fotoResponsavel: null,
+      fotoResponsavelNome: kid.fotoResponsavel ? '(foto anterior exibida – envie nova para alterar)' : '',
+      nomeResponsavel: kid.nomeResponsavel || '',
+      whatsappResponsavel: kid.whatsappResponsavel || '',
+      bairro: kid.bairro || '',
+      cidade: kid.cidade || ''
+    });
+    const inputCrianca = document.getElementById('fotoCrianca');
+    const inputResp = document.getElementById('fotoResponsavel');
+    if (inputCrianca) inputCrianca.value = '';
+    if (inputResp) inputResp.value = '';
+    setActiveTab('cadastro-kids');
+    toast({
+      title: 'Formulário preenchido',
+      description: 'Dados e fotos do kid carregados. Envie novas fotos se quiser alterar e cadastre a visita.',
+      variant: 'default'
+    });
+  };
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -121,8 +171,8 @@ const Kids = () => {
 
   useEffect(() => {
     return () => {
-      if (previewCrianca) URL.revokeObjectURL(previewCrianca);
-      if (previewResponsavel) URL.revokeObjectURL(previewResponsavel);
+      if (previewCrianca?.startsWith('blob:')) URL.revokeObjectURL(previewCrianca);
+      if (previewResponsavel?.startsWith('blob:')) URL.revokeObjectURL(previewResponsavel);
     };
   }, [previewCrianca, previewResponsavel]);
 
@@ -151,8 +201,8 @@ const Kids = () => {
         variant: 'success'
       });
 
-      if (previewCrianca) URL.revokeObjectURL(previewCrianca);
-      if (previewResponsavel) URL.revokeObjectURL(previewResponsavel);
+      if (previewCrianca?.startsWith('blob:')) URL.revokeObjectURL(previewCrianca);
+      if (previewResponsavel?.startsWith('blob:')) URL.revokeObjectURL(previewResponsavel);
       setPreviewCrianca(null);
       setPreviewResponsavel(null);
       setFormData({
@@ -208,7 +258,7 @@ const Kids = () => {
           <BackToDashboard />
           <h1>Kids</h1>
 
-          <Tabs defaultValue={tabsVisiveis[0]?.value || 'cadastro-kids'} className="kids-tabs">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="kids-tabs">
             <TabsList className="kids-tabs-list">
               {tabsVisiveis.map((tab) => {
                 const IconComponent = tab.icon;
@@ -280,7 +330,7 @@ const Kids = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                if (previewCrianca) URL.revokeObjectURL(previewCrianca);
+                                if (previewCrianca?.startsWith('blob:')) URL.revokeObjectURL(previewCrianca);
                                 setPreviewCrianca(null);
                                 setFormData(prev => ({ ...prev, fotoCrianca: null, fotoCriancaNome: '' }));
                                 const el = document.getElementById('fotoCrianca');
@@ -371,7 +421,7 @@ const Kids = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                if (previewResponsavel) URL.revokeObjectURL(previewResponsavel);
+                                if (previewResponsavel?.startsWith('blob:')) URL.revokeObjectURL(previewResponsavel);
                                 setPreviewResponsavel(null);
                                 setFormData(prev => ({ ...prev, fotoResponsavel: null, fotoResponsavelNome: '' }));
                                 const el = document.getElementById('fotoResponsavel');
@@ -473,7 +523,7 @@ const Kids = () => {
               <TabsContent value="buscar-kids" className="kids-tabs-content">
                 <div className="tab-content-wrapper">
                   <h2>Buscar Kids</h2>
-                  <p className="tab-placeholder">Em breve. Aqui você poderá buscar crianças cadastradas.</p>
+                  <BuscarKids onPreencherCadastro={preencherCadastroComKid} />
                 </div>
               </TabsContent>
             )}
@@ -501,6 +551,183 @@ function getKidsListCurrentDate() {
   const d = String(now.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+function formatDateKids(dateString) {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function formatDateOnlyKids(dateString) {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+}
+
+// Buscar Kids: pesquisa, resultados em cards, botão Add para preencher cadastro (retorno)
+const BuscarKids = ({ onPreencherCadastro }) => {
+  const { toast } = useToast();
+  const [busca, setBusca] = useState('');
+  const [buscaDigitada, setBuscaDigitada] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const handlePesquisar = async () => {
+    const termo = buscaDigitada.trim();
+    if (!termo) {
+      toast({
+        title: 'Campo vazio',
+        description: 'Digite nome da criança, responsável, bairro ou cidade para buscar.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    setBusca(termo);
+    setLoading(true);
+    try {
+      const response = await api.get('/kids', {
+        params: { busca: termo, limit: 50, page: 1 }
+      });
+      setResults(response.data.kids || []);
+      if ((response.data.kids || []).length === 0) {
+        toast({
+          title: 'Nenhum resultado',
+          description: 'Nenhum kid encontrado com esse critério.',
+          variant: 'default'
+        });
+      }
+    } catch (err) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao buscar. Tente novamente.',
+        variant: 'destructive'
+      });
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="buscar-kids-container">
+      <div className="buscar-kids-filters">
+        <div className="buscar-kids-search-row">
+          <div className="buscar-kids-search-wrap">
+            <Search className="buscar-kids-search-icon" />
+            <Input
+              type="text"
+              placeholder="Nome da criança, responsável, bairro ou cidade..."
+              value={buscaDigitada}
+              onChange={(e) => setBuscaDigitada(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handlePesquisar())}
+              className="form-input buscar-kids-input"
+            />
+          </div>
+          <Button type="button" onClick={handlePesquisar} disabled={loading} className="buscar-kids-btn-pesquisar">
+            {loading ? 'Buscando...' : 'Pesquisar'}
+          </Button>
+        </div>
+      </div>
+
+      {busca && (
+        <div className="buscar-kids-results">
+          {loading ? (
+            <div className="buscar-kids-loading">Carregando...</div>
+          ) : (
+            <>
+              <p className="buscar-kids-results-info">
+                {results.length} {results.length === 1 ? 'registro encontrado' : 'registros encontrados'}
+              </p>
+              <div className="buscar-kids-cards">
+                {results.map((kid) => (
+                  <div key={kid.id} className="buscar-kids-card">
+                    <div className="buscar-kids-card-fotos">
+                      {kid.fotoCrianca ? (
+                        <img src={fullPhotoUrl(kid.fotoCrianca)} alt="" className="buscar-kids-card-foto" />
+                      ) : (
+                        <div className="buscar-kids-card-foto-placeholder">Foto criança</div>
+                      )}
+                      {kid.fotoResponsavel ? (
+                        <img src={fullPhotoUrl(kid.fotoResponsavel)} alt="" className="buscar-kids-card-foto" />
+                      ) : (
+                        <div className="buscar-kids-card-foto-placeholder">Foto resp.</div>
+                      )}
+                    </div>
+                    <div className="buscar-kids-card-body">
+                      <div className="buscar-kids-card-row">
+                        <span className="buscar-kids-card-label">Recepcionado por:</span>
+                        <span>{kid.recepcionadoPor || '-'}</span>
+                      </div>
+                      <div className="buscar-kids-card-row">
+                        <span className="buscar-kids-card-label">Data visita:</span>
+                        <span>{formatDateKids(kid.dataVisita)}</span>
+                      </div>
+                      <div className="buscar-kids-card-row">
+                        <span className="buscar-kids-card-label">Nome do Kids:</span>
+                        <span>{kid.nomeCrianca || '-'}</span>
+                      </div>
+                      <div className="buscar-kids-card-row">
+                        <span className="buscar-kids-card-label">Data nasc.:</span>
+                        <span>{formatDateOnlyKids(kid.dataNascimentoCrianca)}</span>
+                      </div>
+                      {kid.idadeAtual && (
+                        <div className="buscar-kids-card-row">
+                          <span className="buscar-kids-card-label">Idade:</span>
+                          <span>{kid.idadeAtual}</span>
+                        </div>
+                      )}
+                      <div className="buscar-kids-card-row">
+                        <span className="buscar-kids-card-label">Nome responsável:</span>
+                        <span>{kid.nomeResponsavel || '-'}</span>
+                      </div>
+                      <div className="buscar-kids-card-row">
+                        <span className="buscar-kids-card-label">WhatsApp:</span>
+                        <span>{kid.whatsappResponsavel || '-'}</span>
+                      </div>
+                      <div className="buscar-kids-card-row">
+                        <span className="buscar-kids-card-label">Bairro:</span>
+                        <span>{kid.bairro || '-'}</span>
+                      </div>
+                      <div className="buscar-kids-card-row">
+                        <span className="buscar-kids-card-label">Cidade:</span>
+                        <span>{kid.cidade || '-'}</span>
+                      </div>
+                    </div>
+                    <div className="buscar-kids-card-actions">
+                      <Button
+                        type="button"
+                        onClick={() => onPreencherCadastro(kid)}
+                        className="buscar-kids-btn-add"
+                        title="Usar dados para novo cadastro (retorno)"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {!busca && (
+        <p className="buscar-kids-hint">Digite no campo acima e clique em Pesquisar para buscar kids.</p>
+      )}
+    </div>
+  );
+};
 
 // Tabela Listar Kids (semelhante à Listar Visitantes da Recepção)
 const KidsTable = () => {
