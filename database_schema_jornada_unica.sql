@@ -519,6 +519,17 @@ CREATE TABLE IF NOT EXISTS aulas_batismo (
 -- GESTÃO FINANCEIRA
 -- =====================================================
 
+-- Tipos de banco (classificação opcional em entradas/saídas)
+CREATE TABLE IF NOT EXISTS tipos_banco (
+  id SERIAL PRIMARY KEY,
+  nome VARCHAR(255) NOT NULL UNIQUE,
+  ativo BOOLEAN DEFAULT TRUE,
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_tipos_banco_nome ON tipos_banco(nome);
+CREATE INDEX IF NOT EXISTS idx_tipos_banco_ativo ON tipos_banco(ativo);
+
 -- Entradas Financeiras
 CREATE TABLE IF NOT EXISTS entradas_financeiras (
   id SERIAL PRIMARY KEY,
@@ -534,6 +545,9 @@ CREATE TABLE IF NOT EXISTS entradas_financeiras (
   
   -- Observações
   observacoes TEXT,
+  
+  -- Tipo de banco (opcional)
+  tipo_banco_id INTEGER REFERENCES tipos_banco(id) ON DELETE SET NULL,
   
   -- Quem registrou
   registrado_por INTEGER REFERENCES pessoas(id),
@@ -572,6 +586,9 @@ CREATE TABLE IF NOT EXISTS saidas_financeiras (
   -- Comprovante
   comprovante_nome VARCHAR(255),
   comprovante_path TEXT,
+  
+  -- Tipo de banco (opcional)
+  tipo_banco_id INTEGER REFERENCES tipos_banco(id) ON DELETE SET NULL,
   
   -- Quem registrou
   registrado_por INTEGER REFERENCES pessoas(id),
@@ -711,11 +728,13 @@ CREATE INDEX IF NOT EXISTS idx_aulas_batismo_aula_numero ON aulas_batismo(aula_n
 CREATE INDEX IF NOT EXISTS idx_entradas_data ON entradas_financeiras(data_entrada);
 CREATE INDEX IF NOT EXISTS idx_entradas_categoria ON entradas_financeiras(categoria);
 CREATE INDEX IF NOT EXISTS idx_entradas_registrado_por ON entradas_financeiras(registrado_por);
+CREATE INDEX IF NOT EXISTS idx_entradas_financeiras_tipo_banco ON entradas_financeiras(tipo_banco_id);
 
 -- Índices em saidas_financeiras
 CREATE INDEX IF NOT EXISTS idx_saidas_data ON saidas_financeiras(data_saida);
 CREATE INDEX IF NOT EXISTS idx_saidas_ministerio ON saidas_financeiras(ministerio_id);
 CREATE INDEX IF NOT EXISTS idx_saidas_registrado_por ON saidas_financeiras(registrado_por);
+CREATE INDEX IF NOT EXISTS idx_saidas_financeiras_tipo_banco ON saidas_financeiras(tipo_banco_id);
 
 -- Índices em eventos
 CREATE INDEX IF NOT EXISTS idx_eventos_data ON eventos(data);
@@ -775,6 +794,10 @@ CREATE TRIGGER update_matriculas_batismo_updated_at BEFORE UPDATE ON matriculas_
 
 DROP TRIGGER IF EXISTS update_aulas_batismo_updated_at ON aulas_batismo;
 CREATE TRIGGER update_aulas_batismo_updated_at BEFORE UPDATE ON aulas_batismo
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_tipos_banco_updated_at ON tipos_banco;
+CREATE TRIGGER update_tipos_banco_updated_at BEFORE UPDATE ON tipos_banco
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 DROP TRIGGER IF EXISTS update_entradas_updated_at ON entradas_financeiras;
@@ -1214,6 +1237,7 @@ COMMENT ON TABLE matriculas_membresia IS 'Matrículas no curso de membresia';
 COMMENT ON TABLE aulas_membresia IS 'Aulas do curso de membresia';
 COMMENT ON TABLE matriculas_batismo IS 'Matrículas no curso de batismo';
 COMMENT ON TABLE aulas_batismo IS 'Aulas do curso de batismo (5 aulas)';
+COMMENT ON TABLE tipos_banco IS 'Tipos de banco para classificação opcional em entradas e saídas financeiras';
 COMMENT ON TABLE entradas_financeiras IS 'Entradas financeiras (dízimos, ofertas, etc)';
 COMMENT ON TABLE entrada_doadores IS 'Doadores de cada entrada financeira';
 COMMENT ON TABLE saidas_financeiras IS 'Saídas financeiras';
@@ -1557,6 +1581,36 @@ CREATE TRIGGER update_paginas_tabs_updated_at
   BEFORE UPDATE ON paginas_tabs
   FOR EACH ROW
   EXECUTE FUNCTION update_paginas_tabs_updated_at();
+
+-- =====================================================
+-- TABS DA PÁGINA FINANÇAS
+-- =====================================================
+-- Analytics, Nova Entrada, Nova Saída, Relatório Financeiro, Config
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Analytics', 'analytics', 'BarChart3', 1, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/financas'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'analytics');
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Nova Entrada', 'nova-entrada', 'PlusCircle', 2, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/financas'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'nova-entrada');
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Nova Saída', 'nova-saida', 'MinusCircle', 3, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/financas'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'nova-saida');
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Relatório Financeiro', 'relatorio', 'FileText', 4, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/financas'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'relatorio');
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Config', 'config', 'Settings', 5, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/financas'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'config');
 
 -- =====================================================
 -- TABS DA PÁGINA INTEGRAÇÃO ACOMPANHAMENTO

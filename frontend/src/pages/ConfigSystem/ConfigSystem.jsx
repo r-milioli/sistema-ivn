@@ -347,7 +347,8 @@ const TABS_POR_PAGINA = {
     { nome: 'Analytics', valor: 'analytics', icone: 'BarChart3', ordem: 1 },
     { nome: 'Nova Entrada', valor: 'nova-entrada', icone: 'PlusCircle', ordem: 2 },
     { nome: 'Nova Saída', valor: 'nova-saida', icone: 'MinusCircle', ordem: 3 },
-    { nome: 'Relatório Financeiro', valor: 'relatorio', icone: 'FileText', ordem: 4 }
+    { nome: 'Relatório Financeiro', valor: 'relatorio', icone: 'FileText', ordem: 4 },
+    { nome: 'Config', valor: 'config', icone: 'Settings', ordem: 5 }
   ],
   '/gestao-pessoas': [
     { nome: 'Adicionar Pessoas', valor: 'gestao-pessoas', icone: 'Users', ordem: 1 },

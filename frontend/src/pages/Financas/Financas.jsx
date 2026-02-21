@@ -7,7 +7,7 @@ import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, Heart, Gift, Receipt, Calculator, ArrowUpCircle, ArrowDownCircle, Plus, X, PlusCircle, Edit, Trash2, ChevronLeft, ChevronRight, MinusCircle, Paperclip, FileText, Search } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, Heart, Gift, Receipt, Calculator, ArrowUpCircle, ArrowDownCircle, Plus, X, PlusCircle, Edit, Trash2, ChevronLeft, ChevronRight, MinusCircle, Paperclip, FileText, Search, Settings } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
 import { compressImageForUpload } from '../../utils/compressImage';
@@ -34,7 +34,8 @@ const Financas = () => {
     valor: '',
     dataEntrada: new Date().toISOString().split('T')[0],
     turno: '',
-    tipoPagamento: ''
+    tipoPagamento: '',
+    tipoBancoId: ''
   });
   const [loadingNovaEntrada, setLoadingNovaEntrada] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
@@ -52,7 +53,8 @@ const Financas = () => {
     motivo: '',
     ministerio: '',
     comprovante: null,
-    comprovanteNome: ''
+    comprovanteNome: '',
+    tipoBancoId: ''
   });
   const [loadingNovaSaida, setLoadingNovaSaida] = useState(false);
   const [editandoSaidaId, setEditandoSaidaId] = useState(null);
@@ -87,6 +89,15 @@ const Financas = () => {
   const [entradaParaExcluir, setEntradaParaExcluir] = useState(null);
   const [deleteSaidaDialogOpen, setDeleteSaidaDialogOpen] = useState(false);
   const [saidaParaExcluir, setSaidaParaExcluir] = useState(null);
+
+  // Tipos de banco (dropdowns em Nova Entrada/Saída + tab Config)
+  const [tiposBanco, setTiposBanco] = useState([]);
+  const [tiposBancoConfig, setTiposBancoConfig] = useState([]);
+  const [configTipoBancoNome, setConfigTipoBancoNome] = useState('');
+  const [editandoTipoBancoId, setEditandoTipoBancoId] = useState(null);
+  const [loadingTipoBanco, setLoadingTipoBanco] = useState(false);
+  const [deleteTipoBancoDialogOpen, setDeleteTipoBancoDialogOpen] = useState(false);
+  const [tipoBancoParaExcluir, setTipoBancoParaExcluir] = useState(null);
   
   const [metrics, setMetrics] = useState({
     totalEntradas: 0,
@@ -151,6 +162,22 @@ const Financas = () => {
             description: 'Erro ao carregar lista de ministérios.',
             variant: 'destructive',
           });
+        }
+
+        // Tipos de banco (ativos para dropdowns)
+        try {
+          const tbResponse = await api.get('/financas/tipos-banco');
+          setTiposBanco(tbResponse.data.tiposBanco || []);
+        } catch (error) {
+          console.error('Erro ao carregar tipos de banco:', error);
+        }
+
+        // Tipos de banco (todos para tab Config)
+        try {
+          const tbConfigResponse = await api.get('/financas/tipos-banco', { params: { apenasAtivos: 'false' } });
+          setTiposBancoConfig(tbConfigResponse.data.tiposBanco || []);
+        } catch (error) {
+          console.error('Erro ao carregar tipos de banco (config):', error);
         }
       } catch (error) {
         console.error('Erro ao carregar dados iniciais:', error);
@@ -357,6 +384,7 @@ const Financas = () => {
         turno: novaEntradaForm.turno,
         tipoPagamento: novaEntradaForm.tipoPagamento
       };
+      if (novaEntradaForm.tipoBancoId) dadosEnvio.tipoBancoId = novaEntradaForm.tipoBancoId;
 
       if (editandoId) {
         // Atualizar entrada existente
@@ -383,7 +411,8 @@ const Financas = () => {
         valor: '',
         dataEntrada: new Date().toISOString().split('T')[0],
         turno: '',
-        tipoPagamento: ''
+        tipoPagamento: '',
+        tipoBancoId: ''
       });
       setEditandoId(null);
       await loadEntradas();
@@ -412,7 +441,8 @@ const Financas = () => {
         valor: entradaData.valor.toString(),
         dataEntrada: entradaData.data_entrada,
         turno: entradaData.turno,
-        tipoPagamento: entradaData.tipo_pagamento || ''
+        tipoPagamento: entradaData.tipo_pagamento || '',
+        tipoBancoId: entradaData.tipoBancoId ? String(entradaData.tipoBancoId) : ''
       });
       // Scroll para o topo do formulário
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -454,7 +484,8 @@ const Financas = () => {
           valor: '',
           dataEntrada: new Date().toISOString().split('T')[0],
           turno: '',
-          tipoPagamento: ''
+          tipoPagamento: '',
+          tipoBancoId: ''
         });
       }
       setDeleteEntradaDialogOpen(false);
@@ -578,6 +609,7 @@ const Financas = () => {
       formData.append('dataSaida', novaSaidaForm.dataSaida);
       formData.append('motivo', novaSaidaForm.motivo.trim());
       formData.append('ministerio', novaSaidaForm.ministerio);
+      if (novaSaidaForm.tipoBancoId) formData.append('tipoBancoId', novaSaidaForm.tipoBancoId);
       
       if (novaSaidaForm.comprovante) {
         formData.append('comprovante', novaSaidaForm.comprovante);
@@ -615,7 +647,8 @@ const Financas = () => {
         motivo: '',
         ministerio: '',
         comprovante: null,
-        comprovanteNome: ''
+        comprovanteNome: '',
+        tipoBancoId: ''
       });
       setEditandoSaidaId(null);
       const fileInput = document.getElementById('comprovante');
@@ -645,7 +678,8 @@ const Financas = () => {
         motivo: saidaData.motivo || '',
         ministerio: saidaData.ministerioId?.toString() || '',
         comprovante: null,
-        comprovanteNome: saidaData.comprovanteNome || ''
+        comprovanteNome: saidaData.comprovanteNome || '',
+        tipoBancoId: saidaData.tipoBancoId ? String(saidaData.tipoBancoId) : ''
       });
       // Scroll para o topo do formulário
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -686,7 +720,8 @@ const Financas = () => {
           motivo: '',
           ministerio: '',
           comprovante: null,
-          comprovanteNome: ''
+          comprovanteNome: '',
+          tipoBancoId: ''
         });
         const fileInput = document.getElementById('comprovante');
         if (fileInput) fileInput.value = '';
@@ -766,6 +801,88 @@ const Financas = () => {
     setCurrentPageRelatorio(1); // Reset para primeira página ao filtrar
   };
 
+  const loadTiposBancoConfig = async () => {
+    try {
+      const res = await api.get('/financas/tipos-banco', { params: { apenasAtivos: 'false' } });
+      setTiposBancoConfig(res.data.tiposBanco || []);
+    } catch (error) {
+      console.error('Erro ao carregar tipos de banco:', error);
+    }
+  };
+
+  const loadTiposBancoAtivos = async () => {
+    try {
+      const res = await api.get('/financas/tipos-banco');
+      setTiposBanco(res.data.tiposBanco || []);
+    } catch (error) {
+      console.error('Erro ao carregar tipos de banco:', error);
+    }
+  };
+
+  const handleSubmitTipoBanco = async (e) => {
+    e.preventDefault();
+    const nome = (configTipoBancoNome || '').trim();
+    if (!nome) {
+      toast({ title: 'Campo obrigatório', description: 'Informe o nome do banco.', variant: 'destructive' });
+      return;
+    }
+    setLoadingTipoBanco(true);
+    try {
+      if (editandoTipoBancoId) {
+        await api.put(`/financas/tipos-banco/${editandoTipoBancoId}`, { nome });
+        toast({ title: 'Sucesso', description: 'Tipo de banco atualizado com sucesso.' });
+        setEditandoTipoBancoId(null);
+      } else {
+        await api.post('/financas/tipos-banco', { nome });
+        toast({ title: 'Sucesso', description: 'Tipo de banco incluído com sucesso.' });
+      }
+      setConfigTipoBancoNome('');
+      await loadTiposBancoConfig();
+      await loadTiposBancoAtivos();
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao salvar tipo de banco.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingTipoBanco(false);
+    }
+  };
+
+  const handleEditarTipoBanco = (item) => {
+    setConfigTipoBancoNome(item.nome);
+    setEditandoTipoBancoId(item.id);
+  };
+
+  const handleCancelarEdicaoTipoBanco = () => {
+    setConfigTipoBancoNome('');
+    setEditandoTipoBancoId(null);
+  };
+
+  const handleDeleteTipoBancoClick = (item) => {
+    setTipoBancoParaExcluir(item);
+    setDeleteTipoBancoDialogOpen(true);
+  };
+
+  const handleConfirmDeleteTipoBanco = async () => {
+    if (!tipoBancoParaExcluir) return;
+    try {
+      await api.delete(`/financas/tipos-banco/${tipoBancoParaExcluir.id}`);
+      toast({ title: 'Sucesso', description: 'Tipo de banco excluído com sucesso.' });
+      await loadTiposBancoConfig();
+      await loadTiposBancoAtivos();
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao excluir tipo de banco.',
+        variant: 'destructive',
+      });
+    }
+    setDeleteTipoBancoDialogOpen(false);
+    setTipoBancoParaExcluir(null);
+  };
+
   return (
     <MainLayout>
       <main className="dashboard-main">
@@ -790,6 +907,10 @@ const Financas = () => {
               <TabsTrigger value="relatorio" className="financas-tabs-trigger">
                 <FileText className="tab-icon" />
                 <span>Relatório Financeiro</span>
+              </TabsTrigger>
+              <TabsTrigger value="config" className="financas-tabs-trigger">
+                <Settings className="tab-icon" />
+                <span>Config</span>
               </TabsTrigger>
             </TabsList>
             
@@ -1097,6 +1218,24 @@ const Financas = () => {
                     </div>
                   </div>
 
+                  <div className="form-row">
+                    <div className="form-group">
+                      <Label htmlFor="tipoBancoId">Tipo de banco <span style={{ color: '#666', fontSize: '0.875rem' }}>(Opcional)</span></Label>
+                      <select
+                        id="tipoBancoId"
+                        name="tipoBancoId"
+                        value={novaEntradaForm.tipoBancoId}
+                        onChange={handleNovaEntradaChange}
+                        className="form-select"
+                      >
+                        <option value="">Nenhum</option>
+                        {tiposBanco.map(tb => (
+                          <option key={tb.id} value={tb.id}>{tb.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="form-actions">
                     {editandoId && (
                       <Button 
@@ -1110,7 +1249,9 @@ const Financas = () => {
                             autorSelecionado: '',
                             valor: '',
                             dataEntrada: new Date().toISOString().split('T')[0],
-                            turno: ''
+                            turno: '',
+                            tipoPagamento: '',
+                            tipoBancoId: ''
                           });
                         }}
                         className="cancel-button"
@@ -1355,6 +1496,24 @@ const Financas = () => {
 
                   <div className="form-row">
                     <div className="form-group">
+                      <Label htmlFor="tipoBancoIdSaida">Tipo de banco <span style={{ color: '#666', fontSize: '0.875rem' }}>(Opcional)</span></Label>
+                      <select
+                        id="tipoBancoIdSaida"
+                        name="tipoBancoId"
+                        value={novaSaidaForm.tipoBancoId}
+                        onChange={handleNovaSaidaChange}
+                        className="form-select"
+                      >
+                        <option value="">Nenhum</option>
+                        {tiposBanco.map(tb => (
+                          <option key={tb.id} value={tb.id}>{tb.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
                       <Label htmlFor="comprovante">Anexar Comprovante</Label>
                       <div className="file-upload-wrapper">
                         <Input
@@ -1404,7 +1563,8 @@ const Financas = () => {
                             motivo: '',
                             ministerio: '',
                             comprovante: null,
-                            comprovanteNome: ''
+                            comprovanteNome: '',
+                            tipoBancoId: ''
                           });
                           const fileInput = document.getElementById('comprovante');
                           if (fileInput) fileInput.value = '';
@@ -1797,6 +1957,98 @@ const Financas = () => {
                 </div>
               </div>
             </TabsContent>
+
+            <TabsContent value="config" className="financas-tabs-content">
+              <div className="tab-content-wrapper">
+                <h2>Config</h2>
+                <p className="analytics-description">Cadastre tipos de banco para uso opcional em entradas e saídas</p>
+
+                <Card className="config-tipo-banco-card">
+                  <CardHeader>
+                    <CardTitle>Tipo de banco</CardTitle>
+                    <CardDescription>Inclua um novo tipo de banco ou edite um existente</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleSubmitTipoBanco} className="pessoa-form">
+                      <div className="form-row form-row-2">
+                        <div className="form-group">
+                          <Label htmlFor="configTipoBancoNome">Nome do banco</Label>
+                          <Input
+                            id="configTipoBancoNome"
+                            type="text"
+                            value={configTipoBancoNome}
+                            onChange={(e) => setConfigTipoBancoNome(e.target.value)}
+                            placeholder="Ex: Caixa, Itaú, Nubank"
+                            className="form-input"
+                          />
+                        </div>
+                        <div className="form-group form-group-actions">
+                          <Label>&nbsp;</Label>
+                          <div className="form-actions-inline">
+                            {editandoTipoBancoId && (
+                              <Button type="button" variant="outline" onClick={handleCancelarEdicaoTipoBanco}>
+                                Cancelar
+                              </Button>
+                            )}
+                            <Button type="submit" disabled={loadingTipoBanco}>
+                              {loadingTipoBanco ? 'Salvando...' : editandoTipoBancoId ? 'Atualizar' : 'Incluir'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+
+                <div className="entradas-table-container">
+                  <h3 className="table-section-title">Tipos de banco cadastrados</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead className="col-acoes">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tiposBancoConfig.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2}>Nenhum tipo de banco cadastrado. Use o formulário acima para incluir.</TableCell>
+                        </TableRow>
+                      ) : (
+                        tiposBancoConfig.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{item.nome}</TableCell>
+                            <TableCell>
+                              <div className="table-actions">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditarTipoBanco(item)}
+                                  title="Editar"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteTipoBancoClick(item)}
+                                  title="Excluir"
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </TabsContent>
           </Tabs>
         </div>
       </main>
@@ -1845,6 +2097,32 @@ const Financas = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDeleteSaida}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação de exclusão de tipo de banco */}
+      <AlertDialog open={deleteTipoBancoDialogOpen} onOpenChange={setDeleteTipoBancoDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o tipo de banco &quot;{tipoBancoParaExcluir?.nome}&quot;? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteTipoBancoDialogOpen(false);
+              setTipoBancoParaExcluir(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteTipoBanco}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               Excluir

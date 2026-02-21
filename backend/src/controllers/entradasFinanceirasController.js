@@ -5,7 +5,7 @@ const pool = require('../config/database');
  */
 async function criarEntrada(req, res) {
   try {
-    const { categoria, autores, valor, dataEntrada, turno, tipoPagamento } = req.body;
+    const { categoria, autores, valor, dataEntrada, turno, tipoPagamento, tipoBancoId } = req.body;
     const userId = req.user.id;
 
     // Validações básicas
@@ -55,17 +55,28 @@ async function criarEntrada(req, res) {
       });
     }
 
+    // Tipo de banco opcional
+    let tipoBancoIdNum = null;
+    if (tipoBancoId != null && tipoBancoId !== '') {
+      tipoBancoIdNum = parseInt(tipoBancoId, 10);
+      if (isNaN(tipoBancoIdNum) || tipoBancoIdNum < 1) tipoBancoIdNum = null;
+      else {
+        const tbCheck = await pool.query('SELECT id FROM tipos_banco WHERE id = $1 AND ativo = TRUE', [tipoBancoIdNum]);
+        if (tbCheck.rows.length === 0) tipoBancoIdNum = null;
+      }
+    }
+
     // Processar autores (se houver)
     const autoresIds = autores && Array.isArray(autores) ? autores.map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
 
     // Inserir entrada financeira (schema jornada única: registrado_por referencia pessoas)
     const entradaResult = await pool.query(
       `INSERT INTO entradas_financeiras (
-        categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por
+        categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por, tipo_banco_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por, criado_em`,
-      [categoria, valorNum, dataEntrada, turno, tipoPagamento, userId]
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por, tipo_banco_id, criado_em`,
+      [categoria, valorNum, dataEntrada, turno, tipoPagamento, userId, tipoBancoIdNum]
     );
 
     const entrada = entradaResult.rows[0];
@@ -102,6 +113,11 @@ async function criarEntrada(req, res) {
       );
     }
 
+    let tipoBanco = null;
+    if (entrada.tipo_banco_id) {
+      const tb = await pool.query('SELECT id, nome FROM tipos_banco WHERE id = $1', [entrada.tipo_banco_id]);
+      if (tb.rows.length > 0) tipoBanco = { id: tb.rows[0].id, nome: tb.rows[0].nome };
+    }
     res.status(201).json({
       message: 'Entrada financeira criada com sucesso',
       entrada: {
@@ -112,6 +128,8 @@ async function criarEntrada(req, res) {
         turno: entrada.turno,
         tipoPagamento: entrada.tipo_pagamento,
         registradoPor: entrada.registrado_por,
+        tipoBancoId: entrada.tipo_banco_id,
+        tipoBanco,
         criadoEm: entrada.criado_em,
         autores: doadoresNomes.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
       }
@@ -143,9 +161,12 @@ async function listarEntradas(req, res) {
         e.turno,
         e.tipo_pagamento,
         e.registrado_por,
+        e.tipo_banco_id,
+        tb.nome as tipo_banco_nome,
         e.criado_em,
         e.atualizado_em
       FROM entradas_financeiras e
+      LEFT JOIN tipos_banco tb ON e.tipo_banco_id = tb.id
       WHERE 1=1
     `;
     
@@ -202,6 +223,8 @@ async function listarEntradas(req, res) {
           turno: entrada.turno,
           tipoPagamento: entrada.tipo_pagamento,
           registradoPor: entrada.registrado_por,
+          tipoBancoId: entrada.tipo_banco_id,
+          tipoBanco: entrada.tipo_banco_id ? { id: entrada.tipo_banco_id, nome: entrada.tipo_banco_nome } : null,
           criadoEm: entrada.criado_em,
           atualizadoEm: entrada.atualizado_em,
           autores: doadoresResult.rows.map(a => ({ id: a.id, nome: a.nome_completo })),
@@ -241,9 +264,12 @@ async function obterEntradaPorId(req, res) {
         e.turno,
         e.tipo_pagamento,
         e.registrado_por,
+        e.tipo_banco_id,
+        tb.nome as tipo_banco_nome,
         e.criado_em,
         e.atualizado_em
       FROM entradas_financeiras e
+      LEFT JOIN tipos_banco tb ON e.tipo_banco_id = tb.id
       WHERE e.id = $1`,
       [id]
     );
@@ -272,6 +298,8 @@ async function obterEntradaPorId(req, res) {
         turno: entrada.turno,
         tipoPagamento: entrada.tipo_pagamento,
         registradoPor: entrada.registrado_por,
+        tipoBancoId: entrada.tipo_banco_id,
+        tipoBanco: entrada.tipo_banco_id ? { id: entrada.tipo_banco_id, nome: entrada.tipo_banco_nome } : null,
         criadoEm: entrada.criado_em,
         atualizadoEm: entrada.atualizado_em,
         autores: doadoresResult.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
@@ -289,7 +317,7 @@ async function obterEntradaPorId(req, res) {
 async function atualizarEntrada(req, res) {
   try {
     const { id } = req.params;
-    const { categoria, autores, valor, dataEntrada, turno, tipoPagamento } = req.body;
+    const { categoria, autores, valor, dataEntrada, turno, tipoPagamento, tipoBancoId } = req.body;
     const userId = req.user.id;
 
     // Validações básicas
@@ -340,6 +368,15 @@ async function atualizarEntrada(req, res) {
       });
     }
 
+    let tipoBancoIdNum = null;
+    if (tipoBancoId != null && tipoBancoId !== '') {
+      tipoBancoIdNum = parseInt(tipoBancoId, 10);
+      if (!isNaN(tipoBancoIdNum) && tipoBancoIdNum >= 1) {
+        const tbCheck = await pool.query('SELECT id FROM tipos_banco WHERE id = $1 AND ativo = TRUE', [tipoBancoIdNum]);
+        if (tbCheck.rows.length === 0) tipoBancoIdNum = null;
+      } else tipoBancoIdNum = null;
+    }
+
     // Processar doadores (se houver) - schema jornada única
     const doadoresIds = autores && Array.isArray(autores) ? autores.map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
     
@@ -365,10 +402,11 @@ async function atualizarEntrada(req, res) {
            data_entrada = $3, 
            turno = $4, 
            tipo_pagamento = $5,
+           tipo_banco_id = $6,
            atualizado_em = CURRENT_TIMESTAMP
-       WHERE id = $6
-       RETURNING id, categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por, criado_em, atualizado_em`,
-      [categoria, valorNum, dataEntrada, turno, tipoPagamento, id]
+       WHERE id = $7
+       RETURNING id, categoria, valor, data_entrada, turno, tipo_pagamento, registrado_por, tipo_banco_id, criado_em, atualizado_em`,
+      [categoria, valorNum, dataEntrada, turno, tipoPagamento, tipoBancoIdNum, id]
     );
 
     // Remover doadores antigos e adicionar novos (schema jornada única)
@@ -393,18 +431,26 @@ async function atualizarEntrada(req, res) {
       );
     }
 
+    const entradaAtualizada = result.rows[0];
+    let tipoBanco = null;
+    if (entradaAtualizada.tipo_banco_id) {
+      const tb = await pool.query('SELECT id, nome FROM tipos_banco WHERE id = $1', [entradaAtualizada.tipo_banco_id]);
+      if (tb.rows.length > 0) tipoBanco = { id: tb.rows[0].id, nome: tb.rows[0].nome };
+    }
     res.json({
       message: 'Entrada financeira atualizada com sucesso',
       entrada: {
-        id: result.rows[0].id,
-        categoria: result.rows[0].categoria,
-        valor: parseFloat(result.rows[0].valor),
-        dataEntrada: result.rows[0].data_entrada,
-        turno: result.rows[0].turno,
-        tipoPagamento: result.rows[0].tipo_pagamento,
-        registradoPor: result.rows[0].registrado_por,
-        criadoEm: result.rows[0].criado_em,
-        atualizadoEm: result.rows[0].atualizado_em,
+        id: entradaAtualizada.id,
+        categoria: entradaAtualizada.categoria,
+        valor: parseFloat(entradaAtualizada.valor),
+        dataEntrada: entradaAtualizada.data_entrada,
+        turno: entradaAtualizada.turno,
+        tipoPagamento: entradaAtualizada.tipo_pagamento,
+        registradoPor: entradaAtualizada.registrado_por,
+        tipoBancoId: entradaAtualizada.tipo_banco_id,
+        tipoBanco,
+        criadoEm: entradaAtualizada.criado_em,
+        atualizadoEm: entradaAtualizada.atualizado_em,
         autores: doadoresNomes.rows.map(a => ({ id: a.id, nome: a.nome_completo }))
       }
     });

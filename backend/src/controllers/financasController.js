@@ -313,7 +313,144 @@ async function obterRelatorioFinanceiro(req, res) {
   }
 }
 
+/**
+ * Listar tipos de banco (para dropdown: apenas ativos; para tab Config: todos)
+ */
+async function listarTiposBanco(req, res) {
+  try {
+    const { apenasAtivos } = req.query;
+    const whereAtivo = apenasAtivos === 'false' ? '' : 'WHERE ativo = TRUE';
+    const result = await pool.query(
+      `SELECT id, nome, ativo, criado_em, atualizado_em FROM tipos_banco ${whereAtivo} ORDER BY nome`,
+      []
+    );
+    res.json({
+      tiposBanco: result.rows.map(row => ({
+        id: row.id,
+        nome: row.nome,
+        ativo: row.ativo,
+        criadoEm: row.criado_em,
+        atualizadoEm: row.atualizado_em
+      }))
+    });
+  } catch (error) {
+    console.error('Erro ao listar tipos de banco:', error);
+    res.status(500).json({ message: 'Erro ao listar tipos de banco', error: error.message });
+  }
+}
+
+/**
+ * Criar tipo de banco
+ */
+async function criarTipoBanco(req, res) {
+  try {
+    const { nome } = req.body;
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ message: 'Nome é obrigatório' });
+    }
+    const nomeTrim = String(nome).trim();
+    const existente = await pool.query('SELECT id FROM tipos_banco WHERE LOWER(nome) = LOWER($1)', [nomeTrim]);
+    if (existente.rows.length > 0) {
+      return res.status(400).json({ message: 'Já existe um tipo de banco com este nome' });
+    }
+    const result = await pool.query(
+      `INSERT INTO tipos_banco (nome) VALUES ($1) RETURNING id, nome, ativo, criado_em, atualizado_em`,
+      [nomeTrim]
+    );
+    const row = result.rows[0];
+    res.status(201).json({
+      message: 'Tipo de banco criado com sucesso',
+      tipoBanco: {
+        id: row.id,
+        nome: row.nome,
+        ativo: row.ativo,
+        criadoEm: row.criado_em,
+        atualizadoEm: row.atualizado_em
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao criar tipo de banco:', error);
+    res.status(500).json({ message: 'Erro ao criar tipo de banco', error: error.message });
+  }
+}
+
+/**
+ * Atualizar tipo de banco
+ */
+async function atualizarTipoBanco(req, res) {
+  try {
+    const { id } = req.params;
+    const { nome, ativo } = req.body;
+    const existente = await pool.query('SELECT id FROM tipos_banco WHERE id = $1', [id]);
+    if (existente.rows.length === 0) {
+      return res.status(404).json({ message: 'Tipo de banco não encontrado' });
+    }
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+    if (nome !== undefined) {
+      const nomeTrim = String(nome).trim();
+      if (nomeTrim === '') {
+        return res.status(400).json({ message: 'Nome não pode ser vazio' });
+      }
+      const dup = await pool.query('SELECT id FROM tipos_banco WHERE LOWER(nome) = LOWER($1) AND id != $2', [nomeTrim, id]);
+      if (dup.rows.length > 0) {
+        return res.status(400).json({ message: 'Já existe um tipo de banco com este nome' });
+      }
+      updates.push(`nome = $${paramIndex++}`);
+      values.push(nomeTrim);
+    }
+    if (ativo !== undefined) {
+      updates.push(`ativo = $${paramIndex++}`);
+      values.push(ativo === true || ativo === 'true');
+    }
+    if (updates.length === 0) {
+      const r = await pool.query('SELECT id, nome, ativo, criado_em, atualizado_em FROM tipos_banco WHERE id = $1', [id]);
+      const row = r.rows[0];
+      return res.json({
+        message: 'Tipo de banco atualizado',
+        tipoBanco: { id: row.id, nome: row.nome, ativo: row.ativo, criadoEm: row.criado_em, atualizadoEm: row.atualizado_em }
+      });
+    }
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE tipos_banco SET ${updates.join(', ')}, atualizado_em = CURRENT_TIMESTAMP WHERE id = $${paramIndex} RETURNING id, nome, ativo, criado_em, atualizado_em`,
+      values
+    );
+    const row = result.rows[0];
+    res.json({
+      message: 'Tipo de banco atualizado com sucesso',
+      tipoBanco: { id: row.id, nome: row.nome, ativo: row.ativo, criadoEm: row.criado_em, atualizadoEm: row.atualizado_em }
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar tipo de banco:', error);
+    res.status(500).json({ message: 'Erro ao atualizar tipo de banco', error: error.message });
+  }
+}
+
+/**
+ * Deletar tipo de banco (entradas/saídas com tipo_banco_id apontando para este id terão tipo_banco_id = NULL por ON DELETE SET NULL)
+ */
+async function deletarTipoBanco(req, res) {
+  try {
+    const { id } = req.params;
+    const existente = await pool.query('SELECT id FROM tipos_banco WHERE id = $1', [id]);
+    if (existente.rows.length === 0) {
+      return res.status(404).json({ message: 'Tipo de banco não encontrado' });
+    }
+    await pool.query('DELETE FROM tipos_banco WHERE id = $1', [id]);
+    res.json({ message: 'Tipo de banco excluído com sucesso' });
+  } catch (error) {
+    console.error('Erro ao deletar tipo de banco:', error);
+    res.status(500).json({ message: 'Erro ao deletar tipo de banco', error: error.message });
+  }
+}
+
 module.exports = {
   obterMetricas,
   obterRelatorioFinanceiro,
+  listarTiposBanco,
+  criarTipoBanco,
+  atualizarTipoBanco,
+  deletarTipoBanco,
 };

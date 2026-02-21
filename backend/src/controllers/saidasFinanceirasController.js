@@ -27,7 +27,7 @@ function comprovanteKey() {
  */
 async function criarSaida(req, res) {
   try {
-    const { valor, dataSaida, motivo, ministerio } = req.body;
+    const { valor, dataSaida, motivo, ministerio, tipoBancoId } = req.body;
     const userId = req.user.id;
 
     // Validações básicas
@@ -66,14 +66,24 @@ async function criarSaida(req, res) {
       comprovantePath = await storageService.upload(key, req.file.buffer, req.file.mimetype);
     }
 
+    let tipoBancoIdNum = null;
+    if (tipoBancoId != null && tipoBancoId !== '') {
+      tipoBancoIdNum = parseInt(tipoBancoId, 10);
+      if (isNaN(tipoBancoIdNum) || tipoBancoIdNum < 1) tipoBancoIdNum = null;
+      else {
+        const tbCheck = await pool.query('SELECT id FROM tipos_banco WHERE id = $1 AND ativo = TRUE', [tipoBancoIdNum]);
+        if (tbCheck.rows.length === 0) tipoBancoIdNum = null;
+      }
+    }
+
     // Inserir saída financeira (schema jornada única: registrado_por referencia pessoas)
     const result = await pool.query(
       `INSERT INTO saidas_financeiras (
-        valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, registrado_por
+        valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, registrado_por, tipo_banco_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, registrado_por, criado_em, atualizado_em`,
-      [valorNum, dataSaida, motivo.trim(), parseInt(ministerio), comprovanteNome, comprovantePath, userId]
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, registrado_por, tipo_banco_id, criado_em, atualizado_em`,
+      [valorNum, dataSaida, motivo.trim(), parseInt(ministerio), comprovanteNome, comprovantePath, userId, tipoBancoIdNum]
     );
 
     const saida = result.rows[0];
@@ -83,6 +93,11 @@ async function criarSaida(req, res) {
       'SELECT nome FROM ministerios WHERE id = $1',
       [saida.ministerio_id]
     );
+    let tipoBanco = null;
+    if (saida.tipo_banco_id) {
+      const tb = await pool.query('SELECT id, nome FROM tipos_banco WHERE id = $1', [saida.tipo_banco_id]);
+      if (tb.rows.length > 0) tipoBanco = { id: tb.rows[0].id, nome: tb.rows[0].nome };
+    }
 
     res.status(201).json({
       message: 'Saída financeira criada com sucesso',
@@ -93,6 +108,8 @@ async function criarSaida(req, res) {
         motivo: saida.motivo,
         ministerio: ministerioNome.rows[0].nome,
         ministerioId: saida.ministerio_id,
+        tipoBancoId: saida.tipo_banco_id,
+        tipoBanco,
         comprovanteNome: saida.comprovante_nome,
         comprovantePath: storageService.toPublicPath(saida.comprovante_path),
         criadoPor: saida.criado_por,
@@ -125,6 +142,8 @@ async function listarSaidas(req, res) {
         s.data_saida,
         s.motivo,
         s.ministerio_id,
+        s.tipo_banco_id,
+        tb.nome as tipo_banco_nome,
         s.comprovante_nome,
         s.comprovante_path,
         s.registrado_por,
@@ -133,6 +152,7 @@ async function listarSaidas(req, res) {
         m.nome as ministerio_nome
       FROM saidas_financeiras s
       JOIN ministerios m ON s.ministerio_id = m.id
+      LEFT JOIN tipos_banco tb ON s.tipo_banco_id = tb.id
       WHERE 1=1
     `;
     
@@ -177,6 +197,8 @@ async function listarSaidas(req, res) {
       motivo: row.motivo,
       ministerio: row.ministerio_nome,
       ministerioId: row.ministerio_id,
+      tipoBancoId: row.tipo_banco_id,
+      tipoBanco: row.tipo_banco_id ? { id: row.tipo_banco_id, nome: row.tipo_banco_nome } : null,
       comprovanteNome: row.comprovante_nome,
       comprovantePath: storageService.toPublicPath(row.comprovante_path),
       registradoPor: row.registrado_por,
@@ -213,6 +235,8 @@ async function obterSaidaPorId(req, res) {
         s.data_saida,
         s.motivo,
         s.ministerio_id,
+        s.tipo_banco_id,
+        tb.nome as tipo_banco_nome,
         s.comprovante_nome,
         s.comprovante_path,
         s.registrado_por,
@@ -221,6 +245,7 @@ async function obterSaidaPorId(req, res) {
         m.nome as ministerio_nome
       FROM saidas_financeiras s
       JOIN ministerios m ON s.ministerio_id = m.id
+      LEFT JOIN tipos_banco tb ON s.tipo_banco_id = tb.id
       WHERE s.id = $1`,
       [id]
     );
@@ -239,6 +264,8 @@ async function obterSaidaPorId(req, res) {
         motivo: saida.motivo,
         ministerio: saida.ministerio_nome,
         ministerioId: saida.ministerio_id,
+        tipoBancoId: saida.tipo_banco_id,
+        tipoBanco: saida.tipo_banco_id ? { id: saida.tipo_banco_id, nome: saida.tipo_banco_nome } : null,
         comprovanteNome: saida.comprovante_nome,
         comprovantePath: storageService.toPublicPath(saida.comprovante_path),
         criadoPor: saida.criado_por,
@@ -258,7 +285,7 @@ async function obterSaidaPorId(req, res) {
 async function atualizarSaida(req, res) {
   try {
     const { id } = req.params;
-    const { valor, dataSaida, motivo, ministerio } = req.body;
+    const { valor, dataSaida, motivo, ministerio, tipoBancoId } = req.body;
     const userId = req.user.id;
 
     // Validações básicas
@@ -316,6 +343,15 @@ async function atualizarSaida(req, res) {
       comprovantePath = await storageService.upload(comprovanteKey() + ext, req.file.buffer, req.file.mimetype);
     }
 
+    let tipoBancoIdNum = null;
+    if (tipoBancoId != null && tipoBancoId !== '') {
+      tipoBancoIdNum = parseInt(tipoBancoId, 10);
+      if (!isNaN(tipoBancoIdNum) && tipoBancoIdNum >= 1) {
+        const tbCheck = await pool.query('SELECT id FROM tipos_banco WHERE id = $1 AND ativo = TRUE', [tipoBancoIdNum]);
+        if (tbCheck.rows.length === 0) tipoBancoIdNum = null;
+      } else tipoBancoIdNum = null;
+    }
+
     // Atualizar saída
     const result = await pool.query(
       `UPDATE saidas_financeiras 
@@ -325,10 +361,11 @@ async function atualizarSaida(req, res) {
            ministerio_id = $4,
            comprovante_nome = $5,
            comprovante_path = $6,
+           tipo_banco_id = $7,
            atualizado_em = CURRENT_TIMESTAMP
-       WHERE id = $7
-       RETURNING id, valor, data_saida, motivo, ministerio_id, comprovante_nome, comprovante_path, registrado_por, criado_em, atualizado_em`,
-      [valorNum, dataSaida, motivo.trim(), parseInt(ministerio), comprovanteNome, comprovantePath, id]
+       WHERE id = $8
+       RETURNING id, valor, data_saida, motivo, ministerio_id, tipo_banco_id, comprovante_nome, comprovante_path, registrado_por, criado_em, atualizado_em`,
+      [valorNum, dataSaida, motivo.trim(), parseInt(ministerio), comprovanteNome, comprovantePath, tipoBancoIdNum, id]
     );
 
     // Buscar nome do ministério
@@ -336,15 +373,28 @@ async function atualizarSaida(req, res) {
       'SELECT nome FROM ministerios WHERE id = $1',
       [result.rows[0].ministerio_id]
     );
+    let tipoBanco = null;
+    if (result.rows[0].tipo_banco_id) {
+      const tb = await pool.query('SELECT id, nome FROM tipos_banco WHERE id = $1', [result.rows[0].tipo_banco_id]);
+      if (tb.rows.length > 0) tipoBanco = { id: tb.rows[0].id, nome: tb.rows[0].nome };
+    }
 
     const row = result.rows[0];
     res.json({
       message: 'Saída financeira atualizada com sucesso',
       saida: {
-        ...row,
+        id: row.id,
         valor: parseFloat(row.valor),
+        dataSaida: row.data_saida,
+        motivo: row.motivo,
         ministerio: ministerioNome.rows[0].nome,
-        comprovantePath: storageService.toPublicPath(row.comprovante_path)
+        ministerioId: row.ministerio_id,
+        tipoBancoId: row.tipo_banco_id,
+        tipoBanco,
+        comprovanteNome: row.comprovante_nome,
+        comprovantePath: storageService.toPublicPath(row.comprovante_path),
+        criadoEm: row.criado_em,
+        atualizadoEm: row.atualizado_em
       }
     });
   } catch (error) {
