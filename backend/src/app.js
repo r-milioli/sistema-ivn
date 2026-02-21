@@ -18,6 +18,7 @@ const paginasConfigRoutes = require('./routes/paginasConfigRoutes');
 const paginasTabsRoutes = require('./routes/paginasTabsRoutes');
 const storageRoutes = require('./routes/storageRoutes');
 const emailRoutes = require('./routes/emailRoutes');
+const kidsRoutes = require('./routes/kidsRoutes');
 
 const app = express();
 
@@ -69,6 +70,10 @@ app.use('/api/paginas-config', paginasConfigRoutes);
 app.use('/api/paginas-tabs', paginasTabsRoutes);
 app.use('/api/storage', storageRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/kids', kidsRoutes);
+if (process.env.NODE_ENV !== 'production') {
+  console.log('[app] Rotas registradas: /api/kids (POST /cadastro, GET /)');
+}
 
 // Rota de teste
 app.get('/api/health', (req, res) => {

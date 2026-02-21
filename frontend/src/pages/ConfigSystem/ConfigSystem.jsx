@@ -377,6 +377,12 @@ const TABS_POR_PAGINA = {
   '/membresia': [
     { nome: 'Membresia', valor: 'membresia', icone: 'UserCheck', ordem: 1 },
     { nome: 'Alunos Membresia', valor: 'alunos-membresia', icone: 'Users', ordem: 2 }
+  ],
+  '/kids': [
+    { nome: 'Cadastro Kids', valor: 'cadastro-kids', icone: 'UserPlus', ordem: 1 },
+    { nome: 'Listar Kids', valor: 'listar-kids', icone: 'List', ordem: 2 },
+    { nome: 'Buscar Kids', valor: 'buscar-kids', icone: 'Search', ordem: 3 },
+    { nome: 'Estatísticas', valor: 'estatisticas', icone: 'BarChart3', ordem: 4 }
   ]
   // Adicione mais páginas conforme necessário
 };

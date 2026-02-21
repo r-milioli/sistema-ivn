@@ -22,6 +22,7 @@ import Batismo from './pages/Batismo/Batismo';
 import Relatorio from './pages/Relatorio/Relatorio';
 import ConfigSystem from './pages/ConfigSystem/ConfigSystem';
 import FichaMembros from './pages/FichaMembros/FichaMembros';
+import Kids from './pages/Kids/Kids';
 
 // Componente para redirecionar usuários autenticados
 const PublicRoute = ({ children }) => {
@@ -183,6 +184,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <FichaMembros />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kids"
+        element={
+          <ProtectedRoute>
+            <Kids />
           </ProtectedRoute>
         }
       />

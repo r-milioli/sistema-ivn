@@ -285,6 +285,25 @@ CREATE TABLE IF NOT EXISTS visitas (
 );
 
 -- =====================================================
+-- KIDS CADASTRO (Página Kids - tab Cadastro Kids)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS kids_cadastro (
+  id SERIAL PRIMARY KEY,
+  recepcionado_por INTEGER REFERENCES pessoas(id),
+  data_visita TIMESTAMP NOT NULL,
+  foto_crianca TEXT,
+  nome_crianca VARCHAR(255) NOT NULL,
+  data_nascimento_crianca DATE NOT NULL,
+  foto_responsavel TEXT,
+  nome_responsavel VARCHAR(255) NOT NULL,
+  whatsapp_responsavel VARCHAR(20),
+  bairro VARCHAR(255) NOT NULL,
+  cidade VARCHAR(255) NOT NULL,
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
 -- CONVERSÕES REGISTRADAS
 -- =====================================================
 -- Registro de quando a pessoa aceitou Jesus
@@ -695,6 +714,12 @@ CREATE INDEX IF NOT EXISTS idx_visitas_pessoa_id ON visitas(pessoa_id);
 CREATE INDEX IF NOT EXISTS idx_visitas_data_visita ON visitas(data_visita);
 CREATE INDEX IF NOT EXISTS idx_visitas_recepcionado_por ON visitas(recepcionado_por);
 
+-- Índices em kids_cadastro
+CREATE INDEX IF NOT EXISTS idx_kids_cadastro_data_visita ON kids_cadastro(data_visita);
+CREATE INDEX IF NOT EXISTS idx_kids_cadastro_recepcionado_por ON kids_cadastro(recepcionado_por);
+CREATE INDEX IF NOT EXISTS idx_kids_cadastro_bairro ON kids_cadastro(bairro);
+CREATE INDEX IF NOT EXISTS idx_kids_cadastro_cidade ON kids_cadastro(cidade);
+
 -- Índices em conversoes
 CREATE INDEX IF NOT EXISTS idx_conversoes_pessoa_id ON conversoes(pessoa_id);
 CREATE INDEX IF NOT EXISTS idx_conversoes_data_conversao ON conversoes(data_conversao);
@@ -798,6 +823,10 @@ CREATE TRIGGER update_aulas_batismo_updated_at BEFORE UPDATE ON aulas_batismo
 
 DROP TRIGGER IF EXISTS update_tipos_banco_updated_at ON tipos_banco;
 CREATE TRIGGER update_tipos_banco_updated_at BEFORE UPDATE ON tipos_banco
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_kids_cadastro_updated_at ON kids_cadastro;
+CREATE TRIGGER update_kids_cadastro_updated_at BEFORE UPDATE ON kids_cadastro
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 DROP TRIGGER IF EXISTS update_entradas_updated_at ON entradas_financeiras;
@@ -1229,6 +1258,7 @@ COMMENT ON TABLE pessoas IS 'Tabela central de todas as pessoas (visitantes, mem
 COMMENT ON TABLE jornada_espiritual IS 'Histórico completo da jornada espiritual de cada pessoa';
 COMMENT ON TABLE credenciais_acesso IS 'Credenciais de login apenas para quem acessa o sistema';
 COMMENT ON TABLE visitas IS 'Registro de cada visita realizada';
+COMMENT ON TABLE kids_cadastro IS 'Cadastro de crianças na página Kids (tab Cadastro Kids)';
 COMMENT ON TABLE conversoes IS 'Registro de conversões';
 COMMENT ON TABLE comentarios_acompanhamento IS 'Comentários do acompanhante sobre o novo convertido; exibidos no modal da Lista de novos convertidos.';
 COMMENT ON TABLE ministerios IS 'Ministérios da igreja';
@@ -1716,6 +1746,29 @@ WHERE rota = '/ficha-membros'
     SELECT 1 FROM paginas_tabs pt
     WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'ficha-membro'
   );
+
+-- =====================================================
+-- TABS DA PÁGINA KIDS
+-- =====================================================
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Cadastro Kids', 'cadastro-kids', 'UserPlus', 1, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/kids'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'cadastro-kids');
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Listar Kids', 'listar-kids', 'List', 2, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/kids'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'listar-kids');
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Buscar Kids', 'buscar-kids', 'Search', 3, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/kids'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'buscar-kids');
+
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Estatísticas', 'estatisticas', 'BarChart3', 4, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/kids'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'estatisticas');
 
 -- =====================================================
 -- FIM DO SCHEMA REFATORADO
