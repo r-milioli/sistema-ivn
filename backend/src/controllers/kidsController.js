@@ -158,6 +158,7 @@ async function cadastrar(req, res) {
 
 /**
  * Listar cadastros Kids (para tabs Listar/Buscar)
+ * recepcionado_por na resposta é o nome da pessoa (JOIN com pessoas).
  */
 async function listar(req, res) {
   try {
@@ -165,16 +166,23 @@ async function listar(req, res) {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
     const offset = (page - 1) * limit;
     const busca = req.query.busca ? String(req.query.busca).trim() : '';
+    const dataVisita = req.query.dataVisita ? String(req.query.dataVisita).trim() : '';
 
-    let where = '';
+    const conditions = [];
     const params = [];
     let idx = 1;
 
     if (busca) {
-      where = `WHERE k.nome_crianca ILIKE $${idx} OR k.nome_responsavel ILIKE $${idx} OR k.bairro ILIKE $${idx} OR k.cidade ILIKE $${idx}`;
+      conditions.push(`(k.nome_crianca ILIKE $${idx} OR k.nome_responsavel ILIKE $${idx} OR k.bairro ILIKE $${idx} OR k.cidade ILIKE $${idx})`);
       params.push(`%${busca}%`);
       idx++;
     }
+    if (dataVisita) {
+      conditions.push(`(k.data_visita::date = $${idx})`);
+      params.push(dataVisita);
+      idx++;
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const countResult = await pool.query(
       `SELECT COUNT(*)::int AS total FROM kids_cadastro k ${where}`,
@@ -186,9 +194,12 @@ async function listar(req, res) {
     const limitNum = params.length + 1;
     const offsetNum = params.length + 2;
     const listResult = await pool.query(
-      `SELECT k.id, k.recepcionado_por, k.data_visita, k.foto_crianca, k.nome_crianca, k.data_nascimento_crianca,
+      `SELECT k.id,
+              COALESCE(TRIM(recep.nome || ' ' || COALESCE(recep.sobrenome, '')), '-') AS recepcionado_por,
+              k.data_visita, k.foto_crianca, k.nome_crianca, k.data_nascimento_crianca,
               k.foto_responsavel, k.nome_responsavel, k.whatsapp_responsavel, k.bairro, k.cidade, k.criado_em, k.atualizado_em
        FROM kids_cadastro k
+       LEFT JOIN pessoas recep ON k.recepcionado_por = recep.id
        ${where}
        ORDER BY k.data_visita DESC
        LIMIT $${limitNum} OFFSET $${offsetNum}`,

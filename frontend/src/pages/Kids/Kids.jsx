@@ -2,11 +2,19 @@ import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import BackToDashboard from '../../components/BackToDashboard/BackToDashboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { useAuth } from '../../context/AuthContext';
-import { UserPlus, List, Search, BarChart3, Paperclip, X } from 'lucide-react';
+import { UserPlus, List, Search, BarChart3, Paperclip, X, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useTabsPermissoes } from '../../hooks/useTabsPermissoes';
 import api from '../../services/api';
@@ -456,7 +464,7 @@ const Kids = () => {
               <TabsContent value="listar-kids" className="kids-tabs-content">
                 <div className="tab-content-wrapper">
                   <h2>Listar Kids</h2>
-                  <p className="tab-placeholder">Em breve. Use a tab Cadastro Kids para registrar crianças.</p>
+                  <KidsTable />
                 </div>
               </TabsContent>
             )}
@@ -482,6 +490,237 @@ const Kids = () => {
         </div>
       </main>
     </MainLayout>
+  );
+};
+
+// Data atual no formato YYYY-MM-DD para o filtro
+function getKidsListCurrentDate() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// Tabela Listar Kids (semelhante à Listar Visitantes da Recepção)
+const KidsTable = () => {
+  const { toast } = useToast();
+  const [search, setSearch] = useState('');
+  const [dataVisita, setDataVisita] = useState(() => getKidsListCurrentDate());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [kids, setKids] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 0,
+  });
+
+  useEffect(() => {
+    const fetchKids = async () => {
+      setLoading(true);
+      try {
+        const params = {
+          page: currentPage,
+          limit: pageSize,
+        };
+        if (search.trim()) params.busca = search.trim();
+        if (dataVisita) params.dataVisita = dataVisita;
+        const response = await api.get('/kids', { params });
+        setKids(response.data.kids || []);
+        setPagination({
+          total: response.data.total ?? 0,
+          totalPages: response.data.totalPages ?? 0,
+        });
+      } catch (err) {
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar kids. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchKids();
+  }, [currentPage, pageSize, search, dataVisita, toast]);
+
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  const handleDataVisitaChange = (value) => {
+    setDataVisita(value);
+    setCurrentPage(1);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + kids.length;
+
+  return (
+    <div className="kids-list-table-container">
+      <div className="kids-filters-section">
+        <div className="kids-filters-row">
+          <div className="kids-filter-group">
+            <Label htmlFor="kids-search">Buscar</Label>
+            <div className="kids-search-input-wrapper">
+              <Search className="kids-search-icon" />
+              <Input
+                type="text"
+                id="kids-search"
+                placeholder="Nome da criança, responsável, bairro ou cidade..."
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="form-input kids-search-input"
+              />
+            </div>
+          </div>
+          <div className="kids-filter-group">
+            <Label htmlFor="kids-dataVisita">Data da visita</Label>
+            <Input
+              type="date"
+              id="kids-dataVisita"
+              value={dataVisita}
+              onChange={(e) => handleDataVisitaChange(e.target.value)}
+              className="form-input"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="kids-table-wrapper">
+        {loading ? (
+          <div className="kids-table-loading">Carregando...</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Recepcionado por</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Nome do Kids</TableHead>
+                <TableHead>Nome responsável</TableHead>
+                <TableHead>WhatsApp</TableHead>
+                <TableHead>Ação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {kids.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center">
+                    Nenhum registro encontrado
+                  </TableCell>
+                </TableRow>
+              ) : (
+                kids.map((kid) => (
+                  <TableRow key={kid.id}>
+                    <TableCell>{kid.recepcionadoPor || '-'}</TableCell>
+                    <TableCell>{formatDate(kid.dataVisita)}</TableCell>
+                    <TableCell>{kid.nomeCrianca || '-'}</TableCell>
+                    <TableCell>{kid.nomeResponsavel || '-'}</TableCell>
+                    <TableCell>{kid.whatsappResponsavel || '-'}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="kids-action-btn"
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+
+      <div className="kids-pagination-section">
+        <div className="kids-pagination-info">
+          <span>
+            Mostrando {kids.length > 0 ? startIndex + 1 : 0} a {endIndex} de {pagination.total} registros
+          </span>
+          <div className="kids-page-size-selector">
+            <Label htmlFor="kids-pageSize">Linhas por página:</Label>
+            <select
+              id="kids-pageSize"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="form-select kids-page-size-select"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
+        <div className="kids-pagination-controls">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="kids-pagination-button"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Anterior
+          </Button>
+          <div className="kids-page-numbers">
+            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+              let pageNum;
+              if (pagination.totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= pagination.totalPages - 2) {
+                pageNum = pagination.totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <Button
+                  key={pageNum}
+                  variant={currentPage === pageNum ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCurrentPage(pageNum)}
+                  className="kids-pagination-button kids-page-number"
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+            disabled={currentPage === pagination.totalPages || loading}
+            className="kids-pagination-button"
+          >
+            Próxima
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 };
 
