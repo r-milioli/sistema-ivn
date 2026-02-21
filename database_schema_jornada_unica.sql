@@ -303,6 +303,18 @@ CREATE TABLE IF NOT EXISTS kids_cadastro (
   atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Frequência por dia: se o kid já existe, não duplica cadastro; só registra presença naquele dia
+CREATE TABLE IF NOT EXISTS kids_frequencia (
+  id SERIAL PRIMARY KEY,
+  kid_id INTEGER NOT NULL REFERENCES kids_cadastro(id) ON DELETE CASCADE,
+  data_visita TIMESTAMP NOT NULL,
+  recepcionado_por INTEGER REFERENCES pessoas(id),
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_kids_frequencia_kid_id ON kids_frequencia(kid_id);
+CREATE INDEX IF NOT EXISTS idx_kids_frequencia_data_visita ON kids_frequencia(data_visita);
+CREATE INDEX IF NOT EXISTS idx_kids_frequencia_recepcionado_por ON kids_frequencia(recepcionado_por);
+
 -- =====================================================
 -- CONVERSÕES REGISTRADAS
 -- =====================================================

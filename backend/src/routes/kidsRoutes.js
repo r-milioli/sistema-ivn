@@ -3,7 +3,7 @@ const router = express.Router();
 const { body } = require('express-validator');
 const authMiddleware = require('../middleware/authMiddleware');
 const handleValidationErrors = require('../middleware/validationMiddleware');
-const { cadastrar, listar, uploadMiddleware } = require('../controllers/kidsController');
+const { cadastrar, listar, obterEstatisticas, uploadMiddleware } = require('../controllers/kidsController');
 
 const validarCadastro = [
   body('nomeCrianca').trim().notEmpty().withMessage('Nome completo da criança é obrigatório').isLength({ max: 255 }),
@@ -17,5 +17,6 @@ const validarCadastro = [
 
 router.post('/cadastro', authMiddleware, uploadMiddleware, validarCadastro, handleValidationErrors, cadastrar);
 router.get('/', authMiddleware, listar);
+router.get('/estatisticas', authMiddleware, obterEstatisticas);
 
 module.exports = router;

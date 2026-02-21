@@ -13,8 +13,9 @@ import {
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { useAuth } from '../../context/AuthContext';
-import { UserPlus, List, Search, BarChart3, Paperclip, X, ChevronLeft, ChevronRight, Eye, Plus } from 'lucide-react';
+import { UserPlus, List, Search, BarChart3, Paperclip, X, ChevronLeft, ChevronRight, Eye, Plus, Calendar, TrendingUp, MapPin } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useTabsPermissoes } from '../../hooks/useTabsPermissoes';
 import api, { API_ORIGIN } from '../../services/api';
@@ -191,13 +192,14 @@ const Kids = () => {
       if (formData.fotoCrianca) fd.append('fotoCrianca', formData.fotoCrianca);
       if (formData.fotoResponsavel) fd.append('fotoResponsavel', formData.fotoResponsavel);
 
-      await api.post('/kids/cadastro', fd, {
+      const response = await api.post('/kids/cadastro', fd, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
+      const isFrequencia = response.data?.message && String(response.data.message).toLowerCase().includes('frequência');
       toast({
         title: 'Sucesso!',
-        description: 'Criança cadastrada com sucesso!',
+        description: isFrequencia ? (response.data.message || 'Frequência adicionada para o dia.') : 'Criança cadastrada com sucesso!',
         variant: 'success'
       });
 
@@ -531,8 +533,8 @@ const Kids = () => {
             {tabsVisiveis.some(t => t.value === 'estatisticas') && (
               <TabsContent value="estatisticas" className="kids-tabs-content">
                 <div className="tab-content-wrapper">
-                  <h2>Estatísticas</h2>
-                  <p className="tab-placeholder">Em breve. Estatísticas do ministério Kids.</p>
+                  <h2>Estatísticas Kids</h2>
+                  <EstatisticasKids />
                 </div>
               </TabsContent>
             )}
@@ -947,6 +949,226 @@ const KidsTable = () => {
           </Button>
         </div>
       </div>
+    </div>
+  );
+};
+
+// Estatísticas Kids (semelhante à tab Estatísticas da Recepção)
+const EstatisticasKids = () => {
+  const { toast } = useToast();
+  const [estatisticas, setEstatisticas] = useState({
+    porDia: [],
+    porMes: [],
+    porAno: [],
+    porBairro: [],
+    porDiaSemana: [],
+    resumo: { hoje: 0, mesAtual: 0, anoAtual: 0, total: 0 }
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const buscarEstatisticas = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/kids/estatisticas');
+        setEstatisticas(response.data);
+      } catch (err) {
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar estatísticas. Tente novamente.',
+          variant: 'destructive'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    buscarEstatisticas();
+  }, [toast]);
+
+  if (loading) {
+    return <div className="estatisticas-loading">Carregando estatísticas...</div>;
+  }
+
+  return (
+    <div className="estatisticas-container">
+      <div className="estatisticas-summary">
+        <Card className="stat-card">
+          <CardHeader className="stat-card-header">
+            <CardTitle className="stat-card-title">Hoje</CardTitle>
+          </CardHeader>
+          <CardContent className="stat-card-content">
+            <div className="stat-value">{estatisticas.porDia[estatisticas.porDia.length - 1]?.quantidade ?? estatisticas.resumo.hoje ?? 0}</div>
+            <div className="stat-label">Kids</div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardHeader className="stat-card-header">
+            <CardTitle className="stat-card-title">Este Mês</CardTitle>
+          </CardHeader>
+          <CardContent className="stat-card-content">
+            <div className="stat-value">{estatisticas.porMes.reduce((sum, m) => sum + m.quantidade, 0)}</div>
+            <div className="stat-label">Kids</div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardHeader className="stat-card-header">
+            <CardTitle className="stat-card-title">Este Ano</CardTitle>
+          </CardHeader>
+          <CardContent className="stat-card-content">
+            <div className="stat-value">{estatisticas.porAno[estatisticas.porAno.length - 1]?.quantidade ?? estatisticas.resumo.anoAtual ?? 0}</div>
+            <div className="stat-label">Kids</div>
+          </CardContent>
+        </Card>
+        <Card className="stat-card">
+          <CardHeader className="stat-card-header">
+            <CardTitle className="stat-card-title">Total</CardTitle>
+          </CardHeader>
+          <CardContent className="stat-card-content">
+            <div className="stat-value">{estatisticas.resumo.total ?? estatisticas.porAno.reduce((sum, a) => sum + a.quantidade, 0)}</div>
+            <div className="stat-label">Kids</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="stat-chart-card">
+        <CardHeader>
+          <CardTitle className="stat-chart-title">
+            <Calendar className="stat-icon" />
+            Kids por Dia (Últimos 7 dias)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="chart-container">
+            <div className="bar-chart">
+              {(estatisticas.porDia.length ? estatisticas.porDia : []).map((item, index) => {
+                const maxValue = Math.max(...estatisticas.porDia.map(d => d.quantidade), 1);
+                const height = (item.quantidade / maxValue) * 100;
+                return (
+                  <div key={index} className="bar-chart-item">
+                    <div className="bar-wrapper">
+                      <div className="bar" style={{ height: `${height}%` }} title={`${item.quantidade} kids`} />
+                    </div>
+                    <div className="bar-label">{item.data}</div>
+                    <div className="bar-value">{item.quantidade}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="stat-chart-card">
+        <CardHeader>
+          <CardTitle className="stat-chart-title">
+            <TrendingUp className="stat-icon" />
+            Kids por Mês
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="chart-container">
+            <div className="bar-chart">
+              {(estatisticas.porMes.length ? estatisticas.porMes : []).map((item, index) => {
+                const maxValue = Math.max(...estatisticas.porMes.map(m => m.quantidade), 1);
+                const height = (item.quantidade / maxValue) * 100;
+                return (
+                  <div key={index} className="bar-chart-item">
+                    <div className="bar-wrapper">
+                      <div className="bar" style={{ height: `${height}%` }} title={`${item.quantidade} kids`} />
+                    </div>
+                    <div className="bar-label">{item.mes}</div>
+                    <div className="bar-value">{item.quantidade}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="stat-chart-card">
+        <CardHeader>
+          <CardTitle className="stat-chart-title">
+            <BarChart3 className="stat-icon" />
+            Kids por Ano
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="chart-container">
+            <div className="bar-chart">
+              {(estatisticas.porAno.length ? estatisticas.porAno : []).map((item, index) => {
+                const maxValue = Math.max(...estatisticas.porAno.map(a => a.quantidade), 1);
+                const height = (item.quantidade / maxValue) * 100;
+                return (
+                  <div key={index} className="bar-chart-item">
+                    <div className="bar-wrapper">
+                      <div className="bar" style={{ height: `${height}%` }} title={`${item.quantidade} kids`} />
+                    </div>
+                    <div className="bar-label">{item.ano}</div>
+                    <div className="bar-value">{item.quantidade}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="stat-chart-card">
+        <CardHeader>
+          <CardTitle className="stat-chart-title">
+            <MapPin className="stat-icon" />
+            Kids por Bairro
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="list-chart">
+            {(estatisticas.porBairro.length ? estatisticas.porBairro : []).map((item, index) => {
+              const maxValue = Math.max(...estatisticas.porBairro.map(b => b.quantidade), 1);
+              const width = (item.quantidade / maxValue) * 100;
+              return (
+                <div key={index} className="list-chart-item">
+                  <div className="list-chart-label">
+                    <span>{item.bairro}</span>
+                    <span className="list-chart-value">{item.quantidade} ({item.percentual}%)</span>
+                  </div>
+                  <div className="list-chart-bar-wrapper">
+                    <div className="list-chart-bar" style={{ width: `${width}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="stat-chart-card">
+        <CardHeader>
+          <CardTitle className="stat-chart-title">
+            <Calendar className="stat-icon" />
+            Kids por Dia da Semana
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="chart-container">
+            <div className="bar-chart">
+              {(estatisticas.porDiaSemana.length ? estatisticas.porDiaSemana : []).map((item, index) => {
+                const maxValue = Math.max(...estatisticas.porDiaSemana.map(d => d.quantidade), 1);
+                const height = (item.quantidade / maxValue) * 100;
+                return (
+                  <div key={index} className="bar-chart-item">
+                    <div className="bar-wrapper">
+                      <div className="bar" style={{ height: `${height}%` }} title={`${item.quantidade} kids`} />
+                    </div>
+                    <div className="bar-label">{item.dia}</div>
+                    <div className="bar-value">{item.quantidade}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
