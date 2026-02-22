@@ -196,7 +196,9 @@ async function cadastrar(req, res) {
 }
 
 /**
- * Listar visitas Kids (cadastro + frequências): cada linha = uma presença naquele dia.
+ * Listar Kids: dois modos
+ * - Com dataVisita (tab Listar): retorna visitas (cadastro + frequências), uma linha por presença naquele dia.
+ * - Sem dataVisita (tab Buscar): retorna apenas kids únicos da tabela kids_cadastro, um resultado por criança.
  * recepcionado_por na resposta é o nome da pessoa (JOIN com pessoas).
  */
 async function listar(req, res) {
@@ -212,16 +214,57 @@ async function listar(req, res) {
     let idx = 1;
 
     if (busca) {
-      conditions.push(`(v.nome_crianca ILIKE $${idx} OR v.nome_responsavel ILIKE $${idx} OR v.bairro ILIKE $${idx} OR v.cidade ILIKE $${idx})`);
       params.push(`%${busca}%`);
       idx++;
     }
-    if (dataVisita) {
-      conditions.push(`(v.data_visita::date = $${idx})`);
-      params.push(dataVisita);
-      idx++;
+
+    if (!dataVisita) {
+      if (busca) {
+        conditions.push(`(k.nome_crianca ILIKE $1 OR k.nome_responsavel ILIKE $1 OR k.bairro ILIKE $1 OR k.cidade ILIKE $1)`);
+      }
+      // Busca: apenas kids únicos da tabela kids_cadastro (um resultado por criança)
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      const countResult = await pool.query(
+        `SELECT COUNT(*)::int AS total FROM kids_cadastro k ${where}`,
+        params
+      );
+      const total = countResult.rows[0].total;
+
+      const listParams = [...params, limit, offset];
+      const limitNum = params.length + 1;
+      const offsetNum = params.length + 2;
+      const listResult = await pool.query(
+        `SELECT k.id,
+                COALESCE(TRIM(recep.nome || ' ' || COALESCE(recep.sobrenome, '')), '-') AS recepcionado_por,
+                k.data_visita, k.foto_crianca, k.nome_crianca, k.data_nascimento_crianca,
+                k.foto_responsavel, k.nome_responsavel, k.whatsapp_responsavel, k.bairro, k.cidade, k.criado_em, k.atualizado_em
+         FROM kids_cadastro k
+         LEFT JOIN pessoas recep ON k.recepcionado_por = recep.id
+         ${where}
+         ORDER BY k.criado_em DESC
+         LIMIT $${limitNum} OFFSET $${offsetNum}`,
+        listParams
+      );
+      const list = listResult.rows.map(rowToKid);
+      return res.json({
+        kids: list,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      });
     }
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Listar por data: visitas (cadastro + frequências), uma linha por presença naquele dia
+    params.push(dataVisita);
+    const dataVisitaParamIdx = idx;
+    idx++;
+    const conditionsVisita = [];
+    if (busca) {
+      conditionsVisita.push(`(v.nome_crianca ILIKE $1 OR v.nome_responsavel ILIKE $1 OR v.bairro ILIKE $1 OR v.cidade ILIKE $1)`);
+    }
+    conditionsVisita.push(`(v.data_visita::date = $${dataVisitaParamIdx})`);
+    const where = `WHERE ${conditionsVisita.join(' AND ')}`;
 
     const countSql = `
       WITH all_visits AS (
