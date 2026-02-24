@@ -347,6 +347,39 @@ CREATE TABLE IF NOT EXISTS comentarios_acompanhamento (
 CREATE INDEX IF NOT EXISTS idx_comentarios_acompanhamento_pessoa_autor ON comentarios_acompanhamento(pessoa_id, autor_pessoa_id);
 
 -- =====================================================
+-- ACOMPANHAMENTO (GESTÃO DE PESSOAS)
+-- =====================================================
+-- Prontuário por pessoa: acompanhantes (editores) e visibilidade (leitura)
+
+CREATE TABLE IF NOT EXISTS acompanhamento (
+  id SERIAL PRIMARY KEY,
+  pessoa_id INTEGER NOT NULL UNIQUE REFERENCES pessoas(id) ON DELETE CASCADE,
+  arquivado BOOLEAN DEFAULT FALSE,
+  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_acompanhamento_pessoa_id ON acompanhamento(pessoa_id);
+CREATE INDEX IF NOT EXISTS idx_acompanhamento_arquivado ON acompanhamento(arquivado);
+
+CREATE TABLE IF NOT EXISTS acompanhamento_acompanhantes (
+  acompanhamento_id INTEGER NOT NULL REFERENCES acompanhamento(id) ON DELETE CASCADE,
+  pessoa_id INTEGER NOT NULL REFERENCES pessoas(id) ON DELETE CASCADE,
+  PRIMARY KEY (acompanhamento_id, pessoa_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_acompanhamento_acompanhantes_acompanhamento ON acompanhamento_acompanhantes(acompanhamento_id);
+CREATE INDEX IF NOT EXISTS idx_acompanhamento_acompanhantes_pessoa ON acompanhamento_acompanhantes(pessoa_id);
+
+CREATE TABLE IF NOT EXISTS acompanhamento_visibilidade (
+  acompanhamento_id INTEGER NOT NULL REFERENCES acompanhamento(id) ON DELETE CASCADE,
+  pessoa_id INTEGER NOT NULL REFERENCES pessoas(id) ON DELETE CASCADE,
+  PRIMARY KEY (acompanhamento_id, pessoa_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_acompanhamento_visibilidade_acompanhamento ON acompanhamento_visibilidade(acompanhamento_id);
+CREATE INDEX IF NOT EXISTS idx_acompanhamento_visibilidade_pessoa ON acompanhamento_visibilidade(pessoa_id);
+
+-- =====================================================
 -- FICHA CADASTRAL COMPLETA
 -- =====================================================
 -- Tabela com informações detalhadas da ficha cadastral
@@ -1781,6 +1814,14 @@ INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, v
 SELECT id, 'Estatísticas', 'estatisticas', 'BarChart3', 4, TRUE, FALSE, TRUE, TRUE, TRUE
 FROM paginas_config WHERE rota = '/kids'
   AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'estatisticas');
+
+-- =====================================================
+-- TABS DA PÁGINA GESTÃO DE PESSOAS
+-- =====================================================
+INSERT INTO paginas_tabs (pagina_id, nome, valor, icone, ordem, visivel_geral, visivel_visitantes, visivel_lider_ministerio, visivel_participa_ministerio, ativo)
+SELECT id, 'Acompanhamento', 'acompanhamento', 'ClipboardList', 5, TRUE, FALSE, TRUE, TRUE, TRUE
+FROM paginas_config WHERE rota = '/gestao-pessoas'
+  AND NOT EXISTS (SELECT 1 FROM paginas_tabs pt WHERE pt.pagina_id = paginas_config.id AND pt.valor = 'acompanhamento');
 
 -- =====================================================
 -- FIM DO SCHEMA REFATORADO

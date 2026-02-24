@@ -354,7 +354,8 @@ const TABS_POR_PAGINA = {
     { nome: 'Adicionar Pessoas', valor: 'gestao-pessoas', icone: 'Users', ordem: 1 },
     { nome: 'Editar Pessoas', valor: 'editar-pessoas', icone: 'Edit', ordem: 2 },
     { nome: 'Lista de Pessoas', valor: 'lista-pessoas', icone: 'List', ordem: 3 },
-    { nome: 'Atribuição', valor: 'atribuicao', icone: 'UserCog', ordem: 4 }
+    { nome: 'Atribuição', valor: 'atribuicao', icone: 'UserCog', ordem: 4 },
+    { nome: 'Acompanhamento', valor: 'acompanhamento', icone: 'ClipboardList', ordem: 5 }
   ],
   '/eventos': [
     { nome: 'Agenda', valor: 'agenda', icone: 'Calendar', ordem: 1 },

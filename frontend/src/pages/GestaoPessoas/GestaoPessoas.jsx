@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../components/ui/table';
-import { Users, Edit, Search, List, Trash2, ChevronLeft, ChevronRight, UserCog, Plus, X } from 'lucide-react';
+import { Users, Edit, Search, List, Trash2, ChevronLeft, ChevronRight, UserCog, Plus, X, ClipboardList, FileText, Archive } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import api from '../../services/api';
 import {
@@ -26,6 +26,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../../components/ui/dialog';
 import './GestaoPessoas.css';
 
 // Formulário de pessoa (fora do componente para evitar re-render a cada digitação)
@@ -738,6 +745,33 @@ const GestaoPessoas = () => {
     }));
   };
 
+  // Estados para tab Acompanhamento
+  const [acompanhamentoPessoaQuery, setAcompanhamentoPessoaQuery] = useState('');
+  const [pessoaAcompanhamentoSelecionada, setPessoaAcompanhamentoSelecionada] = useState(null);
+  const [acompanhantesList, setAcompanhantesList] = useState([]); // [{ id, nome }]
+  const [visibilidadeList, setVisibilidadeList] = useState([]); // [{ id, nome }]
+  const [acompanhantesAddQuery, setAcompanhantesAddQuery] = useState('');
+  const [acompanhantesBuscaResults, setAcompanhantesBuscaResults] = useState([]);
+  const [visibilidadeAddQuery, setVisibilidadeAddQuery] = useState('');
+  const [visibilidadeBuscaResults, setVisibilidadeBuscaResults] = useState([]);
+  const [acompanhamentos, setAcompanhamentos] = useState([]);
+  const [totalAcompanhamentos, setTotalAcompanhamentos] = useState(0);
+  const [pageAcompanhamentos, setPageAcompanhamentos] = useState(1);
+  const [pageSizeAcompanhamentos, setPageSizeAcompanhamentos] = useState(10);
+  const [loadingAcompanhamento, setLoadingAcompanhamento] = useState(false);
+  const [dialogAcompanhamentoAcao, setDialogAcompanhamentoAcao] = useState(null); // 'arquivar' | 'excluir'
+  const [acompanhamentoAcaoId, setAcompanhamentoAcaoId] = useState(null);
+  const [acompanhamentoAcaoNome, setAcompanhamentoAcaoNome] = useState('');
+  const [modalAcompanhamentoOpen, setModalAcompanhamentoOpen] = useState(false);
+  const [modalAcompanhamentoData, setModalAcompanhamentoData] = useState(null);
+  const [loadingModalAcompanhamento, setLoadingModalAcompanhamento] = useState(false);
+  const [savingModalAcompanhamento, setSavingModalAcompanhamento] = useState(false);
+  const [acompanhamentoPessoaBusca, setAcompanhamentoPessoaBusca] = useState([]);
+  const [modalAcompAcompanhanteQuery, setModalAcompAcompanhanteQuery] = useState('');
+  const [modalAcompVisibilidadeQuery, setModalAcompVisibilidadeQuery] = useState('');
+  const [modalAcompAcompanhanteBusca, setModalAcompAcompanhanteBusca] = useState([]);
+  const [modalAcompVisibilidadeBusca, setModalAcompVisibilidadeBusca] = useState([]);
+
   // Estados para seleção de estágios e ministérios
   const [estagioSelecionado, setEstagioSelecionado] = useState('');
   const [ministerioLiderSelecionado, setMinisterioLiderSelecionado] = useState('');
@@ -921,6 +955,215 @@ const GestaoPessoas = () => {
     setMinisterioParticipanteSelecionado('');
   };
 
+  // Acompanhamento: buscar pessoa (primeiro campo)
+  useEffect(() => {
+    if (!acompanhamentoPessoaQuery || acompanhamentoPessoaQuery.trim().length < 2) {
+      setAcompanhamentoPessoaBusca([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      api.get('/pessoas/buscar', { params: { q: acompanhamentoPessoaQuery } })
+        .then((res) => setAcompanhamentoPessoaBusca(res.data.pessoas || []))
+        .catch(() => setAcompanhamentoPessoaBusca([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [acompanhamentoPessoaQuery]);
+
+  // Acompanhamento: buscar para adicionar acompanhante
+  useEffect(() => {
+    if (!acompanhantesAddQuery || acompanhantesAddQuery.trim().length < 2) {
+      setAcompanhantesBuscaResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      api.get('/pessoas/buscar', { params: { q: acompanhantesAddQuery } })
+        .then((res) => setAcompanhantesBuscaResults(res.data.pessoas || []))
+        .catch(() => setAcompanhantesBuscaResults([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [acompanhantesAddQuery]);
+
+  // Acompanhamento: buscar para adicionar visibilidade
+  useEffect(() => {
+    if (!visibilidadeAddQuery || visibilidadeAddQuery.trim().length < 2) {
+      setVisibilidadeBuscaResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      api.get('/pessoas/buscar', { params: { q: visibilidadeAddQuery } })
+        .then((res) => setVisibilidadeBuscaResults(res.data.pessoas || []))
+        .catch(() => setVisibilidadeBuscaResults([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [visibilidadeAddQuery]);
+
+  const loadAcompanhamentos = async (pagina = pageAcompanhamentos, pageSize = pageSizeAcompanhamentos) => {
+    try {
+      const res = await api.get('/acompanhamento', { params: { page: pagina, limit: pageSize } });
+      setAcompanhamentos(res.data.acompanhamentos || []);
+      setTotalAcompanhamentos(res.data.total ?? 0);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Erro', description: 'Erro ao carregar acompanhamentos.', variant: 'destructive' });
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'acompanhamento') loadAcompanhamentos(pageAcompanhamentos, pageSizeAcompanhamentos);
+  }, [activeTab, pageAcompanhamentos, pageSizeAcompanhamentos]);
+
+  const totalPagesAcompanhamentos = Math.max(1, Math.ceil(totalAcompanhamentos / pageSizeAcompanhamentos));
+  const startAcompanhamentos = (pageAcompanhamentos - 1) * pageSizeAcompanhamentos + 1;
+  const endAcompanhamentos = Math.min(pageAcompanhamentos * pageSizeAcompanhamentos, totalAcompanhamentos);
+
+  const handleArquivarAcompanhamentoClick = (id, nomePessoa) => {
+    setAcompanhamentoAcaoId(id);
+    setAcompanhamentoAcaoNome(nomePessoa);
+    setDialogAcompanhamentoAcao('arquivar');
+  };
+
+  const handleExcluirAcompanhamentoClick = (id, nomePessoa) => {
+    setAcompanhamentoAcaoId(id);
+    setAcompanhamentoAcaoNome(nomePessoa);
+    setDialogAcompanhamentoAcao('excluir');
+  };
+
+  const handleConfirmarAcaoAcompanhamento = async () => {
+    if (!acompanhamentoAcaoId) return;
+    try {
+      if (dialogAcompanhamentoAcao === 'arquivar') {
+        await api.patch(`/acompanhamento/${acompanhamentoAcaoId}/arquivar`);
+        toast({ title: 'Sucesso', description: 'Acompanhamento arquivado.', variant: 'success' });
+      } else {
+        await api.delete(`/acompanhamento/${acompanhamentoAcaoId}`);
+        toast({ title: 'Sucesso', description: 'Acompanhamento excluído.', variant: 'success' });
+      }
+      setDialogAcompanhamentoAcao(null);
+      setAcompanhamentoAcaoId(null);
+      setAcompanhamentoAcaoNome('');
+      if (modalAcompanhamentoOpen && modalAcompanhamentoData?.id === acompanhamentoAcaoId) {
+        setModalAcompanhamentoOpen(false);
+      }
+      loadAcompanhamentos(pageAcompanhamentos, pageSizeAcompanhamentos);
+    } catch (err) {
+      toast({
+        title: 'Erro',
+        description: err.response?.data?.message || (dialogAcompanhamentoAcao === 'arquivar' ? 'Erro ao arquivar.' : 'Erro ao excluir.'),
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Modal: busca para adicionar acompanhante
+  useEffect(() => {
+    if (!modalAcompanhamentoOpen || !modalAcompAcompanhanteQuery || modalAcompAcompanhanteQuery.trim().length < 2) {
+      setModalAcompAcompanhanteBusca([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      api.get('/pessoas/buscar', { params: { q: modalAcompAcompanhanteQuery } })
+        .then((res) => setModalAcompAcompanhanteBusca(res.data.pessoas || []))
+        .catch(() => setModalAcompAcompanhanteBusca([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [modalAcompanhamentoOpen, modalAcompAcompanhanteQuery]);
+
+  // Modal: busca para adicionar visibilidade
+  useEffect(() => {
+    if (!modalAcompanhamentoOpen || !modalAcompVisibilidadeQuery || modalAcompVisibilidadeQuery.trim().length < 2) {
+      setModalAcompVisibilidadeBusca([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      api.get('/pessoas/buscar', { params: { q: modalAcompVisibilidadeQuery } })
+        .then((res) => setModalAcompVisibilidadeBusca(res.data.pessoas || []))
+        .catch(() => setModalAcompVisibilidadeBusca([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [modalAcompanhamentoOpen, modalAcompVisibilidadeQuery]);
+
+  const handleSelectPessoaAcompanhamento = (pessoa) => {
+    setPessoaAcompanhamentoSelecionada(pessoa);
+    setAcompanhamentoPessoaQuery('');
+    setAcompanhamentoPessoaBusca([]);
+  };
+
+  const handleCriarAcompanhamento = async (e) => {
+    e.preventDefault();
+    if (!pessoaAcompanhamentoSelecionada) {
+      toast({ title: 'Erro', description: 'Selecione a pessoa a ser acompanhada.', variant: 'destructive' });
+      return;
+    }
+    setLoadingAcompanhamento(true);
+    try {
+      await api.post('/acompanhamento', {
+        pessoaId: pessoaAcompanhamentoSelecionada.id,
+        acompanhantesIds: acompanhantesList.map((p) => p.id),
+        visibilidadeIds: visibilidadeList.map((p) => p.id)
+      });
+      toast({ title: 'Sucesso', description: 'Acompanhamento criado com sucesso!', variant: 'success' });
+      setPessoaAcompanhamentoSelecionada(null);
+      setAcompanhantesList([]);
+      setVisibilidadeList([]);
+      setAcompanhantesAddQuery('');
+      setVisibilidadeAddQuery('');
+      setAcompanhantesBuscaResults([]);
+      setVisibilidadeBuscaResults([]);
+      loadAcompanhamentos();
+    } catch (err) {
+      toast({
+        title: 'Erro',
+        description: err.response?.data?.message || 'Erro ao criar acompanhamento.',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingAcompanhamento(false);
+    }
+  };
+
+  const handleOpenModalAcompanhamento = async (id) => {
+    setModalAcompanhamentoOpen(true);
+    setModalAcompanhamentoData(null);
+    setModalAcompAcompanhanteQuery('');
+    setModalAcompVisibilidadeQuery('');
+    setModalAcompAcompanhanteBusca([]);
+    setModalAcompVisibilidadeBusca([]);
+    setLoadingModalAcompanhamento(true);
+    try {
+      const res = await api.get(`/acompanhamento/${id}`);
+      setModalAcompanhamentoData(res.data);
+    } catch (err) {
+      toast({ title: 'Erro', description: 'Erro ao carregar acompanhamento.', variant: 'destructive' });
+      setModalAcompanhamentoOpen(false);
+    } finally {
+      setLoadingModalAcompanhamento(false);
+    }
+  };
+
+  const handleSaveModalAcompanhamento = async () => {
+    if (!modalAcompanhamentoData) return;
+    setSavingModalAcompanhamento(true);
+    try {
+      await api.put(`/acompanhamento/${modalAcompanhamentoData.id}`, {
+        acompanhantesIds: modalAcompanhamentoData.acompanhantes.map((p) => p.id),
+        visibilidadeIds: modalAcompanhamentoData.visibilidade.map((p) => p.id)
+      });
+      toast({ title: 'Sucesso', description: 'Acompanhamento atualizado.', variant: 'success' });
+      setModalAcompanhamentoOpen(false);
+      loadAcompanhamentos(pageAcompanhamentos, pageSizeAcompanhamentos);
+    } catch (err) {
+      toast({ title: 'Erro', description: err.response?.data?.message || 'Erro ao salvar.', variant: 'destructive' });
+    } finally {
+      setSavingModalAcompanhamento(false);
+    }
+  };
+
+  const formatarData = (dateStr) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   return (
     <MainLayout>
       <main className="dashboard-main">
@@ -945,6 +1188,10 @@ const GestaoPessoas = () => {
               <TabsTrigger value="atribuicao" className="gestao-pessoas-tabs-trigger">
                 <UserCog className="tab-icon" />
                 <span>Atribuição</span>
+              </TabsTrigger>
+              <TabsTrigger value="acompanhamento" className="gestao-pessoas-tabs-trigger">
+                <ClipboardList className="tab-icon" />
+                <span>Acompanhamento</span>
               </TabsTrigger>
             </TabsList>
             
@@ -1589,9 +1836,497 @@ const GestaoPessoas = () => {
                 )}
               </div>
             </TabsContent>
+
+            <TabsContent value="acompanhamento" className="gestao-pessoas-tabs-content">
+              <div className="tab-content-wrapper">
+                <h2>Acompanhamento</h2>
+
+                <div className="search-section">
+                  <Label htmlFor="search-pessoa-acompanhamento">Buscar pessoa a ser acompanhada</Label>
+                  <div className="search-input-wrapper">
+                    <Search className="search-icon" />
+                    <Input
+                      type="text"
+                      id="search-pessoa-acompanhamento"
+                      placeholder="Digite o nome, email ou telefone..."
+                      value={acompanhamentoPessoaQuery}
+                      onChange={(e) => setAcompanhamentoPessoaQuery(e.target.value)}
+                      className="form-input search-input"
+                      disabled={!!pessoaAcompanhamentoSelecionada}
+                    />
+                  </div>
+                  {acompanhamentoPessoaQuery.trim().length >= 2 && !pessoaAcompanhamentoSelecionada && (
+                    <>
+                      {acompanhamentoPessoaBusca.length > 0 ? (
+                        <div className="search-results-dropdown">
+                          {acompanhamentoPessoaBusca.map((pessoa) => (
+                            <div
+                              key={pessoa.id}
+                              className="search-result-item"
+                              onClick={() => handleSelectPessoaAcompanhamento(pessoa)}
+                            >
+                              <span className="result-name">{pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim()}</span>
+                              {pessoa.email && <span className="result-email">{pessoa.email}</span>}
+                              {pessoa.telefone && <span className="result-phone">{pessoa.telefone}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="search-no-results">Nenhuma pessoa encontrada. Digite nome, e-mail ou telefone.</div>
+                      )}
+                    </>
+                  )}
+                  {pessoaAcompanhamentoSelecionada && (
+                    <div className="selected-person">
+                      <div className="selected-person-info">
+                        <div className="selected-person-name">
+                          {pessoaAcompanhamentoSelecionada.nome} {pessoaAcompanhamentoSelecionada.sobrenome}
+                        </div>
+                      </div>
+                      <Button type="button" variant="outline" onClick={() => { setPessoaAcompanhamentoSelecionada(null); setAcompanhantesList([]); setVisibilidadeList([]); }} className="clear-selection-button">
+                        Limpar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {pessoaAcompanhamentoSelecionada && (
+                  <form onSubmit={handleCriarAcompanhamento} className="pessoa-form">
+                    <div className="form-row">
+                      <div className="form-group">
+                        <Label>Acompanhantes (editam o relatório)</Label>
+                        <div className="autores-wrapper">
+                          <div className="search-input-wrapper" style={{ marginBottom: 8 }}>
+                            <Search className="search-icon" />
+                            <Input
+                              type="text"
+                              placeholder="Buscar pessoa para adicionar como acompanhante..."
+                              value={acompanhantesAddQuery}
+                              onChange={(e) => setAcompanhantesAddQuery(e.target.value)}
+                              className="form-input search-input"
+                            />
+                          </div>
+                          {acompanhantesAddQuery.trim().length >= 2 && (
+                            <>
+                              {acompanhantesBuscaResults.filter((p) => !acompanhantesList.some((a) => a.id === p.id)).length > 0 ? (
+                                <div className="search-results-dropdown">
+                                  {acompanhantesBuscaResults
+                                    .filter((p) => !acompanhantesList.some((a) => a.id === p.id))
+                                    .map((pessoa) => (
+                                      <div
+                                        key={pessoa.id}
+                                        className="search-result-item"
+                                        onClick={() => {
+                                          const nome = pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim();
+                                          setAcompanhantesList((prev) => [...prev, { id: pessoa.id, nome }]);
+                                          setAcompanhantesAddQuery('');
+                                          setAcompanhantesBuscaResults([]);
+                                        }}
+                                      >
+                                        <span className="result-name">{pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim()}</span>
+                                      </div>
+                                    ))}
+                                </div>
+                              ) : (
+                                <div className="search-no-results">Nenhuma pessoa encontrada.</div>
+                              )}
+                            </>
+                          )}
+                          {acompanhantesList.length > 0 && (
+                            <div className="autores-list">
+                              <Label>Acompanhantes adicionados:</Label>
+                              <div className="autores-tags">
+                                {acompanhantesList.map((p) => (
+                                  <div key={p.id} className="autor-tag">
+                                    <span>{p.nome}</span>
+                                    <button type="button" onClick={() => setAcompanhantesList((prev) => prev.filter((x) => x.id !== p.id))} className="remove-autor-button">
+                                      <X className="remove-icon" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <Label>Pessoas com visibilidade de leitura</Label>
+                        <div className="autores-wrapper">
+                          <div className="search-input-wrapper" style={{ marginBottom: 8 }}>
+                            <Search className="search-icon" />
+                            <Input
+                              type="text"
+                              placeholder="Buscar pessoa para adicionar visibilidade..."
+                              value={visibilidadeAddQuery}
+                              onChange={(e) => setVisibilidadeAddQuery(e.target.value)}
+                              className="form-input search-input"
+                            />
+                          </div>
+                          {visibilidadeAddQuery.trim().length >= 2 && (
+                            <>
+                              {visibilidadeBuscaResults.filter((p) => !visibilidadeList.some((v) => v.id === p.id)).length > 0 ? (
+                                <div className="search-results-dropdown">
+                                  {visibilidadeBuscaResults
+                                    .filter((p) => !visibilidadeList.some((v) => v.id === p.id))
+                                    .map((pessoa) => (
+                                      <div
+                                        key={pessoa.id}
+                                        className="search-result-item"
+                                        onClick={() => {
+                                          const nome = pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim();
+                                          setVisibilidadeList((prev) => [...prev, { id: pessoa.id, nome }]);
+                                          setVisibilidadeAddQuery('');
+                                          setVisibilidadeBuscaResults([]);
+                                        }}
+                                      >
+                                        <span className="result-name">{pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim()}</span>
+                                      </div>
+                                    ))}
+                                </div>
+                              ) : (
+                                <div className="search-no-results">Nenhuma pessoa encontrada.</div>
+                              )}
+                            </>
+                          )}
+                          {visibilidadeList.length > 0 && (
+                            <div className="autores-list">
+                              <Label>Visibilidade adicionada:</Label>
+                              <div className="autores-tags">
+                                {visibilidadeList.map((p) => (
+                                  <div key={p.id} className="autor-tag">
+                                    <span>{p.nome}</span>
+                                    <button type="button" onClick={() => setVisibilidadeList((prev) => prev.filter((x) => x.id !== p.id))} className="remove-autor-button">
+                                      <X className="remove-icon" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="form-actions">
+                      <Button type="submit" className="submit-button" disabled={loadingAcompanhamento}>
+                        {loadingAcompanhamento ? 'Criando...' : 'Criar acompanhamento'}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="pessoas-table-container" style={{ marginTop: 24 }}>
+                  <h3>Acompanhamentos criados</h3>
+                  <div className="table-wrapper">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data de criação</TableHead>
+                          <TableHead>Nome da pessoa acompanhada</TableHead>
+                          <TableHead className="text-right">Ação</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {acompanhamentos.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center">
+                              Nenhum acompanhamento cadastrado.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          acompanhamentos.map((a) => (
+                            <TableRow key={a.id}>
+                              <TableCell>{formatarData(a.criadoEm)}</TableCell>
+                              <TableCell>{a.nomePessoa}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="acompanhamento-acoes-cell">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenModalAcompanhamento(a.id)}
+                                    title="Abrir detalhes"
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleArquivarAcompanhamentoClick(a.id, a.nomePessoa)}
+                                    title="Arquivar"
+                                  >
+                                    <Archive className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleExcluirAcompanhamentoClick(a.id, a.nomePessoa)}
+                                    title="Excluir"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {totalAcompanhamentos > 0 && (
+                    <div className="pagination-section acompanhamento-pagination">
+                      <div className="pagination-info">
+                        <span>
+                          Mostrando {startAcompanhamentos} a {endAcompanhamentos} de {totalAcompanhamentos} registros
+                        </span>
+                        <div className="page-size-selector">
+                          <Label htmlFor="acompanhamento-pageSize">Linhas por página:</Label>
+                          <select
+                            id="acompanhamento-pageSize"
+                            value={pageSizeAcompanhamentos}
+                            onChange={(e) => {
+                              setPageSizeAcompanhamentos(Number(e.target.value));
+                              setPageAcompanhamentos(1);
+                            }}
+                            className="form-select page-size-select"
+                          >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="pagination-controls">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPageAcompanhamentos((p) => Math.max(1, p - 1))}
+                          disabled={pageAcompanhamentos <= 1}
+                          className="pagination-button"
+                        >
+                          <ChevronLeft className="h-4 w-4" /> Anterior
+                        </Button>
+                        <div className="page-numbers">
+                          {Array.from({ length: Math.min(5, totalPagesAcompanhamentos) }, (_, i) => {
+                            let pageNum;
+                            if (totalPagesAcompanhamentos <= 5) pageNum = i + 1;
+                            else if (pageAcompanhamentos <= 3) pageNum = i + 1;
+                            else if (pageAcompanhamentos >= totalPagesAcompanhamentos - 2) pageNum = totalPagesAcompanhamentos - 4 + i;
+                            else pageNum = pageAcompanhamentos - 2 + i;
+                            return (
+                              <Button
+                                key={pageNum}
+                                type="button"
+                                variant={pageAcompanhamentos === pageNum ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setPageAcompanhamentos(pageNum)}
+                                className="pagination-button page-number"
+                              >
+                                {pageNum}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPageAcompanhamentos((p) => Math.min(totalPagesAcompanhamentos, p + 1))}
+                          disabled={pageAcompanhamentos >= totalPagesAcompanhamentos}
+                          className="pagination-button"
+                        >
+                          Próxima <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
           </Tabs>
         </div>
       </main>
+
+      {/* Modal Acompanhamento */}
+      <Dialog open={modalAcompanhamentoOpen} onOpenChange={setModalAcompanhamentoOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalhes do acompanhamento</DialogTitle>
+            <DialogDescription>
+              Edite acompanhantes e pessoas com visibilidade de leitura.
+            </DialogDescription>
+          </DialogHeader>
+          {loadingModalAcompanhamento ? (
+            <p>Carregando...</p>
+          ) : modalAcompanhamentoData ? (
+            <div className="acompanhamento-modal-body">
+              <div className="form-row form-row-2">
+                <div className="form-group">
+                  <Label>Data de criação</Label>
+                  <p>{formatarData(modalAcompanhamentoData.criadoEm)}</p>
+                </div>
+                <div className="form-group">
+                  <Label>Pessoa acompanhada</Label>
+                  <p><strong>{modalAcompanhamentoData.nomePessoa}</strong></p>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <Label>Acompanhantes</Label>
+                  <div className="autores-wrapper">
+                    <div className="search-input-wrapper" style={{ marginBottom: 8 }}>
+                      <Search className="search-icon" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar para adicionar..."
+                        value={modalAcompAcompanhanteQuery}
+                        onChange={(e) => setModalAcompAcompanhanteQuery(e.target.value)}
+                        className="form-input search-input"
+                      />
+                    </div>
+                    {modalAcompAcompanhanteQuery.trim().length >= 2 && (
+                      <>
+                        {modalAcompAcompanhanteBusca.filter((p) => !modalAcompanhamentoData.acompanhantes.some((a) => a.id === p.id)).length > 0 ? (
+                          <div className="search-results-dropdown">
+                            {modalAcompAcompanhanteBusca
+                              .filter((p) => !modalAcompanhamentoData.acompanhantes.some((a) => a.id === p.id))
+                              .map((pessoa) => (
+                                <div
+                                  key={pessoa.id}
+                                  className="search-result-item"
+                                  onClick={() => {
+                                    const nome = pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim();
+                                    setModalAcompanhamentoData((prev) => prev ? { ...prev, acompanhantes: [...prev.acompanhantes, { id: pessoa.id, nome }] } : null);
+                                    setModalAcompAcompanhanteQuery('');
+                                    setModalAcompAcompanhanteBusca([]);
+                                  }}
+                                >
+                                  <span className="result-name">{pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim()}</span>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <div className="search-no-results">Nenhuma pessoa encontrada.</div>
+                        )}
+                      </>
+                    )}
+                    <div className="autores-list">
+                      {modalAcompanhamentoData.acompanhantes.map((p) => (
+                        <div key={p.id} className="autor-tag">
+                          <span>{p.nome}</span>
+                          <button
+                            type="button"
+                            className="remove-autor-button"
+                            onClick={() => setModalAcompanhamentoData((prev) => prev ? { ...prev, acompanhantes: prev.acompanhantes.filter((x) => x.id !== p.id) } : null)}
+                          >
+                            <X className="remove-icon" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <Label>Pessoas com visibilidade de leitura</Label>
+                  <div className="autores-wrapper">
+                    <div className="search-input-wrapper" style={{ marginBottom: 8 }}>
+                      <Search className="search-icon" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar para adicionar..."
+                        value={modalAcompVisibilidadeQuery}
+                        onChange={(e) => setModalAcompVisibilidadeQuery(e.target.value)}
+                        className="form-input search-input"
+                      />
+                    </div>
+                    {modalAcompVisibilidadeQuery.trim().length >= 2 && (
+                      <>
+                        {modalAcompVisibilidadeBusca.filter((p) => !modalAcompanhamentoData.visibilidade.some((v) => v.id === p.id)).length > 0 ? (
+                          <div className="search-results-dropdown">
+                            {modalAcompVisibilidadeBusca
+                              .filter((p) => !modalAcompanhamentoData.visibilidade.some((v) => v.id === p.id))
+                              .map((pessoa) => (
+                                <div
+                                  key={pessoa.id}
+                                  className="search-result-item"
+                                  onClick={() => {
+                                    const nome = pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim();
+                                    setModalAcompanhamentoData((prev) => prev ? { ...prev, visibilidade: [...prev.visibilidade, { id: pessoa.id, nome }] } : null);
+                                    setModalAcompVisibilidadeQuery('');
+                                    setModalAcompVisibilidadeBusca([]);
+                                  }}
+                                >
+                                  <span className="result-name">{pessoa.nomeCompleto || `${pessoa.nome || ''} ${pessoa.sobrenome || ''}`.trim()}</span>
+                                </div>
+                              ))}
+                          </div>
+                        ) : (
+                          <div className="search-no-results">Nenhuma pessoa encontrada.</div>
+                        )}
+                      </>
+                    )}
+                    <div className="autores-list">
+                      {modalAcompanhamentoData.visibilidade.map((p) => (
+                        <div key={p.id} className="autor-tag">
+                          <span>{p.nome}</span>
+                          <button
+                            type="button"
+                            className="remove-autor-button"
+                            onClick={() => setModalAcompanhamentoData((prev) => prev ? { ...prev, visibilidade: prev.visibilidade.filter((x) => x.id !== p.id) } : null)}
+                          >
+                            <X className="remove-icon" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="form-actions" style={{ marginTop: 16 }}>
+                <Button type="button" variant="outline" onClick={() => setModalAcompanhamentoOpen(false)}>Fechar</Button>
+                <Button type="button" onClick={handleSaveModalAcompanhamento} disabled={savingModalAcompanhamento}>
+                  {savingModalAcompanhamento ? 'Salvando...' : 'Salvar alterações'}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmação arquivar/excluir acompanhamento */}
+      <AlertDialog open={!!dialogAcompanhamentoAcao} onOpenChange={(open) => { if (!open) { setDialogAcompanhamentoAcao(null); setAcompanhamentoAcaoId(null); setAcompanhamentoAcaoNome(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {dialogAcompanhamentoAcao === 'arquivar' ? 'Arquivar acompanhamento' : 'Excluir acompanhamento'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {dialogAcompanhamentoAcao === 'arquivar'
+                ? `Tem certeza que deseja arquivar o acompanhamento de "${acompanhamentoAcaoNome}"? Ele sairá da listagem e poderá ser recuperado depois (exibindo arquivados).`
+                : `Tem certeza que deseja excluir permanentemente o acompanhamento de "${acompanhamentoAcaoNome}"? Esta ação não pode ser desfeita.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setDialogAcompanhamentoAcao(null); setAcompanhamentoAcaoId(null); setAcompanhamentoAcaoNome(''); }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmarAcaoAcompanhamento}
+              className={dialogAcompanhamentoAcao === 'excluir' ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+            >
+              {dialogAcompanhamentoAcao === 'arquivar' ? 'Arquivar' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog de confirmação de exclusão */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

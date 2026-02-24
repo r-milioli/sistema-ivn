@@ -19,6 +19,7 @@ const paginasTabsRoutes = require('./routes/paginasTabsRoutes');
 const storageRoutes = require('./routes/storageRoutes');
 const emailRoutes = require('./routes/emailRoutes');
 const kidsRoutes = require('./routes/kidsRoutes');
+const acompanhamentoRoutes = require('./routes/acompanhamentoRoutes');
 
 const app = express();
 
@@ -71,8 +72,9 @@ app.use('/api/paginas-tabs', paginasTabsRoutes);
 app.use('/api/storage', storageRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/kids', kidsRoutes);
+app.use('/api/acompanhamento', acompanhamentoRoutes);
 if (process.env.NODE_ENV !== 'production') {
-  console.log('[app] Rotas registradas: /api/kids (POST /cadastro, GET /)');
+  console.log('[app] Rotas registradas: /api/kids (POST /cadastro, GET /), /api/acompanhamento');
 }
 
 // Rota de teste
